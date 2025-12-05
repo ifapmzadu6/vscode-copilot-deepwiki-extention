@@ -6,6 +6,7 @@ import {
   SubagentTask,
   DeepWikiDocument,
   ProgressCallback,
+  PipelineContext,
 } from '../types';
 import {
   StructureAnalyzerSubagent,
@@ -15,6 +16,7 @@ import {
   DiagramGeneratorSubagent,
   OverviewGeneratorSubagent,
 } from '../subagents';
+import { PipelineOrchestrator } from '../pipeline/orchestrator';
 
 /**
  * DeepWiki Language Model Tool
@@ -90,13 +92,26 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     }
 
     try {
-      // Run subagents and generate documentation
-      const document = await this.runSubagents(
-        workspaceFolder,
-        model,
-        params,
-        token
-      );
+      // Use new multi-stage pipeline if enabled
+      const useNewPipeline = true; // Can be made configurable
+
+      let document: DeepWikiDocument;
+
+      if (useNewPipeline) {
+        document = await this.runPipelineOrchestrator(
+          workspaceFolder,
+          model,
+          params,
+          token
+        );
+      } else {
+        document = await this.runSubagents(
+          workspaceFolder,
+          model,
+          params,
+          token
+        );
+      }
 
       // Write documentation to files
       const outputPath = await this.writeDocumentation(
@@ -227,6 +242,43 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     const document = results.get('overview-generator') as DeepWikiDocument;
     if (!document) {
       throw new Error('Failed to generate DeepWiki document');
+    }
+
+    return document;
+  }
+
+  /**
+   * Run the new multi-stage pipeline orchestrator
+   */
+  private async runPipelineOrchestrator(
+    workspaceFolder: vscode.WorkspaceFolder,
+    model: vscode.LanguageModelChat,
+    parameters: IDeepWikiParameters,
+    token: vscode.CancellationToken
+  ): Promise<DeepWikiDocument> {
+    console.log('[DeepWiki] Using new multi-stage pipeline orchestrator');
+
+    const pipelineContext: PipelineContext = {
+      workspaceFolder,
+      model,
+      parameters,
+      token,
+    };
+
+    const orchestrator = new PipelineOrchestrator();
+
+    // Set progress callback
+    orchestrator.setProgressCallback((message: string) => {
+      console.log(`[Pipeline] ${message}`);
+    });
+
+    // Execute the pipeline
+    const results = await orchestrator.execute(pipelineContext);
+
+    // Extract the final document from results
+    const document = results.get('overview-generator') as DeepWikiDocument;
+    if (!document) {
+      throw new Error('Failed to generate DeepWiki document from pipeline');
     }
 
     return document;
