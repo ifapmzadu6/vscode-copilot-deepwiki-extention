@@ -3,6 +3,9 @@ import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
 import { CodeExample, PublicAPI, FunctionAnalysis, ClassAnalysis } from '../types/analysis';
 
+// Configuration constants
+const MAX_APIS_TO_GENERATE_EXAMPLES = 10;
+
 /**
  * Generates usage examples for APIs
  */
@@ -27,7 +30,7 @@ export class ExampleGeneratorSubagent extends BaseSubagent {
 
     // Generate examples for APIs
     if (apis) {
-      for (const api of apis.slice(0, 10)) { // Limit for performance
+      for (const api of apis.slice(0, MAX_APIS_TO_GENERATE_EXAMPLES)) {
         if (token.isCancellationRequested) {
           throw new vscode.CancellationError();
         }

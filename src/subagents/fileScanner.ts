@@ -4,6 +4,10 @@ import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
 import { ScannedFile } from '../types/analysis';
 
+// Configuration constants
+const MAX_FILES_TO_SCAN = 10000;
+const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
+
 /**
  * Scans all files in the workspace and collects basic information
  */
@@ -21,7 +25,7 @@ export class FileScannerSubagent extends BaseSubagent {
     const allFiles = await this.findFiles(
       '**/*',
       '**/node_modules/**,**/.git/**,**/dist/**,**/out/**,**/.next/**,**/build/**,**/__pycache__/**,**/*.pyc,**/venv/**,**/.venv/**,**/coverage/**,**/.nyc_output/**',
-      10000
+      MAX_FILES_TO_SCAN
     );
 
     if (token.isCancellationRequested) {
@@ -51,8 +55,7 @@ export class FileScannerSubagent extends BaseSubagent {
       }
 
       // Skip binary and very large files
-      if (size > 10 * 1024 * 1024) {
-        // Skip files > 10MB
+      if (size > MAX_FILE_SIZE_BYTES) {
         continue;
       }
 

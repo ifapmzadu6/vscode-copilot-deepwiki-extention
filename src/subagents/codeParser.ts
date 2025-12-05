@@ -3,6 +3,10 @@ import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
 import { CodeStructure, ScannedFile } from '../types/analysis';
 
+// Configuration constants
+const MAX_FILE_SIZE_FOR_PARSING = 50000;
+const BATCH_SIZE = 10;
+
 /**
  * Parses code files to extract structure using AST analysis with AI
  */
@@ -31,7 +35,7 @@ export class CodeParserSubagent extends BaseSubagent {
     const structures = new Map<string, CodeStructure>();
 
     // Process files in batches
-    const batchSize = 10;
+    const batchSize = BATCH_SIZE;
     for (let i = 0; i < codeFiles.length; i += batchSize) {
       if (token.isCancellationRequested) {
         throw new vscode.CancellationError();
@@ -66,7 +70,7 @@ export class CodeParserSubagent extends BaseSubagent {
     const uri = vscode.Uri.file(file.path);
     const content = await this.readFile(uri);
 
-    if (!content || content.length > 50000) {
+    if (!content || content.length > MAX_FILE_SIZE_FOR_PARSING) {
       // Skip empty or very large files
       return null;
     }

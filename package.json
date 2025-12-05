@@ -14,6 +14,16 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "DeepWiki Generator",
+      "properties": {
+        "deepwiki.useMultiStagePipeline": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use the advanced multi-stage pipeline with 23+ specialized agents. Set to false to use the legacy 5-agent pipeline."
+        }
+      }
+    },
     "languageModelTools": [
       {
         "name": "deepwiki-generator_createDeepWiki",

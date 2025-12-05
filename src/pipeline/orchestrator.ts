@@ -10,6 +10,31 @@ import {
 import { SubagentTask, SubagentContext, ProgressCallback } from '../types';
 import { ParallelExecutor } from './parallelExecutor';
 import { ResultAggregator } from './resultAggregator';
+import {
+  FileScannerSubagent,
+  CodeParserSubagent,
+  DependencyMapperSubagent,
+  FrameworkDetectorSubagent,
+  PatternRecognizerSubagent,
+  FunctionAnalyzerSubagent,
+  ClassAnalyzerSubagent,
+  APIExtractorSubagent,
+  TypeAnalyzerSubagent,
+  ExampleGeneratorSubagent,
+  CrossReferencerSubagent,
+  AccuracyValidatorSubagent,
+  CompletenessCheckerSubagent,
+  ConsistencyCheckerSubagent,
+  MarkdownFormatterSubagent,
+  TOCGeneratorSubagent,
+  IndexBuilderSubagent,
+  StructureAnalyzerSubagent,
+  DependencyAnalyzerSubagent,
+  ArchitectureAnalyzerSubagent,
+  ModuleDocumenterSubagent,
+  DiagramGeneratorSubagent,
+  OverviewGeneratorSubagent,
+} from '../subagents';
 
 /**
  * Orchestrates the entire multi-stage analysis pipeline
@@ -220,34 +245,6 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
   private buildPipeline(
     context: PipelineContext
   ): Map<PipelineLevel, SubagentTask[]> {
-    // Import all subagents
-    const {
-      FileScannerSubagent,
-      CodeParserSubagent,
-      DependencyMapperSubagent,
-      FrameworkDetectorSubagent,
-      PatternRecognizerSubagent,
-      FunctionAnalyzerSubagent,
-      ClassAnalyzerSubagent,
-      APIExtractorSubagent,
-      TypeAnalyzerSubagent,
-      ExampleGeneratorSubagent,
-      CrossReferencerSubagent,
-      AccuracyValidatorSubagent,
-      CompletenessCheckerSubagent,
-      ConsistencyCheckerSubagent,
-      MarkdownFormatterSubagent,
-      TOCGeneratorSubagent,
-      IndexBuilderSubagent,
-      // Original subagents for compatibility
-      StructureAnalyzerSubagent,
-      DependencyAnalyzerSubagent,
-      ArchitectureAnalyzerSubagent,
-      ModuleDocumenterSubagent,
-      DiagramGeneratorSubagent,
-      OverviewGeneratorSubagent,
-    } = require('../subagents');
-
     const pipeline = new Map<PipelineLevel, SubagentTask[]>();
 
     // Level 1: Analysis Phase (can run in parallel)

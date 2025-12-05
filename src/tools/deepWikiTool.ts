@@ -92,12 +92,15 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     }
 
     try {
-      // Use new multi-stage pipeline if enabled
-      const useNewPipeline = true; // Can be made configurable
+      // Check if new pipeline is enabled (default to true)
+      // Can be configured via workspace settings or extension configuration
+      const config = vscode.workspace.getConfiguration('deepwiki');
+      const useNewPipeline = config.get<boolean>('useMultiStagePipeline', true);
 
       let document: DeepWikiDocument;
 
       if (useNewPipeline) {
+        console.log('[DeepWiki] Using multi-stage pipeline');
         document = await this.runPipelineOrchestrator(
           workspaceFolder,
           model,
@@ -105,6 +108,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
           token
         );
       } else {
+        console.log('[DeepWiki] Using legacy pipeline');
         document = await this.runSubagents(
           workspaceFolder,
           model,

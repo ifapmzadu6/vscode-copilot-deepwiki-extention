@@ -27,7 +27,7 @@ export class ParallelExecutor implements IParallelExecutor {
     const skipped: string[] = [];
 
     let currentIndex = 0;
-    const executing: Promise<void>[] = [];
+    const executing = new Map<number, Promise<void>>();
     let hasError = false;
 
     const executeTask = async (taskIndex: number): Promise<void> => {
@@ -74,38 +74,26 @@ export class ParallelExecutor implements IParallelExecutor {
     };
 
     // Execute tasks with concurrency control
-    while (currentIndex < tasks.length || executing.length > 0) {
+    while (currentIndex < tasks.length || executing.size > 0) {
       // Start new tasks up to the concurrency limit
       while (
         currentIndex < tasks.length &&
-        executing.length < maxConcurrency &&
+        executing.size < maxConcurrency &&
         !(hasError && stopOnError)
       ) {
-        const taskPromise = executeTask(currentIndex);
-        executing.push(taskPromise);
+        const taskIndex = currentIndex;
+        const taskPromise = executeTask(taskIndex).finally(() => {
+          executing.delete(taskIndex);
+        });
+        executing.set(taskIndex, taskPromise);
         currentIndex++;
       }
 
       // Wait for at least one task to complete
-      if (executing.length > 0) {
-        await Promise.race(executing);
-        // Remove completed tasks
-        const stillExecuting = executing.filter((p) => {
-          let resolved = false;
-          p.then(() => {
-            resolved = true;
-          }).catch(() => {
-            resolved = true;
-          });
-          return !resolved;
-        });
-        executing.length = 0;
-        executing.push(...stillExecuting);
+      if (executing.size > 0) {
+        await Promise.race(Array.from(executing.values()));
       }
     }
-
-    // Wait for all remaining tasks to complete
-    await Promise.allSettled(executing);
 
     const totalDuration = Date.now() - startTime;
 
