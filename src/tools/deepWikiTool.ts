@@ -2,20 +2,9 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import {
   IDeepWikiParameters,
-  SubagentContext,
-  SubagentTask,
   DeepWikiDocument,
-  ProgressCallback,
   PipelineContext,
 } from '../types';
-import {
-  StructureAnalyzerSubagent,
-  DependencyAnalyzerSubagent,
-  ArchitectureAnalyzerSubagent,
-  ModuleDocumenterSubagent,
-  DiagramGeneratorSubagent,
-  OverviewGeneratorSubagent,
-} from '../subagents';
 import { PipelineOrchestrator } from '../pipeline/orchestrator';
 
 /**
@@ -92,30 +81,14 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     }
 
     try {
-      // Check if new pipeline is enabled (default to true)
-      // Can be configured via workspace settings or extension configuration
-      const config = vscode.workspace.getConfiguration('deepwiki');
-      const useNewPipeline = config.get<boolean>('useMultiStagePipeline', true);
-
-      let document: DeepWikiDocument;
-
-      if (useNewPipeline) {
-        console.log('[DeepWiki] Using multi-stage pipeline');
-        document = await this.runPipelineOrchestrator(
-          workspaceFolder,
-          model,
-          params,
-          token
-        );
-      } else {
-        console.log('[DeepWiki] Using legacy pipeline');
-        document = await this.runSubagents(
-          workspaceFolder,
-          model,
-          params,
-          token
-        );
-      }
+      // Always use the new multi-stage pipeline
+      console.log('[DeepWiki] Using multi-stage pipeline');
+      const document = await this.runPipelineOrchestrator(
+        workspaceFolder,
+        model,
+        params,
+        token
+      );
 
       // Write documentation to files
       const outputPath = await this.writeDocumentation(
@@ -179,80 +152,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
   }
 
   /**
-   * Run all subagents sequentially to analyze the workspace
-   */
-  private async runSubagents(
-    workspaceFolder: vscode.WorkspaceFolder,
-    model: vscode.LanguageModelChat,
-    parameters: IDeepWikiParameters,
-    token: vscode.CancellationToken
-  ): Promise<DeepWikiDocument> {
-    // Define the subagent pipeline
-    const subagents: SubagentTask[] = [
-      new StructureAnalyzerSubagent(),
-      new DependencyAnalyzerSubagent(),
-      new ArchitectureAnalyzerSubagent(),
-      new ModuleDocumenterSubagent(),
-      new DiagramGeneratorSubagent(),
-      new OverviewGeneratorSubagent(),
-    ];
-
-    // Track results from each subagent
-    const results = new Map<string, unknown>();
-
-    // Progress tracking
-    const totalSteps = subagents.length;
-    let currentStep = 0;
-
-    // Create progress callback
-    const progress: ProgressCallback = (message: string) => {
-      console.log(`[DeepWiki] ${message}`);
-      // In a real implementation, you might use vscode.window.withProgress
-      // but Language Model Tools don't have direct access to that API during invoke
-    };
-
-    // Run each subagent
-    for (const subagent of subagents) {
-      if (token.isCancellationRequested) {
-        throw new vscode.CancellationError();
-      }
-
-      currentStep++;
-      progress(`[${currentStep}/${totalSteps}] Running ${subagent.name}...`);
-
-      const context: SubagentContext = {
-        workspaceFolder,
-        model,
-        parameters,
-        previousResults: results,
-        progress,
-        token,
-      };
-
-      try {
-        const result = await subagent.execute(context);
-        results.set(subagent.id, result);
-        progress(`[${currentStep}/${totalSteps}] ${subagent.name} complete`);
-      } catch (error) {
-        if (error instanceof vscode.CancellationError) {
-          throw error;
-        }
-        console.error(`[DeepWiki] Error in ${subagent.name}:`, error);
-        // Continue with other subagents even if one fails
-      }
-    }
-
-    // Return the final document from the overview generator
-    const document = results.get('overview-generator') as DeepWikiDocument;
-    if (!document) {
-      throw new Error('Failed to generate DeepWiki document');
-    }
-
-    return document;
-  }
-
-  /**
-   * Run the new multi-stage pipeline orchestrator
+   * Run the multi-stage pipeline orchestrator
    */
   private async runPipelineOrchestrator(
     workspaceFolder: vscode.WorkspaceFolder,
