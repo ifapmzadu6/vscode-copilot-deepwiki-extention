@@ -92,7 +92,7 @@ export class DependencyMapperSubagent extends BaseSubagent {
       nodes,
       edges,
       cycles,
-      layers: [], // Layer analysis would be more complex
+      layers: [], // TODO: Implement topological sorting for dependency layers
     };
   }
 

@@ -5,6 +5,7 @@ import { DesignPattern, CodeStructure } from '../types/analysis';
 
 /**
  * Recognizes design patterns in the codebase
+ * TODO: Implement more sophisticated AST-based pattern detection for higher accuracy
  */
 export class PatternRecognizerSubagent extends BaseSubagent {
   id = 'pattern-recognizer';

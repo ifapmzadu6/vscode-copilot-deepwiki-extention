@@ -4,6 +4,7 @@ import { SubagentContext } from '../types';
 import { CodeExample, PublicAPI, FunctionAnalysis, ClassAnalysis } from '../types/analysis';
 
 // Configuration constants
+// TODO: Move to centralized configuration module for better maintainability
 const MAX_APIS_TO_GENERATE_EXAMPLES = 10;
 
 /**
@@ -70,7 +71,10 @@ Provide JSON array:
     try {
       const response = await this.queryModel(
         model,
-        'You are a technical writer. Generate clear, practical code examples. Respond only with valid JSON array.',
+        `You are a technical writer. Generate clear, practical code examples. 
+Respond ONLY with a valid JSON array (no markdown, no extra text).
+Each example must have: title (string), description (string), code (string), language (string).
+Example format: [{"title":"Basic Usage","description":"How to...","code":"const x = ...","language":"typescript"}]`,
         prompt,
         token
       );

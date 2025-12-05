@@ -4,11 +4,13 @@ import { SubagentContext } from '../types';
 import { CodeStructure, ScannedFile } from '../types/analysis';
 
 // Configuration constants
+// TODO: Move to centralized configuration module for better maintainability
 const MAX_FILE_SIZE_FOR_PARSING = 50000;
 const BATCH_SIZE = 10;
 
 /**
  * Parses code files to extract structure using AST analysis with AI
+ * TODO: Consider batching multiple small files into single AI requests for efficiency
  */
 export class CodeParserSubagent extends BaseSubagent {
   id = 'code-parser';

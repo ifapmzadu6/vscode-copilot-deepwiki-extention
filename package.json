@@ -1,7 +1,7 @@
 {
   "name": "deepwiki-generator",
   "displayName": "DeepWiki Generator",
-  "description": "Generate comprehensive DeepWiki documentation using multi-stage AI pipeline with 23+ specialized agents",
+  "description": "Generate comprehensive DeepWiki documentation using multi-stage AI pipeline with 23 specialized agents",
   "version": "0.0.1",
   "publisher": "your-publisher",
   "engines": {
@@ -20,7 +20,14 @@
         "deepwiki.useMultiStagePipeline": {
           "type": "boolean",
           "default": true,
-          "description": "Use the advanced multi-stage pipeline with 23+ specialized agents. Set to false to use the legacy 5-agent pipeline."
+          "description": "Use the advanced multi-stage pipeline with 23 specialized agents. Set to false to use the legacy 5-agent pipeline."
+        },
+        "deepwiki.maxConcurrency": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum number of subagent tasks to run concurrently in the multi-stage pipeline. Higher values may be faster but use more resources."
         }
       }
     },
@@ -35,7 +42,7 @@
         ],
         "toolReferenceName": "createDeepWiki",
         "displayName": "Create DeepWiki",
-        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using a multi-stage pipeline with 23+ specialized AI agents. The pipeline performs file scanning, code parsing, dependency mapping, framework detection, pattern recognition, function/class analysis, API extraction, type analysis, example generation, cross-referencing, validation (accuracy, completeness, consistency), and professional documentation formatting.",
+        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using a multi-stage pipeline with 23 specialized AI agents. The pipeline performs file scanning, code parsing, dependency mapping, framework detection, pattern recognition, function/class analysis, API extraction, type analysis, example generation, cross-referencing, validation (accuracy, completeness, consistency), and professional documentation formatting.",
         "userDescription": "Generate DeepWiki documentation for the current workspace by analyzing code structure, dependencies, and architecture.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",

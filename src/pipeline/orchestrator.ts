@@ -118,6 +118,10 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
     tasks: SubagentTask[],
     context: PipelineContext
   ): Promise<void> {
+    // Get concurrency limit from configuration
+    const config = await vscode.workspace.getConfiguration('deepwiki');
+    const maxConcurrency = config.get<number>('maxConcurrency', 5);
+
     // Separate parallel and sequential tasks
     const parallelTasks = tasks.filter((t) => this.canRunInParallel(t));
     const sequentialTasks = tasks.filter((t) => !this.canRunInParallel(t));
@@ -129,7 +133,7 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
       );
 
       const result = await this.parallelExecutor.executeInParallel(taskFunctions, {
-        maxConcurrency: 5,
+        maxConcurrency,
         stopOnError: false,
       });
 

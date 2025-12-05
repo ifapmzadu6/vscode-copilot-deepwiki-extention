@@ -5,6 +5,7 @@ import { SubagentContext } from '../types';
 import { ScannedFile } from '../types/analysis';
 
 // Configuration constants
+// TODO: Move to centralized configuration module for better maintainability
 const MAX_FILES_TO_SCAN = 10000;
 const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10MB
 
