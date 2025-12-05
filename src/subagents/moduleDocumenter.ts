@@ -28,8 +28,8 @@ export class ModuleDocumenterSubagent extends BaseSubagent {
     const modules = architecture?.modules || [];
     const documentation: ModuleDocumentation[] = [];
 
-    // Limit modules to document based on parameters
-    const maxModules = Math.min(modules.length, parameters.maxDepth || 5) * 3;
+    // Limit modules to document based on parameters (increased for better coverage)
+    const maxModules = Math.min(modules.length, (parameters.maxDepth || 5) * 10);
     const modulesToDocument = modules.slice(0, maxModules);
 
     for (let i = 0; i < modulesToDocument.length; i++) {
@@ -49,15 +49,16 @@ export class ModuleDocumenterSubagent extends BaseSubagent {
       const keyFiles = this.selectKeyFiles(moduleFiles.map((f) => f.relativePath));
       const codeSnippets: string[] = [];
 
-      for (const filePath of keyFiles.slice(0, 3)) {
+      // Increased file limit from 3 to 10 for better analysis
+      for (const filePath of keyFiles.slice(0, 10)) {
         const file = moduleFiles.find((f) => f.relativePath === filePath);
         if (file) {
           const content = await this.readFile(file.uri);
           if (content) {
-            // Limit content size
+            // Increased content limit from 2000 to 8000 chars for deeper analysis
             const truncated =
-              content.length > 2000
-                ? content.substring(0, 2000) + '\n... (truncated)'
+              content.length > 8000
+                ? content.substring(0, 8000) + '\n... (truncated)'
                 : content;
             codeSnippets.push(`// ${filePath}\n${truncated}`);
           }

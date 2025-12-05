@@ -117,6 +117,16 @@ export interface FunctionInfo {
 }
 
 /**
+ * Collection of Mermaid diagrams for visualization
+ */
+export interface DiagramCollection {
+  architectureOverview: string;
+  moduleDependencies: string;
+  directoryStructure: string;
+  layerDiagram: string;
+}
+
+/**
  * Complete DeepWiki documentation
  */
 export interface DeepWikiDocument {
@@ -126,6 +136,7 @@ export interface DeepWikiDocument {
   dependencies: DependencyAnalysis;
   architecture: ArchitectureAnalysis;
   modules: ModuleDocumentation[];
+  diagrams: DiagramCollection;
   generatedAt: string;
 }
 
