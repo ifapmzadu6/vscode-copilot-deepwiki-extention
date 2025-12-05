@@ -12,6 +12,7 @@ import {
   DependencyAnalyzerSubagent,
   ArchitectureAnalyzerSubagent,
   ModuleDocumenterSubagent,
+  DiagramGeneratorSubagent,
   OverviewGeneratorSubagent,
 } from '../subagents';
 
@@ -173,6 +174,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
       new DependencyAnalyzerSubagent(),
       new ArchitectureAnalyzerSubagent(),
       new ModuleDocumenterSubagent(),
+      new DiagramGeneratorSubagent(),
       new OverviewGeneratorSubagent(),
     ];
 
@@ -354,20 +356,51 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
     lines.push(`# ${doc.title} - Architecture`);
     lines.push('');
+
+    // Add architecture overview diagram
+    if (doc.diagrams?.architectureOverview) {
+      lines.push('## Architecture Overview');
+      lines.push('');
+      lines.push('```mermaid');
+      lines.push(doc.diagrams.architectureOverview);
+      lines.push('```');
+      lines.push('');
+    }
+
     lines.push('## Architectural Patterns');
     lines.push('');
     for (const pattern of doc.architecture.patterns) {
       lines.push(`### ${pattern}`);
       lines.push('');
     }
-    lines.push('');
-    lines.push('## Layers');
-    lines.push('');
-    for (const layer of doc.architecture.layers) {
-      lines.push(`### ${layer}`);
+
+    // Add layer diagram
+    if (doc.diagrams?.layerDiagram) {
+      lines.push('## Layer Structure');
+      lines.push('');
+      lines.push('```mermaid');
+      lines.push(doc.diagrams.layerDiagram);
+      lines.push('```');
+      lines.push('');
+    } else {
+      lines.push('## Layers');
+      lines.push('');
+      for (const layer of doc.architecture.layers) {
+        lines.push(`### ${layer}`);
+        lines.push('');
+      }
+    }
+
+    // Add module dependencies diagram
+    if (doc.diagrams?.moduleDependencies) {
+      lines.push('## Module Dependencies');
+      lines.push('');
+      lines.push('```mermaid');
+      lines.push(doc.diagrams.moduleDependencies);
+      lines.push('```');
       lines.push('');
     }
-    lines.push('');
+
     lines.push('## Module Structure');
     lines.push('');
     lines.push('```');
@@ -377,6 +410,17 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     }
     lines.push('```');
     lines.push('');
+
+    // Add directory structure diagram
+    if (doc.diagrams?.directoryStructure) {
+      lines.push('## Directory Structure');
+      lines.push('');
+      lines.push('```mermaid');
+      lines.push(doc.diagrams.directoryStructure);
+      lines.push('```');
+      lines.push('');
+    }
+
     lines.push('## Dependencies');
     lines.push('');
     lines.push('### Production Dependencies');

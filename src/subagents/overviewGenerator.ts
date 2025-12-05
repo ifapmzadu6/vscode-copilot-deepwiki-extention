@@ -7,6 +7,7 @@ import {
   DependencyAnalysis,
   ArchitectureAnalysis,
   ModuleDocumentation,
+  DiagramCollection,
 } from '../types';
 import * as path from 'path';
 
@@ -27,6 +28,7 @@ export class OverviewGeneratorSubagent extends BaseSubagent {
     const dependencies = previousResults.get('dependency-analyzer') as DependencyAnalysis;
     const architecture = previousResults.get('architecture-analyzer') as ArchitectureAnalysis;
     const modules = previousResults.get('module-documenter') as ModuleDocumentation[];
+    const diagrams = previousResults.get('diagram-generator') as DiagramCollection;
 
     // Generate project title from workspace folder name
     const projectName = path.basename(workspaceFolder.uri.fsPath);
@@ -103,6 +105,12 @@ Respond with just the overview text, no JSON.`;
         layers: [],
       },
       modules: modules || [],
+      diagrams: diagrams || {
+        architectureOverview: '',
+        moduleDependencies: '',
+        directoryStructure: '',
+        layerDiagram: '',
+      },
       generatedAt: new Date().toISOString(),
     };
 
