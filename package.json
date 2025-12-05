@@ -1,0 +1,68 @@
+{
+  "name": "deepwiki-generator",
+  "displayName": "DeepWiki Generator",
+  "description": "Generate DeepWiki documentation for your workspace using Copilot Chat",
+  "version": "0.0.1",
+  "publisher": "your-publisher",
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "AI",
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languageModelTools": [
+      {
+        "name": "deepwiki-generator_createDeepWiki",
+        "tags": [
+          "documentation",
+          "wiki",
+          "deepwiki",
+          "workspace"
+        ],
+        "toolReferenceName": "createDeepWiki",
+        "displayName": "Create DeepWiki",
+        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation. This tool performs multiple analysis passes using subagents to understand the codebase structure, dependencies, architecture, and generates detailed documentation.",
+        "userDescription": "Generate DeepWiki documentation for the current workspace by analyzing code structure, dependencies, and architecture.",
+        "canBeReferencedInPrompt": true,
+        "icon": "$(book)",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "outputPath": {
+              "type": "string",
+              "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
+            },
+            "includePrivate": {
+              "type": "boolean",
+              "description": "Whether to include private/internal APIs in documentation. Defaults to false.",
+              "default": false
+            },
+            "maxDepth": {
+              "type": "number",
+              "description": "Maximum depth for analyzing nested modules/packages. Defaults to 5.",
+              "default": 5
+            }
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.95.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.0"
+  }
+}
