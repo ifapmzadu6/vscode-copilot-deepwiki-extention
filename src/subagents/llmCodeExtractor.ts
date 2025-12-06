@@ -237,6 +237,182 @@ Be precise and thorough.`,
   }
 
   /**
+   * Few-shot examples を取得
+   */
+  private getFewShotExamples(language: string): string {
+    const swiftExample = `### Example 1: Swift Class with SwiftData
+
+\`\`\`swift
+import SwiftData
+
+@Model
+final class DrinkingSession {
+    var participantCount: Int
+    @Published var currentPhase: DrinkingPhase
+
+    init(participantCount: Int) {
+        self.participantCount = participantCount
+        self.currentPhase = .early
+    }
+
+    func updatePhase(_ phase: DrinkingPhase) {
+        currentPhase = phase
+    }
+}
+
+enum DrinkingPhase: String {
+    case early, middle, late
+}
+\`\`\`
+
+**Correct Extraction:**
+\`\`\`json
+{
+  "classes": [{
+    "name": "DrinkingSession",
+    "startLine": 4,
+    "endLine": 15,
+    "implements": [],
+    "isExported": false,
+    "properties": [
+      {"name": "participantCount", "type": "Int", "visibility": "internal", "line": 5},
+      {"name": "currentPhase", "type": "DrinkingPhase", "visibility": "internal", "line": 6}
+    ],
+    "methods": [
+      {
+        "name": "init",
+        "startLine": 8,
+        "endLine": 11,
+        "visibility": "internal",
+        "parameters": [{"name": "participantCount", "type": "Int"}],
+        "returnType": "void"
+      },
+      {
+        "name": "updatePhase",
+        "startLine": 13,
+        "endLine": 15,
+        "visibility": "internal",
+        "parameters": [{"name": "phase", "type": "DrinkingPhase"}],
+        "returnType": "void"
+      }
+    ]
+  }],
+  "enums": [{
+    "name": "DrinkingPhase",
+    "startLine": 17,
+    "endLine": 19,
+    "members": [
+      {"name": "early", "line": 18},
+      {"name": "middle", "line": 18},
+      {"name": "late", "line": 18}
+    ]
+  }]
+}
+\`\`\``;
+
+    const typeScriptExample = `### Example 2: TypeScript Interface
+
+\`\`\`typescript
+export interface User {
+  id: number;
+  name: string;
+  email?: string;
+}
+
+export class UserService {
+  async getUser(id: number): Promise<User> {
+    // implementation
+  }
+}
+\`\`\`
+
+**Correct Extraction:**
+\`\`\`json
+{
+  "interfaces": [{
+    "name": "User",
+    "startLine": 1,
+    "endLine": 5,
+    "isExported": true,
+    "properties": [
+      {"name": "id", "type": "number", "isOptional": false, "line": 2},
+      {"name": "name", "type": "string", "isOptional": false, "line": 3},
+      {"name": "email", "type": "string", "isOptional": true, "line": 4}
+    ]
+  }],
+  "classes": [{
+    "name": "UserService",
+    "startLine": 7,
+    "endLine": 11,
+    "isExported": true,
+    "methods": [{
+      "name": "getUser",
+      "startLine": 8,
+      "endLine": 10,
+      "isAsync": true,
+      "parameters": [{"name": "id", "type": "number"}],
+      "returnType": "Promise<User>"
+    }]
+  }]
+}
+\`\`\``;
+
+    const pythonExample = `### Example 3: Python Class
+
+\`\`\`python
+class DataProcessor:
+    def __init__(self, name: str):
+        self.name = name
+        self._cache = {}
+
+    def process(self, data: list) -> dict:
+        return {"processed": len(data)}
+\`\`\`
+
+**Correct Extraction:**
+\`\`\`json
+{
+  "classes": [{
+    "name": "DataProcessor",
+    "startLine": 1,
+    "endLine": 7,
+    "properties": [
+      {"name": "name", "type": "str", "visibility": "public", "line": 3},
+      {"name": "_cache", "type": "dict", "visibility": "private", "line": 4}
+    ],
+    "methods": [
+      {
+        "name": "__init__",
+        "startLine": 2,
+        "endLine": 4,
+        "parameters": [{"name": "name", "type": "str"}]
+      },
+      {
+        "name": "process",
+        "startLine": 6,
+        "endLine": 7,
+        "parameters": [{"name": "data", "type": "list"}],
+        "returnType": "dict"
+      }
+    ]
+  }]
+}
+\`\`\``;
+
+    // Return relevant examples based on language
+    if (language.toLowerCase().includes('swift')) {
+      return swiftExample + '\n\n' + typeScriptExample;
+    } else if (language.toLowerCase().includes('typescript') || language.toLowerCase().includes('javascript')) {
+      return typeScriptExample + '\n\n' + swiftExample;
+    } else if (language.toLowerCase().includes('python')) {
+      return pythonExample + '\n\n' + swiftExample;
+    } else {
+      // Default: show all examples
+      return swiftExample + '\n\n' + typeScriptExample;
+    }
+  }
+
+  /**
    * 抽出プロンプトを構築
    */
   private buildExtractionPrompt(
@@ -245,7 +421,11 @@ Be precise and thorough.`,
     language: string,
     wasTruncated: boolean
   ): string {
-    return `Extract ALL code entities from this ${language} source file.
+    return `You are an expert code parser. Extract ALL code entities using careful analysis.
+
+## Step 1: Understand the Code
+
+First, analyze what you see:
 
 FILE: ${relativePath}
 LANGUAGE: ${language}
@@ -256,7 +436,24 @@ SOURCE CODE:
 ${content}
 \`\`\`
 
-Extract the following entities and return as JSON:
+- What type of code is this? (app file, model, view, utility, etc.)
+- How many classes, functions, or other entities do you see?
+- What are the key relationships? (inheritance, protocols, etc.)
+
+## Step 2: Learn from Examples
+
+${this.getFewShotExamples(language)}
+
+## Step 3: Extract Systematically
+
+Now extract ALL entities from the source code above.
+
+For each entity:
+1. Identify its exact location (line numbers are 1-indexed, first line = 1)
+2. Capture all details (properties, methods, parameters, types)
+3. Don't skip anything - be thorough
+
+Return as JSON:
 
 {
   "classes": [
@@ -361,32 +558,48 @@ Extract the following entities and return as JSON:
   ]
 }
 
-IMPORTANT RULES:
-1. Use 1-indexed line numbers (first line of file is line 1)
-2. Extract ALL public/exported entities
-3. For languages without explicit visibility (like Swift), infer from context:
-   - If starts with "public", "open" → public
-   - If starts with "private" → private
-   - If starts with "internal" or no modifier → internal
-4. For Swift:
-   - "class", "struct", "actor" → classes array
-   - "protocol" → interfaces array
-   - "enum" → enums array
-   - Include @Published properties, property wrappers
-   - Include protocol conformance in "implements"
-5. For TypeScript:
-   - "class" → classes array
-   - "interface" → interfaces array
-   - "type" → typeAliases array
-6. For Python:
-   - "class" → classes array
-   - Top-level "def" → functions array
-7. Be precise with line numbers - they will be used for source references
-8. If unsure about a type, use "unknown" rather than guessing
-9. Include inherited classes/protocols in "extends" and "implements"
-10. Extract constructors/initializers as methods with name "init" or "constructor"
+## Step 4: Critical Rules
 
-Return ONLY the JSON, no additional text.`;
+⚠️ **CRITICAL - Line Numbers:**
+- Use 1-indexed line numbers (first line of file is line 1, NOT 0)
+- Count carefully - line numbers are used for source code references
+- Double-check your line numbers match the actual code
+
+⚠️ **CRITICAL - Completeness:**
+- Extract EVERY class, function, interface, enum, type
+- Don't skip anything, even if it seems small
+- Include ALL properties and methods, not just public ones
+
+⚠️ **Language-Specific Rules:**
+
+**Swift:**
+- \`class\`, \`struct\`, \`actor\` → \`classes\` array
+- \`protocol\` → \`interfaces\` array
+- \`enum\` → \`enums\` array
+- Capture \`@Model\`, \`@Published\`, \`@State\` decorators
+- Protocol conformance (e.g., \`: ObservableObject\`) → \`implements\`
+- Default visibility is \`internal\` (not public)
+
+**TypeScript/JavaScript:**
+- \`class\` → \`classes\` array
+- \`interface\` → \`interfaces\` array
+- \`type\` → \`typeAliases\` array
+- \`export\` → set \`isExported: true\`
+
+**Python:**
+- \`class\` → \`classes\` array
+- Top-level \`def\` → \`functions\` array
+- Methods starting with \`_\` → \`visibility: "private"\`
+
+**Constructors/Initializers:**
+- Swift: \`init(...)\` → method with name "init"
+- TypeScript: \`constructor(...)\` → method with name "constructor"
+- Python: \`__init__(...)\` → method with name "__init__"
+
+## Step 5: Output
+
+Return ONLY valid JSON. No markdown, no explanations, just the JSON object.
+Be thorough and accurate - this extraction will be used to generate documentation.`;
   }
 
   /**
