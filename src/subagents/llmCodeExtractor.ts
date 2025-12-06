@@ -27,12 +27,19 @@ import { getIntermediateFileManager, IntermediateFileType, LLMHelper, logger } f
  * Level 2: CODE_EXTRACTION
  *
  * 特徴:
- * - 全ての言語に対応（Swift, TypeScript, Python, Java, Go, Rust...）
- * - クラス、関数、型、継承関係を完全抽出
+ * - 全ての言語に対応（TypeScript, JavaScript, Swift, Python, Java, Go, Rust, C++, C#, Ruby, PHP...）
+ * - 機械的パーサー（ts-morph, tree-sitter等）を使わず、LLMで解析
+ * - クラス、関数、インターフェース、型、列挙型を完全抽出
+ * - 継承、プロトコル準拠、ジェネリクスも抽出
  * - コメント・設計意図も同時抽出
  * - 構文エラーがあっても抽出可能
- * - 並列バッチ処理で高速化
- * - キャッシング機構で2回目以降高速
+ * - 並列バッチ処理で高速化（5ファイル/バッチ）
+ * - ファイルベースキャッシング（2回目以降高速）
+ *
+ * 対応言語（例）:
+ * - TypeScript, JavaScript (従来はts-morphで解析していたが、LLMに統一)
+ * - Swift (従来はDocumentSymbol APIで解析していたが、LLMの方が精度高い)
+ * - Python, Java, Kotlin, Go, Rust, C++, C, C#, Ruby, PHP...
  */
 export class LLMUniversalCodeExtractorSubagent extends BaseSubagent {
   id = 'llm-code-extractor';

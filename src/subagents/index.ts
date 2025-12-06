@@ -13,8 +13,8 @@ export { LanguageDetectorSubagent } from './languageDetector';
 export { EntryPointFinderSubagent } from './entryPointFinder';
 export { ConfigFinderSubagent } from './configFinder';
 
-// Level 2: CODE_EXTRACTION - Code extraction with line numbers
-export { CodeExtractorSubagent } from './codeExtractor';
+// Level 2: CODE_EXTRACTION - LLM-based universal code extraction
+// All languages (TypeScript, JavaScript, Swift, Python, Java, Go, Rust...) are now parsed by LLM
 export { LLMUniversalCodeExtractorSubagent } from './llmCodeExtractor';
 
 // Level 3: DEEP_ANALYSIS - LLM-based deep analysis

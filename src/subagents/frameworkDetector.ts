@@ -2,6 +2,9 @@ import * as vscode from 'vscode';
 import { BaseSubagent } from './baseSubagent';
 import { SubagentContext, DependencyAnalysis } from '../types';
 import { FrameworkInfo } from '../types/analysis';
+import { getIntermediateFileManager, IntermediateFileType, logger } from '../utils';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * Detects frameworks and libraries used in the project
@@ -12,21 +15,18 @@ export class FrameworkDetectorSubagent extends BaseSubagent {
   description = 'Detects frameworks and libraries used in the project';
 
   async execute(context: SubagentContext): Promise<FrameworkInfo[]> {
-    const { progress, token, previousResults } = context;
+    const { workspaceFolder, progress, token, previousResults } = context;
 
     progress('Detecting frameworks...');
 
-    const depAnalysis = previousResults.get('dependency-analyzer') as DependencyAnalysis | undefined;
-    
-    if (!depAnalysis) {
-      return [];
-    }
+    const depAnalysis = (previousResults.get('dependency-analyzer') as DependencyAnalysis | undefined) ||
+      (await this.readManifestDependencies(workspaceFolder.uri.fsPath));
 
     const frameworks: FrameworkInfo[] = [];
-    const allDeps = { ...depAnalysis.dependencies, ...depAnalysis.devDependencies };
+    const allDeps = { ...(depAnalysis?.dependencies || {}), ...(depAnalysis?.devDependencies || {}) };
 
     // Detect major frameworks
-    const frameworkMap: Record<string, { name: string; category: any }> = {
+    const frameworkMap: Record<string, { name: string; category: FrameworkInfo['category'] }> = {
       'react': { name: 'React', category: 'frontend' },
       'vue': { name: 'Vue.js', category: 'frontend' },
       'angular': { name: 'Angular', category: 'frontend' },
@@ -64,8 +64,41 @@ export class FrameworkDetectorSubagent extends BaseSubagent {
       }
     }
 
+    try {
+      const fileManager = getIntermediateFileManager();
+      await fileManager.saveJson(IntermediateFileType.DISCOVERY_FRAMEWORKS, { frameworks });
+    } catch (error) {
+      logger.error('FrameworkDetector', 'Failed to save frameworks', error);
+    }
+
     progress(`Detected ${frameworks.length} frameworks`);
 
     return frameworks;
+  }
+
+  /**
+   * package.json を直接読んで依存情報を取得するフォールバック
+   */
+  private async readManifestDependencies(workspacePath: string): Promise<DependencyAnalysis> {
+    try {
+      const manifestPath = path.join(workspacePath, 'package.json');
+      const buf = fs.readFileSync(manifestPath, 'utf-8');
+      const manifest = JSON.parse(buf) as Record<string, any>;
+      return {
+        packageManager: manifest.packageManager || null,
+        dependencies: manifest.dependencies || {},
+        devDependencies: manifest.devDependencies || {},
+        frameworks: [],
+        languages: [],
+      };
+    } catch {
+      return {
+        packageManager: null,
+        dependencies: {},
+        devDependencies: {},
+        frameworks: [],
+        languages: [],
+      };
+    }
   }
 }

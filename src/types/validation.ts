@@ -12,6 +12,7 @@ export interface ValidationResult {
   consistency: ConsistencyValidation;
   overallScore: number;
   recommendations: ValidationRecommendation[];
+  regenerated?: boolean;
 }
 
 /**

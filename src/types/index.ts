@@ -2,8 +2,91 @@ import * as vscode from 'vscode';
 
 // Re-export all types from sub-modules
 export * from './pipeline';
-export * from './analysis';
 export * from './validation';
+
+// Export from analysis with exclusions for conflicts
+export {
+  ScannedFile,
+  CodeStructure,
+  ImportDeclaration,
+  ExportDeclaration,
+  ClassDeclaration,
+  FunctionDeclaration,
+  InterfaceDeclaration,
+  TypeDeclaration,
+  ConstantDeclaration,
+  PropertyDeclaration,
+  MethodDeclaration,
+  MethodSignature,
+  ParameterDeclaration,
+  DependencyNode,
+  // DependencyGraph - conflicts with relationships
+  FrameworkInfo,
+  DesignPattern,
+  PatternLocation,
+  FunctionAnalysis,
+  ComplexityMetrics,
+  FunctionUsage,
+  CodeExample,
+  ClassAnalysis,
+  ClassMetrics,
+  ClassRelationship,
+  ClassUsage,
+  PublicAPI,
+  APIExport,
+  TypeAnalysis,
+  TypeInfo,
+  InterfaceInfo,
+  GenericInfo,
+} from './analysis';
+
+// Export from deepwiki with exclusions for conflicts
+export {
+  NavigationItem,
+  // SourceReference - conflicts with extraction
+  PageSection,
+  TableData,
+  CodeBlock,
+  DeepWikiPage,
+  DeepWikiSite,
+  WikiIndex,
+  IndexedFile,
+  IndexedSymbol,
+  DEEPWIKI_PAGE_STRUCTURE,
+  formatSourceReference,
+  formatTable,
+} from './deepwiki';
+
+// Export all from extraction (primary source for SourceReference)
+export * from './extraction';
+
+// Export from relationships with explicit naming
+export {
+  DependencyGraphNode,
+  DependencyGraphEdge,
+  DependencyGraph,
+  CallGraphNode,
+  CallGraphEdge,
+  CallGraph,
+  InheritanceNode,
+  InheritanceEdge,
+  InheritanceTree,
+  ModuleDefinition,
+  ModuleExport,
+  ModuleBoundaries,
+  EntityDefinition,
+  EntityUsage,
+  EntityCrossReference,
+  CrossReferenceIndex,
+  RelationshipAnalysis,
+  formatDependencyEdge,
+  formatCallEdge,
+  getDependents,
+  getDependencies,
+} from './relationships';
+
+// Export all from llmAnalysis
+export * from './llmAnalysis';
 
 /**
  * Input parameters for the DeepWiki tool

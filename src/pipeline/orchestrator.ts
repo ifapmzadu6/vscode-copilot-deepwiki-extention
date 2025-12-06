@@ -24,7 +24,7 @@ import {
 } from '../subagents';
 
 // Level 2: CODE_EXTRACTION
-import { CodeExtractorSubagent, LLMUniversalCodeExtractorSubagent } from '../subagents';
+import { LLMUniversalCodeExtractorSubagent } from '../subagents';
 
 // Level 3: DEEP_ANALYSIS (LLM-based)
 import {
@@ -407,10 +407,11 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
 
     // =======================================================================
     // Level 2: CODE_EXTRACTION - LLM-based universal code extraction
+    // Supports ALL languages: TypeScript, JavaScript, Swift, Python, Java, Go, Rust, C++, C#, Ruby, PHP...
+    // No more language-specific parsers (ts-morph, DocumentSymbol, etc.)
     // =======================================================================
     pipeline.set(PipelineLevel.CODE_EXTRACTION, [
       new LLMUniversalCodeExtractorSubagent(),
-      // OLD: new CodeExtractorSubagent() - replaced with LLM-based extractor
     ]);
 
     // =======================================================================

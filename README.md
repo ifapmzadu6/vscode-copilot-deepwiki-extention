@@ -21,9 +21,8 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 The tool generates the following files in the `.deepwiki` folder:
 
-- `README.md` - Main project overview and documentation
-- `ARCHITECTURE.md` - Detailed architecture documentation with diagrams
-- `API.md` - API reference for all modules
+- `README.md` - Main project overview with embedded architecture/API highlights
+- `pages/` - DeepWiki pages used for site-style navigation
 - `deepwiki.json` - Raw JSON data for programmatic access
 
 ## Multi-Stage Pipeline Architecture

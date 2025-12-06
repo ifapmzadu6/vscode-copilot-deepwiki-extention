@@ -82,8 +82,12 @@ export abstract class BaseSubagent implements SubagentTask {
   protected async findFiles(
     pattern: string,
     exclude?: string,
-    maxResults?: number
+    maxResults?: number,
+    workspaceFolder?: vscode.WorkspaceFolder
   ): Promise<vscode.Uri[]> {
-    return vscode.workspace.findFiles(pattern, exclude, maxResults);
+    const searchPattern = workspaceFolder
+      ? new vscode.RelativePattern(workspaceFolder, pattern)
+      : pattern;
+    return vscode.workspace.findFiles(searchPattern, exclude, maxResults);
   }
 }

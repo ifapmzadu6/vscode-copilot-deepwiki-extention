@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
+import { ExtractionSummary } from '../types/extraction';
 import { CompletenessValidation, MissingItem, CoverageMetrics } from '../types/validation';
 
 /**
@@ -18,54 +19,22 @@ export class CompletenessCheckerSubagent extends BaseSubagent {
 
     const missing: MissingItem[] = [];
 
-    // Count documented vs total items
-    const scannedFiles = previousResults.get('file-scanner') as any[] | undefined;
-    const codeStructures = previousResults.get('code-parser') as Map<string, any> | undefined;
-    const examples = previousResults.get('example-generator') as Map<string, any> | undefined;
+    // Use extraction summary for counts
+    const extraction = previousResults.get('code-extractor') as ExtractionSummary | undefined;
+    const scanned = previousResults.get('file-scanner') as any[] | undefined;
+    const totalFiles = scanned?.length || 0;
 
-    const filesDocumented = codeStructures?.size || 0;
-    const totalFiles = scannedFiles?.length || 0;
+    const stats = extraction?.stats;
+    const totalExports = stats?.totalExports || 0;
+    const totalClasses = stats?.totalClasses || 0;
+    const totalFunctions = stats?.totalFunctions || 0;
 
-    let exportsCovered = 0;
-    let totalExports = 0;
-    let classesCovered = 0;
-    let totalClasses = 0;
-    let functionsCovered = 0;
-    let totalFunctions = 0;
-
-    if (codeStructures) {
-      for (const [filePath, structure] of codeStructures.entries()) {
-        if (token.isCancellationRequested) {
-          throw new vscode.CancellationError();
-        }
-
-        totalExports += structure.exports?.length || 0;
-        exportsCovered += structure.exports?.filter((e: any) => e.isPublic)?.length || 0;
-
-        totalClasses += structure.classes?.length || 0;
-        classesCovered += structure.classes?.filter((c: any) => c.description)?.length || 0;
-
-        totalFunctions += structure.functions?.length || 0;
-        functionsCovered += structure.functions?.filter((f: any) => f.description)?.length || 0;
-
-        // Find missing documentation
-        if (structure.exports) {
-          for (const exp of structure.exports) {
-            if (!exp.description || exp.description.length < 5) {
-              missing.push({
-                type: 'function',
-                name: exp.name,
-                location: filePath,
-                priority: 'medium',
-                reason: 'Missing or insufficient description',
-              });
-            }
-          }
-        }
-      }
-    }
-
-    const examplesCoverage = examples ? examples.size / Math.max(filesDocumented, 1) : 0;
+    // Placeholder: without downstream doc coverage, assume 0 documented yet
+    const exportsCovered = 0;
+    const classesCovered = 0;
+    const functionsCovered = 0;
+    const filesDocumented = 0;
+    const examplesCoverage = 0;
 
     const coverage: CoverageMetrics = {
       filesDocumented,
@@ -102,8 +71,8 @@ export class CompletenessCheckerSubagent extends BaseSubagent {
 
     const fileScore = coverage.totalFiles > 0 ? coverage.filesDocumented / coverage.totalFiles : 0;
     const exportScore = coverage.totalExports > 0 ? coverage.exportsCovered / coverage.totalExports : 0;
-    const classScore = coverage.totalClasses > 0 ? coverage.classesCovered / coverage.totalClasses : 1;
-    const funcScore = coverage.totalFunctions > 0 ? coverage.functionsCovered / coverage.totalFunctions : 1;
+    const classScore = coverage.totalClasses > 0 ? coverage.classesCovered / coverage.totalClasses : 0;
+    const funcScore = coverage.totalFunctions > 0 ? coverage.functionsCovered / coverage.totalFunctions : 0;
     const exampleScore = coverage.examplesCoverage;
 
     return (

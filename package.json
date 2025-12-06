@@ -7,6 +7,20 @@
   "engines": {
     "vscode": "^1.95.0"
   },
+  "dependencies": {
+    "tree-sitter": "0.22.4",
+    "tree-sitter-c": "0.23.6",
+    "tree-sitter-c-sharp": "0.23.1",
+    "tree-sitter-cpp": "0.23.4",
+    "tree-sitter-go": "0.23.4",
+    "tree-sitter-java": "0.21.0",
+    "tree-sitter-kotlin": "0.2.11",
+    "tree-sitter-php": "0.24.2",
+    "tree-sitter-python": "0.23.6",
+    "tree-sitter-ruby": "0.21.0",
+    "tree-sitter-rust": "0.21.0",
+    "tree-sitter-swift": "0.7.1"
+  },
   "categories": [
     "AI",
     "Other"
@@ -75,6 +89,7 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.56.0",
+    "ts-morph": "^22.0.0",
     "typescript": "^5.3.0"
   }
 }

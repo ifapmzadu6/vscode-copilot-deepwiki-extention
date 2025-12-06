@@ -3,13 +3,24 @@ import { SubagentContext } from './index';
 
 /**
  * Pipeline execution level/phase
+ *
+ * 7-Level Architecture:
+ * 1. DISCOVERY - File discovery and basic information
+ * 2. CODE_EXTRACTION - Code extraction with line numbers
+ * 3. DEEP_ANALYSIS - LLM-based deep analysis
+ * 4. RELATIONSHIP - Relationship building
+ * 5. DOCUMENTATION - Document generation with feedback loop
+ * 6. QUALITY_REVIEW - Quality review and improvement
+ * 7. OUTPUT - Final output generation
  */
 export enum PipelineLevel {
-  ANALYSIS = 1,
-  DEEP_ANALYSIS = 2,
-  QUALITY_ENHANCEMENT = 3,
-  VALIDATION = 4,
-  OUTPUT = 5,
+  DISCOVERY = 1,
+  CODE_EXTRACTION = 2,
+  DEEP_ANALYSIS = 3,
+  RELATIONSHIP = 4,
+  DOCUMENTATION = 5,
+  QUALITY_REVIEW = 6,
+  OUTPUT = 7,
 }
 
 /**
