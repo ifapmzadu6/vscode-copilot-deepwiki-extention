@@ -47,6 +47,7 @@ export class LLMUniversalCodeExtractorSubagent extends BaseSubagent {
   description = 'Extracts code entities from ANY language using LLM (universal parser)';
 
   private helper!: LLMHelper;
+  private model!: vscode.LanguageModelChat;
   private fileManager: any;
 
   async execute(context: SubagentContext): Promise<ExtractionSummary> {
@@ -54,6 +55,7 @@ export class LLMUniversalCodeExtractorSubagent extends BaseSubagent {
 
     progress('Starting LLM-based universal code extraction...');
 
+    this.model = model;
     this.helper = new LLMHelper(model);
     this.fileManager = getIntermediateFileManager();
 
@@ -191,7 +193,27 @@ export class LLMUniversalCodeExtractorSubagent extends BaseSubagent {
     const truncatedContent = lines.slice(0, maxLines).join('\n');
     const wasTruncated = lines.length > maxLines;
 
-    const prompt = this.buildExtractionPrompt(relativePath, truncatedContent, language, wasTruncated);
+    // Hybrid approach: use Feedback Loop for large/complex files
+    const useFeedbackLoop = lines.length >= 100; // Files with 100+ lines benefit from iterative refinement
+
+    if (useFeedbackLoop) {
+      return await this.extractWithFeedbackLoop(relativePath, truncatedContent, language, lines.length, wasTruncated);
+    } else {
+      return await this.extractWithSimplePrompt(relativePath, truncatedContent, language, lines.length, wasTruncated);
+    }
+  }
+
+  /**
+   * シンプルなChain-of-Thought抽出（小さいファイル用）
+   */
+  private async extractWithSimplePrompt(
+    relativePath: string,
+    content: string,
+    language: string,
+    lineCount: number,
+    wasTruncated: boolean
+  ): Promise<FileExtractionResult | null> {
+    const prompt = this.buildExtractionPrompt(relativePath, content, language, wasTruncated);
 
     try {
       // LLMに構造化JSONを返してもらう
@@ -212,28 +234,129 @@ Be precise and thorough.`,
         return null;
       }
 
-      // Transform to our types
-      const extraction: FileExtractionResult = {
-        file: relativePath,
-        relativePath,
-        language,
-        lineCount: lines.length,
-        classes: this.transformClasses(result.classes || [], relativePath),
-        functions: this.transformFunctions(result.functions || [], relativePath),
-        interfaces: this.transformInterfaces(result.interfaces || [], relativePath),
-        typeAliases: this.transformTypeAliases(result.typeAliases || [], relativePath),
-        enums: this.transformEnums(result.enums || [], relativePath),
-        constants: [],
-        imports: [],
-        exports: [],
-        extractedAt: new Date().toISOString(),
-      };
-
-      return extraction;
+      return this.createExtractionResult(relativePath, language, lineCount, result);
     } catch (error) {
       logger.error('LLMCodeExtractor', `LLM extraction failed for ${relativePath}:`, error);
       return null;
     }
+  }
+
+  /**
+   * Feedback Loop付き抽出（大きい/複雑なファイル用）
+   */
+  private async extractWithFeedbackLoop(
+    relativePath: string,
+    content: string,
+    language: string,
+    lineCount: number,
+    wasTruncated: boolean
+  ): Promise<FileExtractionResult | null> {
+    const { LLMFeedbackLoop } = require('../utils/llmHelper');
+
+    const feedbackLoop = new LLMFeedbackLoop(this.model, {
+      maxIterations: 3,
+      targetScore: 8.5,
+    });
+
+    // 生成プロンプト
+    const generatePrompt = this.buildExtractionPrompt(relativePath, content, language, wasTruncated);
+
+    // レビュープロンプトテンプレート
+    const reviewPromptTemplate = (extraction: string) => `Review this code extraction for accuracy and completeness.
+
+SOURCE CODE:
+\`\`\`${language}
+${content}
+\`\`\`
+
+EXTRACTION:
+${extraction}
+
+Evaluate on these criteria (score 1-10 for each):
+1. **Completeness**: Did it extract ALL classes, functions, interfaces, enums, type aliases?
+2. **Accuracy**: Are line numbers correct (1-indexed)? Are types correct?
+3. **Relationships**: Captured inheritance, implements, extends correctly?
+4. **Details**: Captured visibility modifiers, decorators (@Model, @Published), async/await, generics?
+
+Respond with JSON:
+{
+  "score": <weighted average 1-10>,
+  "feedback": "Specific issues found (be detailed)",
+  "issues": [
+    {"entity": "ClassName or functionName", "issue": "Missing method X on line Y"},
+    {"entity": "InterfaceName", "issue": "Wrong line number: should be Z"}
+  ]
+}`;
+
+    // 改善プロンプトテンプレート
+    const improvePromptTemplate = (extraction: string, feedback: string) => `Improve this extraction based on detailed feedback.
+
+SOURCE CODE:
+\`\`\`${language}
+${content}
+\`\`\`
+
+CURRENT EXTRACTION:
+${extraction}
+
+FEEDBACK:
+${feedback}
+
+Fix all issues mentioned in the feedback. Provide the COMPLETE improved extraction as JSON (same format).
+Do not omit any entities that were correctly extracted - include everything.`;
+
+    try {
+      // フィードバックループ実行
+      const result = await feedbackLoop.generateWithFeedback(
+        generatePrompt,
+        reviewPromptTemplate,
+        improvePromptTemplate,
+        {
+          systemPrompt: `You are a universal code parser. Extract code entities accurately from any programming language.
+Always use 1-indexed line numbers (first line is line 1, not 0).
+Be precise and thorough.`,
+        }
+      );
+
+      // JSON をパース
+      const parsed = JSON.parse(result.improved);
+
+      logger.log('LLMCodeExtractor', `Feedback Loop completed for ${relativePath}: ${result.iterations} iterations, final score: ${result.finalScore}`);
+
+      return this.createExtractionResult(relativePath, language, lineCount, parsed);
+    } catch (error) {
+      logger.error('LLMCodeExtractor', `Feedback Loop extraction failed for ${relativePath}:`, error);
+
+      // Fallback to simple prompt
+      logger.warn('LLMCodeExtractor', `Falling back to simple prompt for ${relativePath}`);
+      return await this.extractWithSimplePrompt(relativePath, content, language, lineCount, wasTruncated);
+    }
+  }
+
+  /**
+   * 抽出結果を作成
+   */
+  private createExtractionResult(
+    relativePath: string,
+    language: string,
+    lineCount: number,
+    result: any
+  ): FileExtractionResult {
+    return {
+      file: relativePath,
+      relativePath,
+      language,
+      lineCount,
+      classes: this.transformClasses(result.classes || [], relativePath),
+      functions: this.transformFunctions(result.functions || [], relativePath),
+      interfaces: this.transformInterfaces(result.interfaces || [], relativePath),
+      typeAliases: this.transformTypeAliases(result.typeAliases || [], relativePath),
+      enums: this.transformEnums(result.enums || [], relativePath),
+      constants: [],
+      imports: [],
+      exports: [],
+      extractedAt: new Date().toISOString(),
+    };
   }
 
   /**
