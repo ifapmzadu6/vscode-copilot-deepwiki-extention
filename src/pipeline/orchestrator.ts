@@ -21,6 +21,7 @@ import {
   EntryPointFinderSubagent,
   ConfigFinderSubagent,
   FrameworkDetectorSubagent,
+  ExistingDocumentAnalyzerSubagent,
 } from '../subagents';
 
 // Level 2: CODE_EXTRACTION
@@ -398,6 +399,7 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
     // =======================================================================
     pipeline.set(PipelineLevel.DISCOVERY, [
       new FileScannerSubagent(),
+      new ExistingDocumentAnalyzerSubagent(), // 既存ドキュメントを最初に読み込む
       new DependencyAnalyzerSubagent(),
       new LanguageDetectorSubagent(),
       new EntryPointFinderSubagent(),

@@ -14,6 +14,7 @@ export enum IntermediateFileType {
   DISCOVERY_LANGUAGES = 'discovery-languages',
   DISCOVERY_ENTRY_POINTS = 'discovery-entry-points',
   DISCOVERY_CONFIGS = 'discovery-configs',
+  DISCOVERY_EXISTING_DOCS = 'discovery-existing-docs',
 
   // ===========================================
   // Level 2: CODE_EXTRACTION - 行番号付き抽出

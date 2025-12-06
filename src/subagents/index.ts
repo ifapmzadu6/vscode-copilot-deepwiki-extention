@@ -12,6 +12,7 @@ export { DependencyAnalyzerSubagent } from './dependencyAnalyzer';
 export { LanguageDetectorSubagent } from './languageDetector';
 export { EntryPointFinderSubagent } from './entryPointFinder';
 export { ConfigFinderSubagent } from './configFinder';
+export { ExistingDocumentAnalyzerSubagent } from './existingDocumentAnalyzer';
 
 // Level 2: CODE_EXTRACTION - LLM-based universal code extraction
 // All languages (TypeScript, JavaScript, Swift, Python, Java, Go, Rust...) are now parsed by LLM
