@@ -1,6 +1,11 @@
 import * as vscode from 'vscode';
 import { BaseSubagent } from './baseSubagent';
-import { SubagentContext, DeepWikiDocument, ValidationResult } from '../types';
+import { SubagentContext, DeepWikiSite } from '../types';
+import {
+  getIntermediateFileManager,
+  IntermediateFileType,
+  logger,
+} from '../utils';
 
 /**
  * Formats documentation into well-structured Markdown
@@ -10,92 +15,78 @@ export class MarkdownFormatterSubagent extends BaseSubagent {
   name = 'Markdown Formatter';
   description = 'Formats documentation into Markdown';
 
-  async execute(context: SubagentContext): Promise<string> {
-    const { progress, previousResults } = context;
+  async execute(context: SubagentContext): Promise<{
+    formattedContentLength: number;
+    savedToFile: IntermediateFileType;
+  }> {
+    const { progress } = context;
 
-    progress('Formatting documentation...');
+    progress('Formatting final markdown...');
 
-    // Prefer final-document-generator output; fall back to overview-generator
-    // Prefer regenerated site if available
-    const regenerated = previousResults.get('page-regenerator') as DeepWikiDocument | undefined;
-    const overview =
-      regenerated ||
-      (previousResults.get('final-document-generator') as DeepWikiDocument | undefined) ||
-      (previousResults.get('overview-generator') as DeepWikiDocument | undefined);
+    const fileManager = getIntermediateFileManager();
 
-    const quality = previousResults.get('quality-gate') as ValidationResult | undefined;
-    
-    if (!overview) {
-      return '# Documentation\n\nNo content available.';
+    // Try to load DeepWikiSite (new format)
+    const site = (await fileManager.loadJson<DeepWikiSite>(IntermediateFileType.OUTPUT_SITE_CONFIG));
+
+    if (site) {
+      // Format DeepWikiSite to single markdown
+      const markdown = this.formatSite(site);
+      await fileManager.saveFinalPage('deepwiki.md', markdown);
+
+      return {
+        formattedContentLength: markdown.length,
+        savedToFile: IntermediateFileType.OUTPUT_PAGE,
+      };
     }
 
-    const sections: string[] = [];
+    progress('No documentation found to format');
+    return {
+      formattedContentLength: 0,
+      savedToFile: IntermediateFileType.OUTPUT_PAGE,
+    };
+  }
 
-    sections.push(`# ${overview.title}`);
-    sections.push('');
-    sections.push(`> Generated on ${new Date(overview.generatedAt).toLocaleDateString()}`);
-    sections.push('');
-
-    if (overview.overview) {
-      sections.push('## Overview');
-      sections.push('');
-      sections.push(overview.overview);
-      sections.push('');
+  private formatSite(site: DeepWikiSite): string {
+    let md = `# ${site.projectName}\n\n`;
+    if (site.projectDescription) {
+      md += `${site.projectDescription}\n\n`;
     }
 
-    if (overview.architecture) {
-      sections.push('## Architecture');
-      sections.push('');
-      sections.push(`**Patterns**: ${overview.architecture.patterns.join(', ')}`);
-      sections.push('');
-      sections.push(`**Layers**: ${overview.architecture.layers.join(', ')}`);
-      sections.push('');
-    }
-
-    if (overview.dependencies) {
-      sections.push('## Dependencies');
-      sections.push('');
-      sections.push(`**Package Manager**: ${overview.dependencies.packageManager || 'Unknown'}`);
-      sections.push('');
-      sections.push(`**Languages**: ${overview.dependencies.languages.join(', ')}`);
-      sections.push('');
-      sections.push(`**Frameworks**: ${overview.dependencies.frameworks.join(', ')}`);
-      sections.push('');
-    }
-
-    if (overview.modules && overview.modules.length > 0) {
-      sections.push('## Modules');
-      sections.push('');
-
-      for (const module of overview.modules.slice(0, 20)) {
-        sections.push(`### ${module.name}`);
-        sections.push('');
-        sections.push(`**Path**: \`${module.path}\``);
-        sections.push('');
-        sections.push(module.description);
-        sections.push('');
-      }
-    }
-
-    if (quality) {
-      sections.push('## Quality Summary');
-      sections.push('');
-      sections.push(`- Overall Score: ${(quality.overallScore * 100).toFixed(1)}%`);
-      sections.push(`- Accuracy: ${(quality.accuracy.score * 100).toFixed(1)}%`);
-      sections.push(`- Completeness: ${(quality.completeness.score * 100).toFixed(1)}%`);
-      sections.push(`- Consistency: ${(quality.consistency.score * 100).toFixed(1)}%`);
-      sections.push('');
-      if (quality.recommendations.length > 0) {
-        sections.push('### Recommendations');
-        for (const rec of quality.recommendations.slice(0, 5)) {
-          sections.push(`- (${rec.priority}) ${rec.title}: ${rec.action}`);
+    // Table of Contents
+    md += `## Table of Contents\n\n`;
+    for (const page of site.pages) {
+      if (!page.parent) {
+        md += `- [${page.title}](#${page.slug})\n`;
+        // Find children
+        const children = site.pages.filter(p => p.parent === page.id);
+        for (const child of children) {
+          md += `  - [${child.title}](#${child.slug})\n`;
         }
-        sections.push('');
       }
     }
+    md += `\n---\n\n`;
 
-    progress('Formatting complete');
+    // Pages sorted by order
+    const sortedPages = [...site.pages].sort((a, b) => a.order - b.order);
 
-    return sections.join('\n');
+    for (const page of sortedPages) {
+      md += `<a id="${page.slug}"></a>\n`;
+      md += `# ${page.title}\n\n`;
+
+      for (const section of page.sections) {
+        md += `<a id="${section.id}"></a>\n`;
+        md += `## ${section.title}\n\n`;
+        md += `${section.content}\n\n`;
+
+        if (section.diagrams) {
+          for (const diagram of section.diagrams) {
+            md += '```mermaid\n' + diagram + '\n```\n\n';
+          }
+        }
+      }
+      md += `\n---\n\n`;
+    }
+
+    return md;
   }
 }

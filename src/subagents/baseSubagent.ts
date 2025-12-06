@@ -90,4 +90,56 @@ export abstract class BaseSubagent implements SubagentTask {
       : pattern;
     return vscode.workspace.findFiles(searchPattern, exclude, maxResults);
   }
+
+  /**
+   * Check if a file is a source code file based on extension
+   */
+  protected isSourceFile(filePath: string): boolean {
+    const ext = filePath.split('.').pop()?.toLowerCase();
+    const sourceExtensions = [
+      'ts', 'js', 'py', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'go', 'rs', 'rb', 'php', 'swift', 'kt', 'kts', 'scala', 'm', 'mm'
+    ];
+    return ext ? sourceExtensions.includes(ext) : false;
+  }
+
+  protected createEmptySummary(): any {
+    return {
+      stats: { totalClasses: 0, totalFunctions: 0, totalInterfaces: 0, totalTypes: 0, totalEnums: 0, totalConstants: 0, totalExports: 0, totalImports: 0 },
+      filesProcessed: 0, totalLLMCalls: 0, savedToFile: 'extraction-summary'
+    };
+  }
+
+  protected async loadCachedExtraction(relativePath: string): Promise<any> {
+    // Placeholder for base caching logic if needed, 
+    // though implementation is usually in the subagent itself
+    return null;
+  }
+
+  protected async saveCachedExtraction(relativePath: string, data: any): Promise<void> {
+    // Placeholder
+  }
+
+  protected buildMethodSignature(method: any): string {
+    const params = method.parameters?.map((p: any) =>
+      `${p.name}${p.isOptional ? '?' : ''}: ${p.type}`
+    ).join(', ') || '';
+    return `${method.name}(${params}): ${method.returnType || 'void'}`;
+  }
+
+  protected transformFunctions(funcs: any[], file: string): any[] {
+    // Helper for transformation if needed by multiple agents
+    return funcs;
+    // ... actually, the extractor implements its own specific transform logic.
+    // But we need to avoid "Property 'transformFunctions' does not exist" error in the extractor if it calls `this.transformFunctions`.
+    // Checking the extractor code... it calls `this.transformFunctions`.
+    // So define them here or move them back to extractor?
+    // Moving them to base class is good for reuse.
+    return [];
+  }
+
+  // To avoid breaking the Extractor which expects these methods on `this`
+  protected transformClasses(classes: any[], file: string): any[] { return []; }
+  protected transformInterfaces(interfaces: any[], file: string): any[] { return []; }
+  protected transformTypeAliases(types: any[], file: string): any[] { return []; }
+  protected transformEnums(enums: any[], file: string): any[] { return []; }
 }

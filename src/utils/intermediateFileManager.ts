@@ -98,7 +98,7 @@ export enum IntermediateFileType {
 /**
  * ファイルの種類
  */
-export type FileFormat = 'json' | 'markdown' | 'mermaid';
+export type FileFormat = 'json' | 'markdown' | 'mermaid' | 'text';
 
 /**
  * 中間ファイルのメタデータ
@@ -171,11 +171,11 @@ const DIRECTORY_STRUCTURE = {
  * │   │   ├── imports.json
  * │   │   └── exports.json
  * │   ├── analysis/               # Level 3
- * │   │   ├── classes/{ClassName}.json
- * │   │   ├── functions/{functionName}.json
- * │   │   ├── modules/{moduleName}.json
- * │   │   ├── architecture.json
- * │   │   ├── patterns.json
+ * │   │   ├── classes/{ClassName}.md      <-- Changed to Markdown
+ * │   │   ├── functions/{functionName}.md <-- Changed to Markdown
+ * │   │   ├── modules/{moduleName}.md     <-- Changed to Markdown
+ * │   │   ├── architecture.md             <-- Changed to Markdown
+ * │   │   ├── patterns.md                 <-- Changed to Markdown
  * │   │   └── complexity.json
  * │   ├── relationships/          # Level 4
  * │   │   ├── dependency-graph.json
@@ -192,8 +192,8 @@ const DIRECTORY_STRUCTURE = {
  * │       ├── completeness.json
  * │       ├── accuracy.json
  * │       ├── consistency.json
- * │       ├── overall.json
- * │       └── pages/{page-id}.review.json
+ * │       ├── overall.md                  <-- Changed to Markdown
+ * │       └── pages/{page-id}.review.md   <-- Changed to Markdown
  * ├── pages/                      # Level 7 (最終出力)
  * │   ├── _meta.json
  * │   ├── 1-overview.md
@@ -273,19 +273,19 @@ export class IntermediateFileManager {
       case IntermediateFileType.EXTRACTION_EXPORTS:
         return { dir: DIRECTORY_STRUCTURE.extraction, fileName: 'exports.json', format: 'json' };
       case IntermediateFileType.EXTRACTION_FILE:
-        return { dir: DIRECTORY_STRUCTURE.extraction, fileName: `${baseName}.json`, format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.extraction, fileName: `${baseName}.txt`, format: 'text' };
 
-      // Level 3: Analysis
+      // Level 3: Analysis (Markdown)
       case IntermediateFileType.ANALYSIS_CLASS:
-        return { dir: DIRECTORY_STRUCTURE.analysisClasses, fileName: `${baseName}.json`, format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.analysisClasses, fileName: `${baseName}.md`, format: 'markdown' };
       case IntermediateFileType.ANALYSIS_FUNCTION:
-        return { dir: DIRECTORY_STRUCTURE.analysisFunctions, fileName: `${baseName}.json`, format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.analysisFunctions, fileName: `${baseName}.md`, format: 'markdown' };
       case IntermediateFileType.ANALYSIS_MODULE:
-        return { dir: DIRECTORY_STRUCTURE.analysisModules, fileName: `${baseName}.json`, format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.analysisModules, fileName: `${baseName}.md`, format: 'markdown' };
       case IntermediateFileType.ANALYSIS_ARCHITECTURE:
-        return { dir: DIRECTORY_STRUCTURE.analysisGeneral, fileName: 'architecture.json', format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.analysisGeneral, fileName: 'architecture.md', format: 'markdown' };
       case IntermediateFileType.ANALYSIS_PATTERNS:
-        return { dir: DIRECTORY_STRUCTURE.analysisGeneral, fileName: 'patterns.json', format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.analysisGeneral, fileName: 'patterns.md', format: 'markdown' };
       case IntermediateFileType.ANALYSIS_COMPLEXITY:
         return { dir: DIRECTORY_STRUCTURE.analysisGeneral, fileName: 'complexity.json', format: 'json' };
 
@@ -309,7 +309,7 @@ export class IntermediateFileManager {
       case IntermediateFileType.DOCS_DIAGRAM:
         return { dir: DIRECTORY_STRUCTURE.docsDiagrams, fileName: `${baseName}.mermaid`, format: 'mermaid' };
 
-      // Level 6: Review
+      // Level 6: Review (Markdown)
       case IntermediateFileType.REVIEW_SOURCE_REFS:
         return { dir: DIRECTORY_STRUCTURE.review, fileName: 'source-refs.json', format: 'json' };
       case IntermediateFileType.REVIEW_COMPLETENESS:
@@ -321,9 +321,9 @@ export class IntermediateFileManager {
       case IntermediateFileType.REVIEW_LINKS:
         return { dir: DIRECTORY_STRUCTURE.review, fileName: 'links.json', format: 'json' };
       case IntermediateFileType.REVIEW_OVERALL:
-        return { dir: DIRECTORY_STRUCTURE.review, fileName: 'overall.json', format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.review, fileName: 'overall.md', format: 'markdown' };
       case IntermediateFileType.REVIEW_PAGE:
-        return { dir: DIRECTORY_STRUCTURE.reviewPages, fileName: `${baseName}.review.json`, format: 'json' };
+        return { dir: DIRECTORY_STRUCTURE.reviewPages, fileName: `${baseName}.review.md`, format: 'markdown' };
 
       // Level 7: Output
       case IntermediateFileType.OUTPUT_PAGE:
@@ -503,6 +503,36 @@ export class IntermediateFileManager {
   }
 
   /**
+   * テキストファイルを保存
+   */
+  async saveText(type: IntermediateFileType, content: string, name?: string): Promise<string> {
+    const filePath = this.getFilePath(type, name);
+
+    await this.ensureDirectory(path.dirname(filePath));
+    const uri = vscode.Uri.file(filePath);
+    await vscode.workspace.fs.writeFile(uri, Buffer.from(content, 'utf-8'));
+
+    logger.log('IntermediateFileManager', `Saved text: ${filePath}`);
+    return filePath;
+  }
+
+  /**
+   * テキストファイルを読み込み
+   */
+  async loadText(type: IntermediateFileType, name?: string): Promise<string | null> {
+    const filePath = this.getFilePath(type, name);
+
+    try {
+      const uri = vscode.Uri.file(filePath);
+      const content = await vscode.workspace.fs.readFile(uri);
+      return Buffer.from(content).toString('utf-8');
+    } catch (error) {
+      logger.log('IntermediateFileManager', `File not found: ${filePath}`);
+      return null;
+    }
+  }
+
+  /**
    * 最終出力ファイルを保存
    */
   async saveFinalPage(fileName: string, content: string): Promise<string> {
@@ -540,24 +570,24 @@ export class IntermediateFileManager {
   }
 
   /**
-   * Level 3: 全クラス分析を読み込み
+   * Level 3: 全クラス分析を読み込み (Return Map<string, string>)
    */
-  async loadAllClassAnalyses<T>(): Promise<Map<string, T>> {
-    return this.loadAllFromDirectory<T>(DIRECTORY_STRUCTURE.analysisClasses);
+  async loadAllClassAnalyses(): Promise<Map<string, string>> {
+    return this.loadAllMarkdownFromDirectory(DIRECTORY_STRUCTURE.analysisClasses);
   }
 
   /**
-   * Level 3: 全関数分析を読み込み
+   * Level 3: 全関数分析を読み込み (Return Map<string, string>)
    */
-  async loadAllFunctionAnalyses<T>(): Promise<Map<string, T>> {
-    return this.loadAllFromDirectory<T>(DIRECTORY_STRUCTURE.analysisFunctions);
+  async loadAllFunctionAnalyses(): Promise<Map<string, string>> {
+    return this.loadAllMarkdownFromDirectory(DIRECTORY_STRUCTURE.analysisFunctions);
   }
 
   /**
-   * Level 3: 全モジュール分析を読み込み
+   * Level 3: 全モジュール分析を読み込み (Return Map<string, string>)
    */
-  async loadAllModuleAnalyses<T>(): Promise<Map<string, T>> {
-    return this.loadAllFromDirectory<T>(DIRECTORY_STRUCTURE.analysisModules);
+  async loadAllModuleAnalyses(): Promise<Map<string, string>> {
+    return this.loadAllMarkdownFromDirectory(DIRECTORY_STRUCTURE.analysisModules);
   }
 
   /**
@@ -609,6 +639,42 @@ export class IntermediateFileManager {
             const content = await vscode.workspace.fs.readFile(fileUri);
             const parsed: IntermediateFileContent<T> = JSON.parse(Buffer.from(content).toString('utf-8'));
             results.set(name, parsed.data);
+          } catch (error) {
+            // Skip invalid files
+          }
+        }
+      }
+    } catch {
+      // Directory unreadable; ignore
+    }
+
+    return results;
+  }
+
+  /**
+   * ディレクトリ内の全Markdownを読み込み
+   */
+  private async loadAllMarkdownFromDirectory(dirRelPath: string): Promise<Map<string, string>> {
+    const results = new Map<string, string>();
+    const dirPath = path.join(this.baseDir, dirRelPath);
+
+    const exists = await this.pathExists(dirPath);
+    if (!exists) {
+      return results;
+    }
+
+    try {
+      const uri = vscode.Uri.file(dirPath);
+      const entries = await vscode.workspace.fs.readDirectory(uri);
+
+      for (const [fileName, fileType] of entries) {
+        if (fileType === vscode.FileType.File && fileName.endsWith('.md')) {
+          const name = fileName.replace('.md', '');
+          const filePath = path.join(dirPath, fileName);
+          try {
+            const fileUri = vscode.Uri.file(filePath);
+            const content = await vscode.workspace.fs.readFile(fileUri);
+            results.set(name, Buffer.from(content).toString('utf-8'));
           } catch (error) {
             // Skip invalid files
           }

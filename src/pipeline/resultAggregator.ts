@@ -7,8 +7,14 @@ import {
 
 /**
  * Aggregates and manages results from pipeline tasks
+ *
+ * File-based approach:
+ * - Subagents save their results to intermediate files
+ * - ResultAggregator only stores metadata (file paths, status, duration)
+ * - Actual data is loaded from files on-demand
  */
 export class ResultAggregator implements IResultAggregator {
+  // Metadata only - not the actual data
   private results: Map<string, TaskResult>;
   private levelMap: Map<PipelineLevel, Set<string>>;
 
@@ -26,6 +32,9 @@ export class ResultAggregator implements IResultAggregator {
 
   /**
    * Add a result to the aggregator
+   *
+   * Note: result.data should be lightweight metadata only, NOT the full data.
+   * The full data should be saved to intermediate files by the subagent.
    */
   addResult(result: TaskResult, level: PipelineLevel): void {
     this.results.set(result.taskId, result);

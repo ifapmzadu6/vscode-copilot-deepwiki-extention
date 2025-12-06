@@ -14,7 +14,11 @@ import {
   CallGraphEdge,
   CallGraphNode,
 } from '../types/relationships';
-import { getIntermediateFileManager, IntermediateFileType, logger } from '../utils';
+import {
+  getIntermediateFileManager,
+  IntermediateFileType,
+  logger,
+} from '../utils';
 
 /**
  * ASTベースのコールグラフビルダー
@@ -28,14 +32,26 @@ export class CallGraphBuilderSubagent extends BaseSubagent {
   name = 'Call Graph Builder';
   description = 'Builds an AST-based call graph from extracted functions and methods';
 
-  async execute(context: SubagentContext): Promise<CallGraph> {
-    const { workspaceFolder, previousResults, progress, token } = context;
+  async execute(context: SubagentContext): Promise<{
+    nodesCount: number;
+    edgesCount: number;
+    savedToFile: IntermediateFileType;
+  }> {
+    const { workspaceFolder, progress, token } = context;
     progress('Building AST-based call graph...');
 
-    const extraction = previousResults.get('code-extractor') as ExtractionSummary | undefined;
+    const fileManager = getIntermediateFileManager();
+    const extraction = (await fileManager.loadJson<ExtractionSummary>(
+      IntermediateFileType.EXTRACTION_SUMMARY
+    )) || undefined;
+
     if (!extraction) {
       progress('No extraction results found, skipping call graph');
-      return this.emptyGraph();
+      return {
+        nodesCount: 0,
+        edgesCount: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_CALL_GRAPH,
+      };
     }
 
     const project = this.createProject(workspaceFolder.uri.fsPath);
@@ -156,7 +172,13 @@ export class CallGraphBuilderSubagent extends BaseSubagent {
     }
 
     progress(`Call graph built: ${nodes.length} nodes, ${edges.length} edges`);
-    return graph;
+    progress(`Call graph built: ${nodes.length} nodes, ${edges.length} edges`);
+
+    return {
+      nodesCount: nodes.length,
+      edgesCount: edges.length,
+      savedToFile: IntermediateFileType.RELATIONSHIP_CALL_GRAPH,
+    };
   }
 
   private getCallName(call: CallExpression): string | null {

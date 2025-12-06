@@ -4,7 +4,12 @@ import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
 import { ExtractionSummary, ExtractedImport, createSourceRef } from '../types/extraction';
 import { DependencyGraph, DependencyGraphNode, DependencyGraphEdge } from '../types/relationships';
-import { getIntermediateFileManager, IntermediateFileType, logger } from '../utils';
+import {
+  getIntermediateFileManager,
+  IntermediateFileManager,
+  IntermediateFileType,
+  logger,
+} from '../utils';
 
 /**
  * 依存関係マッパーサブエージェント
@@ -24,21 +29,44 @@ export class DependencyMapperSubagent extends BaseSubagent {
   name = 'Dependency Mapper';
   description = 'Creates dependency graph between files and modules';
 
-  private fileManager: any;
+  private fileManager!: IntermediateFileManager;
 
-  async execute(context: SubagentContext): Promise<DependencyGraph> {
+  async execute(context: SubagentContext): Promise<{
+    filesMapped: number;
+    dependenciesFound: number;
+    cyclesDetected: number;
+    savedToFile: IntermediateFileType;
+  }> {
     const { workspaceFolder, progress, token, previousResults } = context;
 
     progress('Mapping dependencies...');
 
     this.fileManager = getIntermediateFileManager();
 
-    // Get extraction results from Level 2
-    const extractionResult = previousResults.get('code-extractor') as ExtractionSummary | undefined;
+    // Load extraction results from file (Level 2)
+    let extractionResult: ExtractionSummary | undefined;
+    try {
+      extractionResult = (await this.fileManager.loadJson<ExtractionSummary>(
+        IntermediateFileType.EXTRACTION_SUMMARY
+      )) || undefined;
+    } catch (error) {
+      logger.error('DependencyMapper', 'Failed to load extraction summary', error);
+      return {
+        filesMapped: 0,
+        dependenciesFound: 0,
+        cyclesDetected: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_DEPENDENCY_GRAPH,
+      };
+    }
 
     if (!extractionResult) {
       progress('No extraction results found');
-      return this.createEmptyGraph();
+      return {
+        filesMapped: 0,
+        dependenciesFound: 0,
+        cyclesDetected: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_DEPENDENCY_GRAPH,
+      };
     }
 
     // Build dependency graph
@@ -123,7 +151,13 @@ export class DependencyMapperSubagent extends BaseSubagent {
 
     progress(`Mapped ${nodes.length} files with ${edges.length} dependencies (${cycles.length} cycles detected)`);
 
-    return graph;
+    // Return metadata only
+    return {
+      filesMapped: nodes.length,
+      dependenciesFound: edges.length,
+      cyclesDetected: cycles.length,
+      savedToFile: IntermediateFileType.RELATIONSHIP_DEPENDENCY_GRAPH,
+    };
   }
 
   /**

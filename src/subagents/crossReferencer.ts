@@ -9,7 +9,12 @@ import {
   EntityDefinition,
   EntityUsage,
 } from '../types/relationships';
-import { getIntermediateFileManager, IntermediateFileType, logger } from '../utils';
+import {
+  getIntermediateFileManager,
+  IntermediateFileManager,
+  IntermediateFileType,
+  logger,
+} from '../utils';
 
 /**
  * クロスリファレンスサブエージェント
@@ -29,21 +34,41 @@ export class CrossReferencerSubagent extends BaseSubagent {
   name = 'Cross Referencer';
   description = 'Creates cross-references between code entities';
 
-  private fileManager: any;
+  private fileManager!: IntermediateFileManager;
 
-  async execute(context: SubagentContext): Promise<CrossReferenceIndex> {
+  async execute(context: SubagentContext): Promise<{
+    entitiesIndexed: number;
+    orphansCount: number;
+    savedToFile: IntermediateFileType;
+  }> {
     const { progress, token, previousResults } = context;
 
     progress('Building cross-references...');
 
     this.fileManager = getIntermediateFileManager();
 
-    // Get extraction results from Level 2
-    const extractionResult = previousResults.get('code-extractor') as ExtractionSummary | undefined;
+    // Load extraction results from file (Level 2)
+    let extractionResult: ExtractionSummary | undefined;
+    try {
+      extractionResult = (await this.fileManager.loadJson<ExtractionSummary>(
+        IntermediateFileType.EXTRACTION_SUMMARY
+      )) || undefined;
+    } catch (error) {
+      logger.error('CrossReferencer', 'Failed to load extraction summary', error);
+      return {
+        entitiesIndexed: 0,
+        orphansCount: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_CROSS_REFS,
+      };
+    }
 
     if (!extractionResult) {
       progress('No extraction results found');
-      return this.createEmptyIndex();
+      return {
+        entitiesIndexed: 0,
+        orphansCount: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_CROSS_REFS,
+      };
     }
 
     const byEntity = new Map<string, EntityCrossReference>();
@@ -330,7 +355,11 @@ export class CrossReferencerSubagent extends BaseSubagent {
 
     progress(`Built cross-references: ${byEntity.size} entities, ${orphans.length} orphans`);
 
-    return result;
+    return {
+      entitiesIndexed: byEntity.size,
+      orphansCount: orphans.length,
+      savedToFile: IntermediateFileType.RELATIONSHIP_CROSS_REFS,
+    };
   }
 
   /**

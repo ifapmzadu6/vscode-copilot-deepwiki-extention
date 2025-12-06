@@ -3,7 +3,12 @@ import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
 import { ExtractionSummary } from '../types/extraction';
 import { InheritanceTree, InheritanceNode, InheritanceEdge } from '../types/relationships';
-import { getIntermediateFileManager, IntermediateFileType, logger } from '../utils';
+import {
+  getIntermediateFileManager,
+  IntermediateFileManager,
+  IntermediateFileType,
+  logger,
+} from '../utils';
 
 /**
  * 継承ツリービルダーサブエージェント
@@ -24,21 +29,44 @@ export class InheritanceTreeBuilderSubagent extends BaseSubagent {
   name = 'Inheritance Tree Builder';
   description = 'Builds inheritance hierarchy between classes and interfaces';
 
-  private fileManager: any;
+  private fileManager!: IntermediateFileManager;
 
-  async execute(context: SubagentContext): Promise<InheritanceTree> {
+  async execute(context: SubagentContext): Promise<{
+    nodesCount: number;
+    edgesCount: number;
+    maxDepth: number;
+    savedToFile: IntermediateFileType;
+  }> {
     const { progress, token, previousResults } = context;
 
     progress('Building inheritance tree...');
 
     this.fileManager = getIntermediateFileManager();
 
-    // Get extraction results from Level 2
-    const extractionResult = previousResults.get('code-extractor') as ExtractionSummary | undefined;
+    // Load extraction results from file (Level 2)
+    let extractionResult: ExtractionSummary | undefined;
+    try {
+      extractionResult = (await this.fileManager.loadJson<ExtractionSummary>(
+        IntermediateFileType.EXTRACTION_SUMMARY
+      )) || undefined;
+    } catch (error) {
+      logger.error('InheritanceTreeBuilder', 'Failed to load extraction summary', error);
+      return {
+        nodesCount: 0,
+        edgesCount: 0,
+        maxDepth: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_INHERITANCE,
+      };
+    }
 
     if (!extractionResult) {
       progress('No extraction results found');
-      return this.createEmptyTree();
+      return {
+        nodesCount: 0,
+        edgesCount: 0,
+        maxDepth: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_INHERITANCE,
+      };
     }
 
     const nodes: InheritanceNode[] = [];
@@ -227,7 +255,12 @@ export class InheritanceTreeBuilderSubagent extends BaseSubagent {
 
     progress(`Built inheritance tree: ${nodes.length} nodes, ${edges.length} edges, max depth ${depth}`);
 
-    return tree;
+    return {
+      nodesCount: nodes.length,
+      edgesCount: edges.length,
+      maxDepth: depth,
+      savedToFile: IntermediateFileType.RELATIONSHIP_INHERITANCE,
+    };
   }
 
   /**

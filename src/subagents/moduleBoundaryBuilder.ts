@@ -3,7 +3,11 @@ import { SubagentContext } from '../types';
 import { DependencyGraph, ModuleBoundaries, ModuleDefinition, ModuleExport } from '../types/relationships';
 import { ExtractionSummary } from '../types/extraction';
 import * as path from 'path';
-import { getIntermediateFileManager, IntermediateFileType } from '../utils';
+import {
+  getIntermediateFileManager,
+  IntermediateFileType,
+  IntermediateFileManager,
+} from '../utils';
 
 /**
  * 簡易モジュール境界ビルダー
@@ -14,16 +18,25 @@ export class ModuleBoundaryBuilderSubagent extends BaseSubagent {
   name = 'Module Boundary Builder';
   description = 'Builds module boundaries from dependency graph and extraction results';
 
-  async execute(context: SubagentContext): Promise<ModuleBoundaries> {
-    const { previousResults, progress } = context;
+  async execute(context: SubagentContext): Promise<{
+    modulesCount: number;
+    savedToFile: IntermediateFileType;
+  }> {
+    const { progress } = context;
 
     progress('Building module boundaries...');
 
-    const depGraph = previousResults.get('dependency-mapper') as DependencyGraph | undefined;
-    const extraction = previousResults.get('code-extractor') as ExtractionSummary | undefined;
+    const fileManager = getIntermediateFileManager();
+    const depGraph =
+      (await fileManager.loadJson<DependencyGraph>(IntermediateFileType.RELATIONSHIP_DEPENDENCY_GRAPH)) || undefined;
+    const extraction =
+      (await fileManager.loadJson<ExtractionSummary>(IntermediateFileType.EXTRACTION_SUMMARY)) || undefined;
 
     if (!depGraph || !extraction) {
-      return { modules: [], moduleGraph: { nodes: [], edges: [] } };
+      return {
+        modulesCount: 0,
+        savedToFile: IntermediateFileType.RELATIONSHIP_MODULES,
+      };
     }
 
     const modulesMap = new Map<string, ModuleDefinition>();
@@ -94,8 +107,8 @@ export class ModuleBoundaryBuilderSubagent extends BaseSubagent {
     }
 
     return {
-      modules,
-      moduleGraph,
+      modulesCount: modules.length,
+      savedToFile: IntermediateFileType.RELATIONSHIP_MODULES,
     };
   }
 

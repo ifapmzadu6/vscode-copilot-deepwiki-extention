@@ -3,6 +3,7 @@ import { BaseSubagent } from './baseSubagent';
 import { SubagentContext } from '../types';
 import {
   getIntermediateFileManager,
+  IntermediateFileManager,
   IntermediateFileType,
   LLMHelper,
   LLMFeedbackLoop,
@@ -36,9 +37,13 @@ export class FinalDocumentGeneratorSubagent extends BaseSubagent {
 
   private helper!: LLMHelper;
   private feedbackLoop!: LLMFeedbackLoop;
-  private fileManager: any;
+  private fileManager!: IntermediateFileManager;
 
-  async execute(context: SubagentContext): Promise<DeepWikiSite> {
+  async execute(context: SubagentContext): Promise<{
+    pagesGenerated: number;
+    siteConfigSaved: boolean;
+    savedToFile: IntermediateFileType;
+  }> {
     const { workspaceFolder, model, progress, token, previousResults } = context;
 
     progress('Loading intermediate files...');
@@ -100,9 +105,16 @@ export class FinalDocumentGeneratorSubagent extends BaseSubagent {
       index: this.buildSearchIndex(pages, intermediateData),
     };
 
+    // Save site config
+    await this.fileManager.saveJson(IntermediateFileType.OUTPUT_SITE_CONFIG, site);
+
     progress('Document generation complete!');
 
-    return site;
+    return {
+      pagesGenerated: pages.length,
+      siteConfigSaved: true,
+      savedToFile: IntermediateFileType.OUTPUT_SITE_CONFIG,
+    };
   }
 
   /**
@@ -125,7 +137,10 @@ export class FinalDocumentGeneratorSubagent extends BaseSubagent {
       {};
     const architecture =
       (await this.fileManager.loadMarkdown(IntermediateFileType.ARCHITECTURE_SUMMARY, 'architecture')) || '';
-    const moduleSummaries = await this.fileManager.loadAllModuleSummaries();
+
+    // CHANGED: Load drafts from L5 instead of legacy summaries
+    const moduleSummaries = await this.fileManager.loadAllPageDrafts();
+
     const callGraph = await this.fileManager.loadJson(IntermediateFileType.RELATIONSHIP_CALL_GRAPH);
     const dependencyGraph = await this.fileManager.loadJson(IntermediateFileType.RELATIONSHIP_DEPENDENCY_GRAPH);
     const inheritance = await this.fileManager.loadJson(IntermediateFileType.RELATIONSHIP_INHERITANCE);
@@ -202,7 +217,7 @@ Output ONLY the Mermaid code (no markdown code blocks).`;
       const diagramResponse = await this.helper.generate(diagramPrompt);
       // Extract mermaid code
       const match = diagramResponse.match(/```mermaid\n([\s\S]*?)```/) ||
-                   diagramResponse.match(/(flowchart[\s\S]*)/);
+        diagramResponse.match(/(flowchart[\s\S]*)/);
       architectureDiagram = match ? match[1].trim() : diagramResponse.trim();
     } catch {
       // Skip diagram on error
@@ -327,7 +342,7 @@ Output ONLY Mermaid code.`;
       try {
         const diagramResponse = await this.helper.generate(moduleDiagramPrompt);
         const match = diagramResponse.match(/```mermaid\n([\s\S]*?)```/) ||
-                     diagramResponse.match(/(flowchart[\s\S]*)/);
+          diagramResponse.match(/(flowchart[\s\S]*)/);
         if (match) {
           sections.push({
             id: 'module-structure',
@@ -440,7 +455,7 @@ Output ONLY Mermaid code.`;
 
     // Index page
     const moduleList = Array.from(moduleSummaries.keys());
-    
+
     const indexContent = moduleList.length > 0
       ? `This section covers the core systems and modules of the project.\n\n**Modules:**\n\n${moduleList.map(m => `- [${m}](${m.toLowerCase()})`).join('\n')}`
       : 'This section covers the core systems of the project.';
@@ -465,10 +480,10 @@ Output ONLY Mermaid code.`;
 
       const pageId = `4.${moduleIndex}-${moduleName.toLowerCase().replace(/\s+/g, '-')}`;
       const boundary = moduleBoundaries.find((m: any) => m.name === moduleName);
-      
+
       // 中間サマリーを直接使用
       let content = summaryContent;
-      
+
       // サマリーが短すぎる場合はLLMで補強
       if (content.length < 500) {
         const enhancePrompt = `Enhance this module documentation:
@@ -629,8 +644,15 @@ Make it more comprehensive with:
       let content = `# ${page.title}\n\n`;
 
       for (const section of page.sections) {
-        content += `## ${section.title}\n\n`;
-        content += section.content + '\n\n';
+        // Skip header if matches page title
+        if (!(page.sections.length === 1 && section.title === page.title)) {
+          content += `## ${section.title}\n\n`;
+        }
+
+        let sectionContent = section.content;
+        sectionContent = sectionContent.replace(/^#\s+.*$/m, '').trim();
+
+        content += sectionContent + '\n\n';
 
         if (section.diagrams?.length) {
           for (const diagram of section.diagrams) {
@@ -674,7 +696,7 @@ Make it more comprehensive with:
   private generateWhatIsSection(title: string, data: IntermediateData): string {
     const parts: string[] = [];
     parts.push(`**${title}** is a ${data.languages?.primary || 'software'} project`);
-    
+
     if (data.frameworks?.frameworks?.length) {
       parts.push(`built with ${data.frameworks.frameworks.join(', ')}`);
     }
