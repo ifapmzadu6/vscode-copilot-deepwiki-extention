@@ -1,37 +1,53 @@
 // Base
 export { BaseSubagent } from './baseSubagent';
 
-// Original subagents (Level 0 - Legacy)
-export { StructureAnalyzerSubagent } from './structureAnalyzer';
-export { DependencyAnalyzerSubagent } from './dependencyAnalyzer';
-export { ArchitectureAnalyzerSubagent } from './architectureAnalyzer';
-export { ModuleDocumenterSubagent } from './moduleDocumenter';
-export { DiagramGeneratorSubagent } from './diagramGenerator';
-export { OverviewGeneratorSubagent } from './overviewGenerator';
+// =============================================================================
+// 7-LEVEL ARCHITECTURE
+// =============================================================================
 
-// Level 1 - Analysis Phase
+// Level 1: DISCOVERY - File discovery and basic information
 export { FileScannerSubagent } from './fileScanner';
-export { CodeParserSubagent } from './codeParser';
-export { DependencyMapperSubagent } from './dependencyMapper';
 export { FrameworkDetectorSubagent } from './frameworkDetector';
-export { PatternRecognizerSubagent } from './patternRecognizer';
+export { DependencyAnalyzerSubagent } from './dependencyAnalyzer';
+export { LanguageDetectorSubagent } from './languageDetector';
+export { EntryPointFinderSubagent } from './entryPointFinder';
+export { ConfigFinderSubagent } from './configFinder';
 
-// Level 2 - Deep Analysis Phase
-export { FunctionAnalyzerSubagent } from './functionAnalyzer';
-export { ClassAnalyzerSubagent } from './classAnalyzer';
-export { APIExtractorSubagent } from './apiExtractor';
-export { TypeAnalyzerSubagent } from './typeAnalyzer';
+// Level 2: CODE_EXTRACTION - Code extraction with line numbers
+export { CodeExtractorSubagent } from './codeExtractor';
+export { LLMUniversalCodeExtractorSubagent } from './llmCodeExtractor';
 
-// Level 3 - Quality Enhancement Phase
-export { ExampleGeneratorSubagent } from './exampleGenerator';
+// Level 3: DEEP_ANALYSIS - LLM-based deep analysis
+export { LLMClassAnalyzerSubagent } from './llmClassAnalyzer';
+export { LLMFunctionAnalyzerSubagent } from './llmFunctionAnalyzer';
+export { LLMModuleAnalyzerSubagent } from './llmModuleAnalyzer';
+
+// Level 4: RELATIONSHIP - Relationship building
+export { DependencyMapperSubagent } from './dependencyMapper';
 export { CrossReferencerSubagent } from './crossReferencer';
+export { InheritanceTreeBuilderSubagent } from './inheritanceTreeBuilder';
+export { CallGraphBuilderSubagent } from './callGraphBuilder';
+export { ModuleBoundaryBuilderSubagent } from './moduleBoundaryBuilder';
+export { LayerViolationCheckerSubagent } from './layerViolationChecker';
 
-// Level 4 - Validation Phase
+// Level 5: DOCUMENTATION - Document generation with feedback loop
+export { ModuleSummaryGeneratorSubagent } from './moduleSummaryGenerator';
+export { FinalDocumentGeneratorSubagent } from './finalDocumentGenerator';
+export { DiagramGeneratorSubagent } from './diagramGenerator';
+
+// Level 6: QUALITY_REVIEW - Quality review and improvement
+export { DocumentQualityReviewerSubagent } from './documentQualityReviewer';
 export { AccuracyValidatorSubagent } from './accuracyValidator';
 export { CompletenessCheckerSubagent } from './completenessChecker';
 export { ConsistencyCheckerSubagent } from './consistencyChecker';
+export { SourceReferenceValidatorSubagent } from './sourceReferenceValidator';
+export { QualityGateSubagent } from './qualityGate';
+export { RegenerationPlannerSubagent } from './regenerationPlanner';
+export { RegenerationOrchestratorSubagent } from './regenerationOrchestrator';
+export { LinkValidatorSubagent } from './linkValidator';
+export { PageRegeneratorSubagent } from './pageRegenerator';
 
-// Level 5 - Output Phase
+// Level 7: OUTPUT - Final output generation
 export { MarkdownFormatterSubagent } from './markdownFormatter';
 export { TOCGeneratorSubagent } from './tocGenerator';
 export { IndexBuilderSubagent } from './indexBuilder';

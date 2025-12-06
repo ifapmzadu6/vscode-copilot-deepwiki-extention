@@ -10,34 +10,105 @@ import {
 import { SubagentTask, SubagentContext, ProgressCallback } from '../types';
 import { ParallelExecutor } from './parallelExecutor';
 import { ResultAggregator } from './resultAggregator';
+import { logger } from '../utils/logger';
+import { initIntermediateFileManager } from '../utils/intermediateFileManager';
+
+// Level 1: DISCOVERY
 import {
   FileScannerSubagent,
-  CodeParserSubagent,
-  DependencyMapperSubagent,
+  DependencyAnalyzerSubagent,
+  LanguageDetectorSubagent,
+  EntryPointFinderSubagent,
+  ConfigFinderSubagent,
   FrameworkDetectorSubagent,
-  PatternRecognizerSubagent,
-  FunctionAnalyzerSubagent,
-  ClassAnalyzerSubagent,
-  APIExtractorSubagent,
-  TypeAnalyzerSubagent,
-  ExampleGeneratorSubagent,
+} from '../subagents';
+
+// Level 2: CODE_EXTRACTION
+import { CodeExtractorSubagent, LLMUniversalCodeExtractorSubagent } from '../subagents';
+
+// Level 3: DEEP_ANALYSIS (LLM-based)
+import {
+  LLMClassAnalyzerSubagent,
+  LLMFunctionAnalyzerSubagent,
+  LLMModuleAnalyzerSubagent,
+} from '../subagents';
+
+// Level 4: RELATIONSHIP
+import {
+  DependencyMapperSubagent,
   CrossReferencerSubagent,
+  InheritanceTreeBuilderSubagent,
+  CallGraphBuilderSubagent,
+  ModuleBoundaryBuilderSubagent,
+  LayerViolationCheckerSubagent,
+} from '../subagents';
+
+// Level 5: DOCUMENTATION
+import {
+  ModuleSummaryGeneratorSubagent,
+  FinalDocumentGeneratorSubagent,
+  DiagramGeneratorSubagent,
+} from '../subagents';
+
+// Level 6: QUALITY_REVIEW
+import {
+  DocumentQualityReviewerSubagent,
   AccuracyValidatorSubagent,
   CompletenessCheckerSubagent,
   ConsistencyCheckerSubagent,
+  SourceReferenceValidatorSubagent,
+  QualityGateSubagent,
+  RegenerationPlannerSubagent,
+  RegenerationOrchestratorSubagent,
+  LinkValidatorSubagent,
+  PageRegeneratorSubagent,
+} from '../subagents';
+
+// Level 7: OUTPUT
+import {
   MarkdownFormatterSubagent,
   TOCGeneratorSubagent,
   IndexBuilderSubagent,
-  StructureAnalyzerSubagent,
-  DependencyAnalyzerSubagent,
-  ArchitectureAnalyzerSubagent,
-  ModuleDocumenterSubagent,
-  DiagramGeneratorSubagent,
-  OverviewGeneratorSubagent,
 } from '../subagents';
 
 /**
- * Orchestrates the entire multi-stage analysis pipeline
+ * 7-Level Pipeline Architecture
+ *
+ * Level 1: DISCOVERY
+ *   - ファイル発見
+ *   - フレームワーク検出
+ *
+ * Level 2: CODE_EXTRACTION
+ *   - AST解析
+ *   - クラス/関数/インターフェース抽出
+ *   - 行番号付きソース参照
+ *
+ * Level 3: DEEP_ANALYSIS (LLM)
+ *   - クラス詳細分析
+ *   - 関数詳細分析
+ *   - モジュール詳細分析
+ *   - フィードバックループで品質向上
+ *
+ * Level 4: RELATIONSHIP
+ *   - 依存関係グラフ
+ *   - 継承ツリー
+ *   - クロスリファレンス
+ *
+ * Level 5: DOCUMENTATION
+ *   - モジュールサマリー生成
+ *   - ダイアグラム生成
+ *   - 最終ドキュメント生成
+ *
+ * Level 6: QUALITY_REVIEW
+ *   - 精度検証
+ *   - 完全性チェック
+ *   - 一貫性チェック
+ *   - ドキュメント品質レビュー
+ *
+ * Level 7: OUTPUT
+ *   - Markdownフォーマット
+ *   - TOC生成
+ *   - 検索インデックス構築
  */
 export class PipelineOrchestrator implements IPipelineOrchestrator {
   private state: PipelineState;
@@ -48,7 +119,7 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
 
   constructor() {
     this.state = {
-      currentLevel: PipelineLevel.ANALYSIS,
+      currentLevel: PipelineLevel.DISCOVERY,
       completedTasks: new Set(),
       pendingTasks: new Set(),
       results: new Map(),
@@ -59,23 +130,34 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
   }
 
   /**
-   * Execute the complete pipeline
+   * Execute the complete 7-level pipeline
    */
   async execute(context: PipelineContext): Promise<Map<string, unknown>> {
-    console.log('[PipelineOrchestrator] Starting pipeline execution');
+    logger.log('PipelineOrchestrator', 'Starting 7-level pipeline execution');
+
+    // Initialize intermediate file manager
+    initIntermediateFileManager(
+      context.workspaceFolder.uri,
+      context.parameters.outputPath
+    );
+
+    // Limit regeneration loops to avoid infinite recursion
+    let regenerationAttempts = 0;
 
     try {
-      // Define the pipeline levels and their tasks
+      // Build the 7-level pipeline
       const pipeline = this.buildPipeline(context);
 
-      // Execute each level sequentially, but tasks within a level can run in parallel
-      for (const level of [
-        PipelineLevel.ANALYSIS,
-        PipelineLevel.DEEP_ANALYSIS,
-        PipelineLevel.QUALITY_ENHANCEMENT,
-        PipelineLevel.VALIDATION,
-        PipelineLevel.OUTPUT,
-      ]) {
+      // Execute each level sequentially
+    for (const level of [
+      PipelineLevel.DISCOVERY,
+      PipelineLevel.CODE_EXTRACTION,
+      PipelineLevel.DEEP_ANALYSIS,
+      PipelineLevel.RELATIONSHIP,
+      PipelineLevel.DOCUMENTATION,
+      PipelineLevel.QUALITY_REVIEW,
+      PipelineLevel.OUTPUT,
+    ]) {
         if (this.cancelled || context.token.isCancellationRequested) {
           throw new vscode.CancellationError();
         }
@@ -87,26 +169,72 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
           continue;
         }
 
-        console.log(
-          `[PipelineOrchestrator] Executing Level ${level}: ${levelTasks.length} tasks`
+        logger.log(
+          'PipelineOrchestrator',
+          `Executing Level ${level}: ${this.getLevelName(level)} (${levelTasks.length} tasks)`
         );
 
         await this.executeLevel(level, levelTasks, context);
+
+        // After quality review, optionally rerun documentation + quality once if regeneration is requested
+        if (level === PipelineLevel.QUALITY_REVIEW) {
+          const regenResult = this.aggregator.getResultData<{ shouldRegenerate?: boolean }>(
+            'regeneration-orchestrator'
+          );
+          if (regenResult?.shouldRegenerate && regenerationAttempts < 1) {
+            regenerationAttempts++;
+            logger.log('PipelineOrchestrator', 'Regeneration requested; rerunning documentation and quality review');
+
+            const docTasks = pipeline.get(PipelineLevel.DOCUMENTATION) || [];
+            const qualityTasks = pipeline.get(PipelineLevel.QUALITY_REVIEW) || [];
+
+            if (docTasks.length > 0) {
+              await this.executeLevel(PipelineLevel.DOCUMENTATION, docTasks, context);
+            }
+            if (qualityTasks.length > 0) {
+              await this.executeLevel(PipelineLevel.QUALITY_REVIEW, qualityTasks, context);
+            }
+          }
+        }
       }
 
-      console.log('[PipelineOrchestrator] Pipeline execution completed');
+      logger.log('PipelineOrchestrator', 'Pipeline execution completed successfully');
       return this.aggregator.getAllResults();
     } catch (error) {
       if (error instanceof vscode.CancellationError) {
-        console.log('[PipelineOrchestrator] Pipeline execution cancelled');
+        logger.log('PipelineOrchestrator', 'Pipeline execution cancelled');
         throw error;
       }
 
-      console.error('[PipelineOrchestrator] Pipeline execution failed:', error);
+      logger.error('PipelineOrchestrator', 'Pipeline execution failed:', error);
       this.state.errors.push(
         error instanceof Error ? error : new Error(String(error))
       );
       throw error;
+    }
+  }
+
+  /**
+   * Get human-readable level name
+   */
+  private getLevelName(level: PipelineLevel): string {
+    switch (level) {
+      case PipelineLevel.DISCOVERY:
+        return 'Discovery';
+      case PipelineLevel.CODE_EXTRACTION:
+        return 'Code Extraction';
+      case PipelineLevel.DEEP_ANALYSIS:
+        return 'Deep Analysis (LLM)';
+      case PipelineLevel.RELATIONSHIP:
+        return 'Relationship Building';
+      case PipelineLevel.DOCUMENTATION:
+        return 'Documentation Generation';
+      case PipelineLevel.QUALITY_REVIEW:
+        return 'Quality Review';
+      case PipelineLevel.OUTPUT:
+        return 'Final Output';
+      default:
+        return `Level ${level}`;
     }
   }
 
@@ -119,12 +247,12 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
     context: PipelineContext
   ): Promise<void> {
     // Get concurrency limit from configuration
-    const config = await vscode.workspace.getConfiguration('deepwiki');
+    const config = vscode.workspace.getConfiguration('deepwiki');
     const maxConcurrency = config.get<number>('maxConcurrency', 5);
 
     // Separate parallel and sequential tasks
-    const parallelTasks = tasks.filter((t) => this.canRunInParallel(t));
-    const sequentialTasks = tasks.filter((t) => !this.canRunInParallel(t));
+    const parallelTasks = tasks.filter((t) => this.canRunInParallel(t, level));
+    const sequentialTasks = tasks.filter((t) => !this.canRunInParallel(t, level));
 
     // Execute parallel tasks first
     if (parallelTasks.length > 0) {
@@ -162,7 +290,7 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
         const taskId = failure.taskId.replace('task-', '');
         const task = parallelTasks[parseInt(taskId)];
         if (task) {
-          console.error(`[PipelineOrchestrator] Task ${task.id} failed:`, failure.error);
+          logger.error('PipelineOrchestrator', `Task ${task.id} failed:`, failure.error);
           this.state.errors.push(failure.error || new Error('Unknown error'));
         }
       }
@@ -175,21 +303,24 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
       }
 
       try {
+        const startTime = Date.now();
         const result = await this.executeTask(task, context);
+        const endTime = Date.now();
+
         this.aggregator.addResult(
           {
             taskId: task.id,
             status: TaskStatus.COMPLETED,
             data: result,
-            duration: 0,
-            startTime: Date.now(),
-            endTime: Date.now(),
+            duration: endTime - startTime,
+            startTime,
+            endTime,
           },
           level
         );
         this.state.completedTasks.add(task.id);
       } catch (error) {
-        console.error(`[PipelineOrchestrator] Task ${task.id} failed:`, error);
+        logger.error('PipelineOrchestrator', `Task ${task.id} failed:`, error);
         this.state.errors.push(error instanceof Error ? error : new Error(String(error)));
         // Continue with other tasks
       }
@@ -204,7 +335,7 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
     pipelineContext: PipelineContext
   ): Promise<unknown> {
     const progress: ProgressCallback = (message: string, increment?: number) => {
-      console.log(`[${task.id}] ${message}`);
+      logger.log(task.id, message);
       if (this.progressCallback) {
         this.progressCallback(message, increment);
       }
@@ -223,72 +354,115 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
   }
 
   /**
-   * Determine if a task can run in parallel
+   * Determine if a task can run in parallel within its level
    */
-  private canRunInParallel(task: SubagentTask): boolean {
-    // Tasks at level 1 (ANALYSIS) can mostly run in parallel
-    // Tasks at level 2 (DEEP_ANALYSIS) can run in parallel per module
-    // Level 3+ typically need results from previous levels
-    const parallelTaskIds = [
-      'file-scanner',
-      'framework-detector',
-      'pattern-recognizer',
-      'function-analyzer',
-      'class-analyzer',
-      'api-extractor',
-      'type-analyzer',
-      'example-generator',
-    ];
+  private canRunInParallel(task: SubagentTask, level: PipelineLevel): boolean {
+    // Level 1: Run sequentially to ensure downstream discovery tasks see file-scanner results
+    if (level === PipelineLevel.DISCOVERY) {
+      return false;
+    }
 
-    return parallelTaskIds.includes(task.id);
+    // Level 2: Code extraction runs sequentially (single task)
+    if (level === PipelineLevel.CODE_EXTRACTION) {
+      return false;
+    }
+
+    // Level 3: LLM analyzers run sequentially (module analyzer depends on class/function)
+    if (level === PipelineLevel.DEEP_ANALYSIS) {
+      const parallelTasks = [
+        'llm-class-analyzer',
+        'llm-function-analyzer',
+      ];
+      return parallelTasks.includes(task.id);
+    }
+
+    // Level 4: Relationship tasks can run in parallel
+    if (level === PipelineLevel.RELATIONSHIP) {
+      return true;
+    }
+
+    // Level 5-7: Sequential for consistency
+    return false;
   }
 
   /**
-   * Build the pipeline structure
+   * Build the 7-level pipeline structure
    */
   private buildPipeline(
     context: PipelineContext
   ): Map<PipelineLevel, SubagentTask[]> {
     const pipeline = new Map<PipelineLevel, SubagentTask[]>();
 
-    // Level 1: Analysis Phase (can run in parallel)
-    pipeline.set(PipelineLevel.ANALYSIS, [
+    // =======================================================================
+    // Level 1: DISCOVERY - File discovery and basic information
+    // =======================================================================
+    pipeline.set(PipelineLevel.DISCOVERY, [
       new FileScannerSubagent(),
-      new StructureAnalyzerSubagent(), // Keep for compatibility
-      new DependencyAnalyzerSubagent(), // Keep for compatibility
+      new DependencyAnalyzerSubagent(),
+      new LanguageDetectorSubagent(),
+      new EntryPointFinderSubagent(),
+      new ConfigFinderSubagent(),
       new FrameworkDetectorSubagent(),
-      new ArchitectureAnalyzerSubagent(), // Keep for compatibility
     ]);
 
-    // Level 2: Deep Analysis Phase (needs Level 1 results)
+    // =======================================================================
+    // Level 2: CODE_EXTRACTION - LLM-based universal code extraction
+    // =======================================================================
+    pipeline.set(PipelineLevel.CODE_EXTRACTION, [
+      new LLMUniversalCodeExtractorSubagent(),
+      // OLD: new CodeExtractorSubagent() - replaced with LLM-based extractor
+    ]);
+
+    // =======================================================================
+    // Level 3: DEEP_ANALYSIS - LLM-based deep analysis with feedback loop
+    // =======================================================================
     pipeline.set(PipelineLevel.DEEP_ANALYSIS, [
-      new CodeParserSubagent(),
+      new LLMClassAnalyzerSubagent(),
+      new LLMFunctionAnalyzerSubagent(),
+      new LLMModuleAnalyzerSubagent(), // Runs after class/function analyzers
+    ]);
+
+    // =======================================================================
+    // Level 4: RELATIONSHIP - Relationship building
+    // =======================================================================
+    pipeline.set(PipelineLevel.RELATIONSHIP, [
       new DependencyMapperSubagent(),
-      new PatternRecognizerSubagent(),
-      new FunctionAnalyzerSubagent(),
-      new ClassAnalyzerSubagent(),
-      new APIExtractorSubagent(),
-      new TypeAnalyzerSubagent(),
-      new ModuleDocumenterSubagent(), // Keep for compatibility
-    ]);
-
-    // Level 3: Quality Enhancement Phase
-    pipeline.set(PipelineLevel.QUALITY_ENHANCEMENT, [
-      new ExampleGeneratorSubagent(),
-      new DiagramGeneratorSubagent(), // Keep for compatibility
       new CrossReferencerSubagent(),
+      new InheritanceTreeBuilderSubagent(),
+      new CallGraphBuilderSubagent(),
+      new ModuleBoundaryBuilderSubagent(),
+      new LayerViolationCheckerSubagent(),
     ]);
 
-    // Level 4: Validation Phase
-    pipeline.set(PipelineLevel.VALIDATION, [
+    // =======================================================================
+    // Level 5: DOCUMENTATION - Document generation with feedback loop
+    // =======================================================================
+    pipeline.set(PipelineLevel.DOCUMENTATION, [
+      new ModuleSummaryGeneratorSubagent(),
+      new DiagramGeneratorSubagent(),
+      new FinalDocumentGeneratorSubagent(),
+    ]);
+
+    // =======================================================================
+    // Level 6: QUALITY_REVIEW - Quality review and improvement
+    // =======================================================================
+    pipeline.set(PipelineLevel.QUALITY_REVIEW, [
+      new DocumentQualityReviewerSubagent(),
       new AccuracyValidatorSubagent(),
       new CompletenessCheckerSubagent(),
       new ConsistencyCheckerSubagent(),
+      new SourceReferenceValidatorSubagent(),
+      new LinkValidatorSubagent(),
+      new QualityGateSubagent(),
+      new RegenerationPlannerSubagent(),
+      new RegenerationOrchestratorSubagent(),
+      new PageRegeneratorSubagent(),
     ]);
 
-    // Level 5: Output Phase
+    // =======================================================================
+    // Level 7: OUTPUT - Final output generation
+    // =======================================================================
     pipeline.set(PipelineLevel.OUTPUT, [
-      new OverviewGeneratorSubagent(), // Keep for final document generation
       new MarkdownFormatterSubagent(),
       new TOCGeneratorSubagent(),
       new IndexBuilderSubagent(),
@@ -303,7 +477,7 @@ export class PipelineOrchestrator implements IPipelineOrchestrator {
   getProgress(): { current: number; total: number; currentTask: string } {
     const total = this.state.completedTasks.size + this.state.pendingTasks.size;
     const current = this.state.completedTasks.size;
-    const currentTask = `Level ${this.state.currentLevel}`;
+    const currentTask = this.getLevelName(this.state.currentLevel);
 
     return { current, total, currentTask };
   }
