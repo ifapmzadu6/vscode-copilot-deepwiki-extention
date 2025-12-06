@@ -1,5 +1,10 @@
 import * as vscode from 'vscode';
 
+// Re-export all types from sub-modules
+export * from './pipeline';
+export * from './analysis';
+export * from './validation';
+
 /**
  * Input parameters for the DeepWiki tool
  */

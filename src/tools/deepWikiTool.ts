@@ -2,19 +2,10 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import {
   IDeepWikiParameters,
-  SubagentContext,
-  SubagentTask,
   DeepWikiDocument,
-  ProgressCallback,
+  PipelineContext,
 } from '../types';
-import {
-  StructureAnalyzerSubagent,
-  DependencyAnalyzerSubagent,
-  ArchitectureAnalyzerSubagent,
-  ModuleDocumenterSubagent,
-  DiagramGeneratorSubagent,
-  OverviewGeneratorSubagent,
-} from '../subagents';
+import { PipelineOrchestrator } from '../pipeline/orchestrator';
 
 /**
  * DeepWiki Language Model Tool
@@ -90,8 +81,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     }
 
     try {
-      // Run subagents and generate documentation
-      const document = await this.runSubagents(
+      // Always use the new multi-stage pipeline
+      console.log('[DeepWiki] Using multi-stage pipeline');
+      const document = await this.runPipelineOrchestrator(
         workspaceFolder,
         model,
         params,
@@ -160,73 +152,37 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
   }
 
   /**
-   * Run all subagents sequentially to analyze the workspace
+   * Run the multi-stage pipeline orchestrator
    */
-  private async runSubagents(
+  private async runPipelineOrchestrator(
     workspaceFolder: vscode.WorkspaceFolder,
     model: vscode.LanguageModelChat,
     parameters: IDeepWikiParameters,
     token: vscode.CancellationToken
   ): Promise<DeepWikiDocument> {
-    // Define the subagent pipeline
-    const subagents: SubagentTask[] = [
-      new StructureAnalyzerSubagent(),
-      new DependencyAnalyzerSubagent(),
-      new ArchitectureAnalyzerSubagent(),
-      new ModuleDocumenterSubagent(),
-      new DiagramGeneratorSubagent(),
-      new OverviewGeneratorSubagent(),
-    ];
+    console.log('[DeepWiki] Using new multi-stage pipeline orchestrator');
 
-    // Track results from each subagent
-    const results = new Map<string, unknown>();
-
-    // Progress tracking
-    const totalSteps = subagents.length;
-    let currentStep = 0;
-
-    // Create progress callback
-    const progress: ProgressCallback = (message: string) => {
-      console.log(`[DeepWiki] ${message}`);
-      // In a real implementation, you might use vscode.window.withProgress
-      // but Language Model Tools don't have direct access to that API during invoke
+    const pipelineContext: PipelineContext = {
+      workspaceFolder,
+      model,
+      parameters,
+      token,
     };
 
-    // Run each subagent
-    for (const subagent of subagents) {
-      if (token.isCancellationRequested) {
-        throw new vscode.CancellationError();
-      }
+    const orchestrator = new PipelineOrchestrator();
 
-      currentStep++;
-      progress(`[${currentStep}/${totalSteps}] Running ${subagent.name}...`);
+    // Set progress callback
+    orchestrator.setProgressCallback((message: string) => {
+      console.log(`[Pipeline] ${message}`);
+    });
 
-      const context: SubagentContext = {
-        workspaceFolder,
-        model,
-        parameters,
-        previousResults: results,
-        progress,
-        token,
-      };
+    // Execute the pipeline
+    const results = await orchestrator.execute(pipelineContext);
 
-      try {
-        const result = await subagent.execute(context);
-        results.set(subagent.id, result);
-        progress(`[${currentStep}/${totalSteps}] ${subagent.name} complete`);
-      } catch (error) {
-        if (error instanceof vscode.CancellationError) {
-          throw error;
-        }
-        console.error(`[DeepWiki] Error in ${subagent.name}:`, error);
-        // Continue with other subagents even if one fails
-      }
-    }
-
-    // Return the final document from the overview generator
+    // Extract the final document from results
     const document = results.get('overview-generator') as DeepWikiDocument;
     if (!document) {
-      throw new Error('Failed to generate DeepWiki document');
+      throw new Error('Failed to generate DeepWiki document from pipeline');
     }
 
     return document;

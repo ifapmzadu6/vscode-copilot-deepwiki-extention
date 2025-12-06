@@ -1,7 +1,7 @@
 {
   "name": "deepwiki-generator",
   "displayName": "DeepWiki Generator",
-  "description": "Generate DeepWiki documentation for your workspace using Copilot Chat",
+  "description": "Generate comprehensive DeepWiki documentation using multi-stage AI pipeline with 23 specialized agents",
   "version": "0.0.1",
   "publisher": "your-publisher",
   "engines": {
@@ -14,6 +14,18 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
+    "configuration": {
+      "title": "DeepWiki Generator",
+      "properties": {
+        "deepwiki.maxConcurrency": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 20,
+          "description": "Maximum number of subagent tasks to run concurrently in the multi-stage pipeline. Higher values may be faster but use more resources."
+        }
+      }
+    },
     "languageModelTools": [
       {
         "name": "deepwiki-generator_createDeepWiki",
@@ -25,7 +37,7 @@
         ],
         "toolReferenceName": "createDeepWiki",
         "displayName": "Create DeepWiki",
-        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation. This tool performs multiple analysis passes using subagents to understand the codebase structure, dependencies, architecture, and generates detailed documentation.",
+        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using a multi-stage pipeline with 23 specialized AI agents. The pipeline performs file scanning, code parsing, dependency mapping, framework detection, pattern recognition, function/class analysis, API extraction, type analysis, example generation, cross-referencing, validation (accuracy, completeness, consistency), and professional documentation formatting.",
         "userDescription": "Generate DeepWiki documentation for the current workspace by analyzing code structure, dependencies, and architecture.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
