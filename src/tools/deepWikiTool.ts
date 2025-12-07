@@ -266,7 +266,8 @@ Assigned Components: ${JSON.stringify(chunk)}
 Instructions:
 1. For EACH component, read its L2 extraction (search in intermediate folder) and source code.
 2. **Think about Causality**: Trace logic flow and state changes.
-3. Output: Create a SEPARATE analysis file for EACH component.
+3. **Visualize**: Define at least one specific Mermaid diagram for each component (e.g., Sequence Diagram for flows, State Diagram for lifecycle, Class Diagram for structure).
+4. Output: Create a SEPARATE analysis file for EACH component.
    - For a component named "MyComponent", write to "` + intermediateDir + `/analysis/MyComponent_analysis.md".
 ` + minimalChatResponseConstraint,
                         token,
@@ -292,12 +293,12 @@ Instructions:
 1. Define the High-Level Architecture.
 2. **Analyze Causal Impact**: How does a change in one component propagate to others?
 3. Explain the 'Why' behind the architectural decisions.
-4. Draw a Component Diagram using Mermaid showing how these components interact.
+4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
 
 Output:
 - Write Overview to "` + intermediateDir + `/L4_overview.md".
 - Write Architecture Map to "` + intermediateDir + `/L4_relationships.md".
-- Include ` + bq + `graph TD` + bq + ` or ` + bq + `classDiagram` + bq + `.
+- Include at least TWO diagrams (e.g., ` + bq + `graph TD` + bq + ` for component interactions, ` + bq + `sequenceDiagram` + bq + ` for key flows).
 ` + minimalChatResponseConstraint,
                     token,
                     options.toolInvocationToken
@@ -327,6 +328,10 @@ importance: {High/Medium/Low}
 
 ## Internal Mechanics
 {Describe the internal logic, state management, and data flow. Explain HOW it works, not just WHAT it does.}
+
+` + mdCodeBlock + `mermaid
+%% Sequence diagram or State diagram detailing the internal logic
+` + mdCodeBlock + `
 
 ## Usage Guidelines
 {Description of how and when to use this component}
