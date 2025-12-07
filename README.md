@@ -12,6 +12,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
+-   **Security & Safety**: Sub-agents operate under strict constraints, using only **allow-listed file system and search tools** (`read_file`, `create_file`, `file_search` etc.). Execution of shell commands (`run_in_terminal`) or external processes is strictly forbidden.
 -   **Standard Compliant**: Leverages the standard `runSubagent` tool provided by VS Code / Copilot.
 
 ## Generation Pipeline
@@ -65,7 +66,7 @@ Synthesizes a high-level system overview and maps relationships between componen
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
 ### 5. Level 5: WRITER (Parallel)
-Generates the final documentation pages for each component (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions.
+Generates the final documentation pages for each component (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
 
 ### 6. Level 6: PAGE REVIEWER & RETRY LOOP
 Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, connectivity, formatting).

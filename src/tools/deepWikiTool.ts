@@ -57,12 +57,10 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         const commonConstraints = `
 CONSTRAINTS:
 1. **Security & Tool Usage**:
-   - **FORBIDDEN TOOLS**: You MUST NOT use the following tools:
-     - \`run_in_terminal\`, \`runInTerminal\` (Shell execution is strictly prohibited)
-     - \`runTask\`, \`create_and_run_task\`
-     - \`installExtensions\`, \`searchExtensions\`
-     - \`runTests\`
-   - **ALLOWED TOOLS**: Use standard file system tools (list, read, write) and basic reasoning.
+   - **ALLOWED TOOLS**: You MUST ONLY use the following tools:
+     - File Operations: \`list_dir\`, \`read_file\`, \`create_file\`, \`create_directory\`, \`replace_string_in_file\`, \`multi_replace_string_in_file\`.
+     - Search: \`file_search\`, \`grep_search\`, \`semantic_search\`, \`list_code_usages\`.
+   - **FORBIDDEN**: Do NOT use \`run_in_terminal\`, \`run_task\`, \`install_extension\`, or any other tools not listed above.
 
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep it brief.
