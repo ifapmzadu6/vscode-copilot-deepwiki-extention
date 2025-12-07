@@ -51,6 +51,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         const intermediateDir = `${outputPath}/intermediate`;
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
 
+        // Clean up previous output
+        await this.cleanOutputDirectory(workspaceFolder, outputPath);
+
         const minimalChatResponseConstraint = `
 CONSTRAINT:
 - Do NOT output the full content of any file in your chat response.
@@ -457,6 +460,38 @@ Output:
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(`❌ Pipeline failed: ${msg}`)
             ]);
+        }
+    }
+
+    private async cleanOutputDirectory(
+        workspaceFolder: vscode.WorkspaceFolder,
+        outputPath?: string
+    ): Promise<void> {
+        const dirName = outputPath?.trim() || '.deepwiki';
+        if (dirName === '' || dirName === '.' || dirName === '/' || dirName === '\\') {
+            logger.warn('DeepWiki', 'Skipping cleanup: unsafe output path');
+            return;
+        }
+
+        const targetPath = path.normalize(path.join(workspaceFolder.uri.fsPath, dirName));
+        if (!targetPath.startsWith(path.normalize(workspaceFolder.uri.fsPath + path.sep))) {
+            logger.warn('DeepWiki', `Skipping cleanup: outputPath escapes workspace (${dirName})`);
+            return;
+        }
+
+        const targetUri = vscode.Uri.file(targetPath);
+        logger.log('DeepWiki', `Preparing cleanup for output directory: ${targetUri.fsPath}`);
+        try {
+            await vscode.workspace.fs.delete(targetUri, { recursive: true });
+            logger.log('DeepWiki', `Cleaned output directory: ${targetUri.fsPath}`);
+        } catch (error) {
+            const code = (error as { code?: string }).code;
+            const message = error instanceof Error ? error.message : String(error);
+            if (code === 'FileNotFound' || /ENOENT/.test(message)) {
+                logger.log('DeepWiki', `No existing output directory to clean at: ${targetUri.fsPath}`);
+                return; // nothing to delete
+            }
+            logger.warn('DeepWiki', `Output cleanup skipped: ${message}`);
         }
     }
 
