@@ -320,8 +320,10 @@ importance: {High/Medium/Low}
 ## Summary
 {Description}
 
-## Files
-- {List of files in this component}
+## File Structure
+` + mdCodeBlock + `text
+{ASCII Tree of files in this component with brief descriptions}
+` + mdCodeBlock + `
 
 ## External Interface
 {Describe how other modules interact with this component. List public methods, props, and events.}
@@ -347,9 +349,10 @@ Input: Read "` + intermediateDir + `/analysis/{ComponentName}_analysis.md" for e
 
 Instructions:
 1. For EACH assigned component, create/overwrite its page in "` + outputPath + `/pages/{ComponentName}.md".
-2. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
-3. Avoid static descriptions; tell the story of the data flow.
-4. Use this Template:
+2. **File Tree**: Generate an ASCII tree of the component's files and add a brief comment for each file explaining its role.
+3. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
+4. Avoid static descriptions; tell the story of the data flow.
+5. Use this Template:
 ` + pageTemplate + `
 
 CONSTRAINT: 
