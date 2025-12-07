@@ -54,11 +54,18 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
-        const minimalChatResponseConstraint = `
-CONSTRAINT:
-- Do NOT output the full content of any file in your chat response.
-- ONLY write to the specified files.
-- Your final chat response should be a brief confirmation.
+        const commonConstraints = `
+CONSTRAINTS:
+1. **Security & Tool Usage**:
+   - **FORBIDDEN TOOLS**: You MUST NOT use the following tools:
+     - \`run_in_terminal\`, \`runInTerminal\` (Shell execution is strictly prohibited)
+     - \`runTask\`, \`create_and_run_task\`
+     - \`installExtensions\`, \`searchExtensions\`
+     - \`runTests\`
+   - **ALLOWED TOOLS**: Use standard file system tools (list, read, write) and basic reasoning.
+
+2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep it brief.
 `;
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
@@ -102,7 +109,7 @@ Output:
 ` + jsonExample + `
 ` + mdCodeBlock + `
 - IMPORTANT: Write RAW JSON.
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                 token,
                 options.toolInvocationToken
             );
@@ -139,7 +146,7 @@ Instructions:
 
 Output:
 - Write a critique report to "` + intermediateDir + `/L1_review_report.md".
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                     token,
                     options.toolInvocationToken
                 );
@@ -165,7 +172,7 @@ Instructions:
 Output:
 - Write the FINAL JSON to "` + intermediateDir + `/component_list.json".
 - Format must be valid JSON array.
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                     token,
                     options.toolInvocationToken
                 );
@@ -214,7 +221,7 @@ Output:
 Assigned Components: ${chunkStr}
 Instructions: Extract public API signatures from source code.
 Output: Write to "` + intermediateDir + `/L2_extraction_chunk${index + 1}.md".
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                     token,
                     options.toolInvocationToken
                 );
@@ -269,7 +276,7 @@ Instructions:
 3. **Visualize**: Define at least one specific Mermaid diagram for each component (e.g., Sequence Diagram for flows, State Diagram for lifecycle, Class Diagram for structure).
 4. Output: Create a SEPARATE analysis file for EACH component.
    - For a component named "MyComponent", write to "` + intermediateDir + `/analysis/MyComponent_analysis.md".
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                         token,
                         options.toolInvocationToken
                     );
@@ -299,7 +306,7 @@ Output:
 - Write Overview to "` + intermediateDir + `/L4_overview.md".
 - Write Architecture Map to "` + intermediateDir + `/L4_relationships.md".
 - Include at least TWO diagrams (e.g., ` + bq + `graph TD` + bq + ` for component interactions, ` + bq + `sequenceDiagram` + bq + ` for key flows).
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                     token,
                     options.toolInvocationToken
                 );
@@ -361,7 +368,7 @@ CONSTRAINT:
 - Use tables for API references.
 
 Output: Write files to "` + outputPath + `/pages/".
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                         token,
                         options.toolInvocationToken
                     );
@@ -397,7 +404,7 @@ Instructions:
 Output:
 - Overwrite pages in "` + outputPath + `/pages/" if fixing.
 - Write "` + intermediateDir + `/retry_request.json" ONLY if requesting retries.
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                     token,
                     options.toolInvocationToken
                 );
@@ -450,7 +457,7 @@ Instructions:
 
 Output:
 - Write README.md.
-` + minimalChatResponseConstraint,
+` + commonConstraints,
                 token,
                 options.toolInvocationToken
             );
