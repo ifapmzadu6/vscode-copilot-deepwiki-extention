@@ -325,24 +325,28 @@ importance: {High/Medium/Low}
 ## Summary
 {Description}
 
-## File Structure
-` + mdCodeBlock + `text
+## Use Cases
+{Description of how and when to use this component}
+
+## Internal Mechanics Overview
+${mdCodeBlock}mermaid
+%% Overview diagram (File/Class/State) of the internal structure
+${mdCodeBlock}
+**File Structure:**
+${mdCodeBlock}text
 {ASCII Tree of files in this component with brief descriptions}
-` + mdCodeBlock + `
+${mdCodeBlock}
+
+## Internal Mechanics Details
+{Describe the internal logic, state management, and data flow. Explain HOW it works, not just WHAT it does.}
+
+${mdCodeBlock}mermaid
+%% Sequence diagram or State diagram detailing the internal logic
+${mdCodeBlock}
 
 ## External Interface
 {Describe how other modules interact with this component. List public methods, props, and events.}
-
-## Internal Mechanics
-{Describe the internal logic, state management, and data flow. Explain HOW it works, not just WHAT it does.}
-
-` + mdCodeBlock + `mermaid
-%% Sequence diagram or State diagram detailing the internal logic
-` + mdCodeBlock + `
-
-## Usage Guidelines
-{Description of how and when to use this component}
-`;
+`; // The template ends here
                 const l5Promises = currentChunks.map((chunk, index) => {
                     return this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
@@ -463,7 +467,7 @@ Output:
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
                     '✅ DeepWiki Generation Completed!\n\n' +
-                    `Documented ${componentList.length} components. Check the acktick${outputPath}acktick directory.`
+                    `Documented ${componentList.length} components. Check the \`${outputPath}\` directory.`
                 )
             ]);
 
