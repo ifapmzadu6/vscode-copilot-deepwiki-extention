@@ -93,20 +93,29 @@ CONSTRAINTS:
             await this.runPhase(
                 'L1-A: Drafter',
                 'Draft initial component grouping',
-                `You are the Component Drafter Agent (Level 1-A).
-Your goal is to create an INITIAL draft of logical components.
+                `# Component Drafter Agent (L1-A)
 
-1. Scan the project files (src/).
+## Role
+- **Pipeline Position**: First stage of discovery. You receive nothing and output the initial draft.
+- **Responsibility**: Create a rough grouping of project files into logical components.
+
+## Goal
+Create an INITIAL draft of logical components.
+
+## Instructions
+1. Scan the project files (\`src/\`).
 2. Group related files into Components based on directory structure.
 3. Assign tentative importance (High/Medium/Low).
 
-Output:
-- Write the draft JSON to "` + intermediateDir + `/component_draft.json".
-- **Format**:
-` + mdCodeBlock + `json
-` + jsonExample + `
-` + mdCodeBlock + `
-- IMPORTANT: Write RAW JSON.
+## Output
+Write the draft JSON to \`${intermediateDir}/component_draft.json\`.
+
+**Format**:
+${mdCodeBlock}json
+${jsonExample}
+${mdCodeBlock}
+
+> **IMPORTANT**: Write RAW JSON only.
 ` + commonConstraints,
                 token,
                 options.toolInvocationToken
@@ -120,9 +129,9 @@ Output:
 
             while (l1RetryCount < maxL1Retries) {
                 logger.log('DeepWiki', `L1 Review/Refine Loop: ${l1RetryCount + 1}/${maxL1Retries}`);
-                
-                const retryContextL1 = l1RetryCount > 0 
-                    ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.` 
+
+                const retryContextL1 = l1RetryCount > 0
+                    ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
                     : '';
 
                 // ---------------------------------------------------------
@@ -131,19 +140,26 @@ Output:
                 await this.runPhase(
                     `L1-B: Reviewer (Attempt ${l1RetryCount + 1})`,
                     'Critique component grouping',
-                    `You are the Component Reviewer Agent (Level 1-B).
-Your goal is to CRITIQUE the draft. Do NOT fix it yourself.
+                    `# Component Reviewer Agent (L1-B)
 
-Input: Read "` + intermediateDir + `/component_draft.json".
-Reference: **Use file listing tools to verify the ACTUAL project structure.**
+## Role
+- **Pipeline Position**: Receives L1-A draft → outputs critique report → L1-C refines based on this.
+- **Responsibility**: Quality gate. Identify issues but do NOT fix them.
 
-Instructions:
+## Goal
+CRITIQUE the draft. Do NOT fix it yourself.
+
+## Input
+- Read \`${intermediateDir}/component_draft.json\`
+- **Reference**: Use file listing tools to verify the ACTUAL project structure.
+
+## Instructions
 1. Critique the draft for granularity and accuracy.
 2. **Verification**: Verify that the grouped files actually exist and make sense together.
 3. Check for missing core files or included noise.${retryContextL1}
 
-Output:
-- Write a critique report to "` + intermediateDir + `/L1_review_report.md".
+## Output
+Write a critique report to \`${intermediateDir}/L1_review_report.md\`.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -155,20 +171,26 @@ Output:
                 await this.runPhase(
                     `L1-C: Refiner (Attempt ${l1RetryCount + 1})`,
                     'Refine component list based on review',
-                    `You are the Component Refiner Agent (Level 1-C).
-Your goal is to create the FINAL component list.
+                    `# Component Refiner Agent (L1-C)
 
-Input: 
-- Draft: "` + intermediateDir + `/component_draft.json"
-- Review: "` + intermediateDir + `/L1_review_report.md"
+## Role
+- **Pipeline Position**: Receives L1-A draft + L1-B critique → outputs final component list → L2 uses this.
+- **Responsibility**: Merge feedback and produce the validated JSON.
 
-Instructions:
+## Goal
+Create the FINAL component list.
+
+## Input
+- Draft: \`${intermediateDir}/component_draft.json\`
+- Review: \`${intermediateDir}/L1_review_report.md\`
+
+## Instructions
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
 3. Produce the valid JSON.${retryContextL1}
 
-Output:
-- Write the FINAL JSON to "` + intermediateDir + `/component_list.json".
+## Output
+- Write the FINAL JSON to \`${intermediateDir}/component_list.json\`.
 - Format must be valid JSON array.
 ` + commonConstraints,
                     token,
@@ -183,11 +205,11 @@ Output:
                     const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
                     const contentStr = new TextDecoder().decode(fileListContent);
                     componentList = this.parseJson<ComponentDef[]>(contentStr);
-                    
+
                     if (!Array.isArray(componentList) || componentList.length === 0) {
                         throw new Error('Parsed JSON is not a valid array or is empty.');
                     }
-                    
+
                     logger.log('DeepWiki', `L1 Success: Identified ${componentList.length} logical components.`);
                     isL1Success = true;
                     break; // Exit loop on success
@@ -215,10 +237,26 @@ Output:
                 return this.runPhase(
                     `L2: Extractor (Chunk ${index + 1})`,
                     `Extract entities`,
-                    `You are the Extractor Agent (Level 2).
+                    `# Extractor Agent (L2)
+
+## Role
+- **Pipeline Position**: Receives L1-C component list → outputs API signatures → L3 uses this for analysis.
+- **Responsibility**: Extract precise code signatures. No interpretation, just extraction.
+
+## Input
 Assigned Components: ${chunkStr}
-Instructions: Extract public API signatures from source code.
-Output: Write to "` + intermediateDir + `/L2_extraction_chunk${index + 1}.md".
+
+## Instructions
+1. Extract public API signatures from source code with EXACT parameter names and types.
+2. For each method/function, include:
+   - Full signature (method name, parameters with types, return type)
+   - Brief description of purpose
+3. **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase or summarize parameter names.
+4. For enums, include ALL cases with their raw values (e.g., \`.full = "一日飲み"\`).
+5. For computed properties, include the return type.
+
+## Output
+Write to \`${intermediateDir}/L2_extraction_chunk${index + 1}.md\`.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -247,7 +285,7 @@ Output: Write to "` + intermediateDir + `/L2_extraction_chunk${index + 1}.md".
                 const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
                 const currentChunks: ComponentDef[][] = []; // Array of arrays of ComponentDef
                 const tempChunk: ComponentDef[] = [];
-                for(const component of componentsToAnalyze) {
+                for (const component of componentsToAnalyze) {
                     tempChunk.push(component);
                     if (tempChunk.length === chunkSize) {
                         currentChunks.push([...tempChunk]);
@@ -255,7 +293,7 @@ Output: Write to "` + intermediateDir + `/L2_extraction_chunk${index + 1}.md".
                     }
                 }
                 if (tempChunk.length > 0) currentChunks.push(tempChunk);
-                
+
 
                 // ---------------------------------------------------------
                 // Level 3: ANALYZER (Process current components)
@@ -265,15 +303,27 @@ Output: Write to "` + intermediateDir + `/L2_extraction_chunk${index + 1}.md".
                     return this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, Batch ${index + 1})`,
                         `Analyze ${chunk.length} components`,
-                        `You are the Analyzer Agent (Level 3).
+                        `# Analyzer Agent (L3)
+
+## Role
+- **Pipeline Position**: Receives L2 extractions → outputs deep analysis → L4/L5 use this.
+- **Responsibility**: Understand HOW the code works, trace causality, and create diagrams.
+
+## Input
 Assigned Components: ${JSON.stringify(chunk)}
 
-Instructions:
+## Instructions
 1. For EACH component, read its L2 extraction (search in intermediate folder) and source code.
 2. **Think about Causality**: Trace logic flow and state changes.
 3. **Visualize**: Define at least one specific Mermaid diagram for each component (e.g., Sequence Diagram for flows, State Diagram for lifecycle, Class Diagram for structure).
-4. Output: Create a SEPARATE analysis file for EACH component.
-   - For a component named "MyComponent", write to "` + intermediateDir + `/analysis/MyComponent_analysis.md".
+4. **Cross-Verify**: When documenting values (durations, thresholds, percentages, enum raw values):
+   - ALWAYS read the actual source file to confirm.
+   - Quote the exact value from source (e.g., \`fullDayHours: 9.0\` from line 42).
+   - Do NOT guess or paraphrase values.
+
+## Output
+Create a SEPARATE analysis file for EACH component.
+- For a component named "MyComponent", write to \`${intermediateDir}/analysis/MyComponent_analysis.md\`.
 ` + commonConstraints,
                         token,
                         options.toolInvocationToken
@@ -289,21 +339,28 @@ Instructions:
                 await this.runPhase(
                     `L4: Architect (Loop ${loopCount + 1})`,
                     'Update system overview and maps',
-                    `You are the Architect Agent (Level 4).
-Your goal is to create a system-level overview based on ALL available L3 analysis.
+                    `# Architect Agent (L4)
 
-Input: Read ALL files in "` + intermediateDir + `/analysis/" (including those from previous loops).
+## Role
+- **Pipeline Position**: Receives ALL L3 analysis → outputs system overview → Indexer uses this.
+- **Responsibility**: See the big picture. Map component relationships and explain architectural decisions.
 
-Instructions:
+## Goal
+Create a system-level overview based on ALL available L3 analysis.
+
+## Input
+Read ALL files in \`${intermediateDir}/analysis/\` (including those from previous loops).
+
+## Instructions
 1. Define the High-Level Architecture.
 2. **Analyze Causal Impact**: How does a change in one component propagate to others?
 3. Explain the 'Why' behind the architectural decisions.
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
 
-Output:
-- Write Overview to "` + intermediateDir + `/L4_overview.md".
-- Write Architecture Map to "` + intermediateDir + `/L4_relationships.md".
-- Include at least TWO diagrams (e.g., ` + bq + `graph TD` + bq + ` for component interactions, ` + bq + `sequenceDiagram` + bq + ` for key flows).
+## Output
+- Write Overview to \`${intermediateDir}/L4_overview.md\`.
+- Write Architecture Map to \`${intermediateDir}/L4_relationships.md\`.
+- Include at least TWO diagrams (e.g., \`graph TD\` for component interactions, \`sequenceDiagram\` for key flows).
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -351,25 +408,31 @@ ${mdCodeBlock}
                     return this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
                         `Write documentation pages`,
-                        `You are the Writer Agent (Level 5).
-Assigned Components: ${JSON.stringify(chunk)}
+                        `# Writer Agent (L5)
 
-Input: Read "` + intermediateDir + `/analysis/{ComponentName}_analysis.md" for each assigned component.
+## Role
+- **Pipeline Position**: Receives L3 analysis → outputs final documentation pages → L6 reviews this.
+- **Responsibility**: Transform technical analysis into readable, well-structured documentation.
 
-Instructions:
-1. For EACH assigned component, create/overwrite its page in "` + outputPath + `/pages/{ComponentName}.md".
+## Input
+- Assigned Components: ${JSON.stringify(chunk)}
+- Read \`${intermediateDir}/analysis/{ComponentName}_analysis.md\` for each assigned component.
+
+## Instructions
+1. For EACH assigned component, create/overwrite its page in \`${outputPath}/pages/{ComponentName}.md\`.
 2. **File Tree**: Generate an ASCII tree of the component's files and add a brief comment for each file explaining its role.
 3. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
 4. Avoid static descriptions; tell the story of the data flow.
 5. Use this Template:
 ` + pageTemplate + `
 
-CONSTRAINT: 
+## Constraints
 - **Do NOT include raw source code or implementation details.**
 - **Strictly separate External Interface from Internal Mechanics.**
 - Use tables for API references.
 
-Output: Write files to "` + outputPath + `/pages/".
+## Output
+Write files to \`${outputPath}/pages/\`.
 ` + commonConstraints,
                         token,
                         options.toolInvocationToken
@@ -391,21 +454,36 @@ Output: Write files to "` + outputPath + `/pages/".
                 await this.runPhase(
                     `L6: Page Reviewer (Loop ${loopCount + 1})`,
                     'Review pages and decide on retries',
-                    `You are the Page Reviewer Agent (Level 6).
-Goal: Check pages in "` + outputPath + `/pages/" for quality based on ALL L3 analysis files.
+                    `# Page Reviewer Agent (L6)
 
-Input: Read generated pages in "` + outputPath + `/pages/" AND all L3 analysis files in "` + intermediateDir + `/analysis/".
+## Role
+- **Pipeline Position**: Receives L5 pages + L3 analysis → outputs fixes or retry requests → Final quality gate.
+- **Responsibility**: Ensure accuracy, consistency, and completeness. You are the last line of defense.
 
-Instructions:
+## Goal
+Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
+
+## Input
+- Read generated pages in \`${outputPath}/pages/\`
+- Read all L3 analysis files in \`${intermediateDir}/analysis/\`
+
+## Instructions
 1. **Accuracy**: Verify content against ACTUAL SOURCE CODE. Read the source files referenced in the page to ensure descriptions are correct. Do not trust the text blindly.
 2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders.
 3. **Connectivity**: Verify that all links work and point to existing files.
 4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
-5. ` + retryInstruction + `
+5. **Numerical Consistency**: Check for inconsistent numerical values within the document.
+   - Duration formats: Ensure "8 hours" vs "9 hours" vs "8h" are consistent.
+   - Percentages: Ensure "25%" vs "0.25" are unified.
+   - If values conflict, VERIFY against source code and unify to the correct value.
+6. **Signature Accuracy**: Verify method/function signatures match actual source code.
+   - Parameter names and types must match exactly.
+   - If a signature is incorrect, fix it by reading the actual source file.
+7. ` + retryInstruction + `
 
-Output:
-- Overwrite pages in "` + outputPath + `/pages/" if fixing.
-- Write "` + intermediateDir + `/retry_request.json" ONLY if requesting retries.
+## Output
+- Overwrite pages in \`${outputPath}/pages/\` if fixing.
+- Write \`${intermediateDir}/retry_request.json\` ONLY if requesting retries.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
