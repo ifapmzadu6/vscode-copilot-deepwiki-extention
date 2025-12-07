@@ -445,11 +445,11 @@ Input:
 - Scan "` + outputPath + `/pages/"
 
 Instructions:
-1. Create "` + outputPath + `/README.md" including the L4 Overview and a Table of Contents.
-2. Create "` + outputPath + `/_sidebar.md".
+1. Create "` + outputPath + `/README.md" including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
+   - Categorize pages if possible (e.g., by importance or module type).
 
 Output:
-- Write README.md and _sidebar.md.
+- Write README.md.
 ` + minimalChatResponseConstraint,
                 token,
                 options.toolInvocationToken

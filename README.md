@@ -74,7 +74,7 @@ Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, c
 -   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
 
 ### Indexer
-Compiles the landing page (`README.md` - embedding L4 Overview) and generates the navigation sidebar (`_sidebar.md`).
+Compiles the landing page (`README.md` - embedding L4 Overview and a comprehensive Table of Contents).
 
 ## Usage
 
@@ -89,8 +89,7 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
 
 ```text
 .deepwiki/
-├── README.md               # Main landing page (System Overview)
-├── _sidebar.md             # Navigation sidebar
+├── README.md               # Main landing page (System Overview and Table of Contents)
 ├── pages/                  # Documentation for each component
 │   ├── AuthModule.md
 │   ├── Utils.md
