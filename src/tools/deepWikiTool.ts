@@ -252,11 +252,25 @@ Assigned Components: ${chunkStr}
    - Full signature (method name, parameters with types, return type)
    - Brief description of purpose
 3. **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase or summarize parameter names.
-4. For enums, include ALL cases with their raw values (e.g., \`.full = "一日飲み"\`).
-5. For computed properties, include the return type.
 
 ## Output
 Write to \`${intermediateDir}/L2_extraction_chunk${index + 1}.md\`.
+
+## Self-Verification Phase (MANDATORY)
+After writing the output file:
+1. **Re-read** your output file.
+2. **Compare** extracted signatures against the ACTUAL source code.
+3. **Append** a brief Verification Report at the end:
+
+\`\`\`markdown
+---
+## Verification Report
+| Verified | Notes |
+|----------|-------|
+| ✅/❌ | Brief summary of any fixes made |
+\`\`\`
+
+4. If issues found, **FIX** before completing.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -316,14 +330,27 @@ Assigned Components: ${JSON.stringify(chunk)}
 1. For EACH component, read its L2 extraction (search in intermediate folder) and source code.
 2. **Think about Causality**: Trace logic flow and state changes.
 3. **Visualize**: Define at least one specific Mermaid diagram for each component (e.g., Sequence Diagram for flows, State Diagram for lifecycle, Class Diagram for structure).
-4. **Cross-Verify**: When documenting values (durations, thresholds, percentages, enum raw values):
-   - ALWAYS read the actual source file to confirm.
-   - Quote the exact value from source (e.g., \`fullDayHours: 9.0\` from line 42).
-   - Do NOT guess or paraphrase values.
 
 ## Output
 Create a SEPARATE analysis file for EACH component.
 - For a component named "MyComponent", write to \`${intermediateDir}/analysis/MyComponent_analysis.md\`.
+
+## Self-Verification Phase (MANDATORY)
+After writing each analysis file:
+1. **Re-read** your output file.
+2. **Compare** key values against ACTUAL source code.
+3. **Append** a brief Verification Report at the end:
+
+\`\`\`markdown
+---
+## Verification Report
+| Verified | Notes |
+|----------|-------|
+| ✅/❌ | Brief summary of any fixes made |
+\`\`\`
+
+4. If issues found, **FIX** before completing.
+
 ` + commonConstraints,
                         token,
                         options.toolInvocationToken
