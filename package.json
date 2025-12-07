@@ -1,27 +1,13 @@
 {
   "name": "deepwiki-generator",
   "displayName": "DeepWiki Generator",
-  "description": "Generate comprehensive DeepWiki documentation using multi-stage AI pipeline with 23 specialized agents",
+  "description": "Generate comprehensive DeepWiki documentation using autonomous AI agents.",
   "version": "0.0.1",
   "publisher": "your-publisher",
   "engines": {
     "vscode": "^1.95.0"
   },
-  "dependencies": {
-    "globby": "^16.0.0",
-    "tree-sitter": "0.22.4",
-    "tree-sitter-c": "0.23.6",
-    "tree-sitter-c-sharp": "0.23.1",
-    "tree-sitter-cpp": "0.23.4",
-    "tree-sitter-go": "0.23.4",
-    "tree-sitter-java": "0.21.0",
-    "tree-sitter-kotlin": "0.2.11",
-    "tree-sitter-php": "0.24.2",
-    "tree-sitter-python": "0.23.6",
-    "tree-sitter-ruby": "0.21.0",
-    "tree-sitter-rust": "0.21.0",
-    "tree-sitter-swift": "0.7.1"
-  },
+  "dependencies": {},
   "categories": [
     "AI",
     "Other"
@@ -31,15 +17,7 @@
   "contributes": {
     "configuration": {
       "title": "DeepWiki Generator",
-      "properties": {
-        "deepwiki.maxConcurrency": {
-          "type": "number",
-          "default": 5,
-          "minimum": 1,
-          "maximum": 20,
-          "description": "Maximum number of subagent tasks to run concurrently in the multi-stage pipeline. Higher values may be faster but use more resources."
-        }
-      }
+      "properties": {}
     },
     "languageModelTools": [
       {
@@ -52,8 +30,8 @@
         ],
         "toolReferenceName": "createDeepWiki",
         "displayName": "Create DeepWiki",
-        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using a multi-stage pipeline with 23 specialized AI agents. The pipeline performs file scanning, code parsing, dependency mapping, framework detection, pattern recognition, function/class analysis, API extraction, type analysis, example generation, cross-referencing, validation (accuracy, completeness, consistency), and professional documentation formatting.",
-        "userDescription": "Generate DeepWiki documentation for the current workspace by analyzing code structure, dependencies, and architecture.",
+        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using autonomous sub-agents. It orchestrates a Surveyor, Analyst, and Writer agent to plan, analyze, and document the codebase.",
+        "userDescription": "Generate DeepWiki documentation for the current workspace.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
         "inputSchema": {
@@ -90,7 +68,6 @@
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "eslint": "^8.56.0",
-    "ts-morph": "^22.0.0",
     "typescript": "^5.3.0"
   }
 }

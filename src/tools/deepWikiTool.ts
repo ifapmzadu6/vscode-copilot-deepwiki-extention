@@ -1,807 +1,502 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import {
-  IDeepWikiParameters,
-  DeepWikiDocument,
-  PipelineContext,
-  DependencyAnalysis,
-} from '../types';
-import { ValidationResult } from '../types/validation';
-import {
-  DeepWikiSite,
-  DeepWikiPage,
-  NavigationItem,
-  formatTable,
-  formatSourceReference,
-} from '../types/deepwiki';
-import { PipelineOrchestrator } from '../pipeline/orchestrator';
+import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
 
 /**
- * DeepWiki Language Model Tool
- *
- * This tool generates comprehensive documentation (DeepWiki) for the current workspace
- * by running multiple subagent tasks that analyze different aspects of the codebase.
+ * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
+ * 
+ * Orchestrates a pipeline that documents code by "Logical Components".
+ * Includes a "Critical Failure Loop" where the L6 Reviewer can request re-analysis (L3/L5)
+ * for components with fundamental issues.
  */
 export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameters> {
-  private context: vscode.ExtensionContext;
+    private context: vscode.ExtensionContext;
 
-  constructor(context: vscode.ExtensionContext) {
-    this.context = context;
-  }
-
-  /**
-   * Prepare the tool invocation - show confirmation message
-   */
-  async prepareInvocation(
-    options: vscode.LanguageModelToolInvocationPrepareOptions<IDeepWikiParameters>,
-    _token: vscode.CancellationToken
-  ): Promise<vscode.PreparedToolInvocation> {
-    const workspaceFolder = this.resolveWorkspaceFolder();
-    const workspaceName = workspaceFolder?.name || 'current workspace';
-
-    const confirmationMessages = {
-      title: 'Generate DeepWiki Documentation',
-      message: new vscode.MarkdownString(
-        `Generate comprehensive DeepWiki documentation for **${workspaceName}**?\n\n` +
-          `This will analyze:\n` +
-          `- 📁 File structure and organization\n` +
-          `- 📦 Dependencies and frameworks\n` +
-          `- 🏗️ Architecture patterns\n` +
-          `- 📝 Module documentation\n\n` +
-          `Output: \`${options.input.outputPath || '.deepwiki'}\``
-      ),
-    };
-
-    return {
-      invocationMessage: `Generating DeepWiki for ${workspaceName}...`,
-      confirmationMessages,
-    };
-  }
-
-  /**
-   * Execute the tool - run all subagents and generate documentation
-   */
-  async invoke(
-    options: vscode.LanguageModelToolInvocationOptions<IDeepWikiParameters>,
-    token: vscode.CancellationToken
-  ): Promise<vscode.LanguageModelToolResult> {
-    const params = options.input;
-
-    // Resolve target workspace (prefer active editor's folder)
-    const workspaceFolder = this.resolveWorkspaceFolder();
-    if (!workspaceFolder) {
-      return new vscode.LanguageModelToolResult([
-        new vscode.LanguageModelTextPart(
-          'Error: No workspace folder is open. Please open a folder first.'
-        ),
-      ]);
+    constructor(context: vscode.ExtensionContext) {
+        this.context = context;
     }
 
-    // Get the language model
-    const model = await this.getLanguageModel(token);
-    if (!model) {
-      return new vscode.LanguageModelToolResult([
-        new vscode.LanguageModelTextPart(
-          'Error: Could not access the language model. Please ensure GitHub Copilot is active.'
-        ),
-      ]);
+    async prepareInvocation(
+        options: vscode.LanguageModelToolInvocationPrepareOptions<IDeepWikiParameters>,
+        _token: vscode.CancellationToken
+    ): Promise<vscode.PreparedToolInvocation> {
+        const outputPath = options.input.outputPath || '.deepwiki';
+        return {
+            invocationMessage: 'Initializing DeepWiki Component Pipeline...',
+            confirmationMessages: {
+                title: 'Generate DeepWiki',
+                message: new vscode.MarkdownString(
+                    'Start the DeepWiki generation pipeline?\n\n' +
+                    'This will analyze your workspace by **Components** and generate documentation in `' + outputPath + '`.'
+                ),
+            },
+        };
     }
 
-    try {
-      // Clean output directory once per invocation to avoid mixing runs
-      await this.cleanOutputDirectory(workspaceFolder, params.outputPath);
+    async invoke(
+        options: vscode.LanguageModelToolInvocationOptions<IDeepWikiParameters>,
+        token: vscode.CancellationToken
+    ): Promise<vscode.LanguageModelToolResult> {
+        const params = options.input;
+        const outputPath = params.outputPath || '.deepwiki';
+        const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
-      // Always use the new multi-stage pipeline
-      logger.log('DeepWiki', 'Using multi-stage pipeline');
-      const results = await this.runPipelineOrchestrator(
-        workspaceFolder,
-        model,
-        params,
-        token
-      );
-
-      // Capture rich outputs from the 7-level pipeline
-      const finalResult = results.get('final-document-generator');
-      const finalSite = this.isDeepWikiSite(finalResult) ? finalResult : undefined;
-      const finalDocument = this.isDeepWikiDocument(finalResult) ? finalResult : undefined;
-      const formattedReadme = typeof results.get('markdown-formatter') === 'string'
-        ? (results.get('markdown-formatter') as string)
-        : undefined;
-      const quality = results.get('quality-gate') as ValidationResult | undefined;
-
-      // Build document from pipeline results or from generated DeepWiki site
-      const document =
-        finalDocument ||
-        (finalSite ? this.buildDocumentFromSite(finalSite) : null) ||
-        this.buildDocumentFromResults(results, workspaceFolder);
-
-      if (!document) {
-        throw new Error('Failed to generate DeepWiki document from pipeline');
-      }
-
-      // Write documentation to files
-      const outputPath = await this.writeDocumentation(
-        workspaceFolder,
-        document,
-        finalSite,
-        params.outputPath,
-        {
-          readmeContent: formattedReadme,
-          skipPages: !!finalSite, // keep LLM-generated pages intact if already written by subagent
-          qualityResult: quality,
+        if (!workspaceFolder) {
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart('Error: No workspace folder open.')
+            ]);
         }
-      );
 
-      // Return success result
-      return new vscode.LanguageModelToolResult([
-        new vscode.LanguageModelTextPart(
-          `✅ DeepWiki documentation generated successfully!\n\n` +
-            `📁 Output location: ${outputPath}\n\n` +
-            `## Summary\n` +
-            `- **Project**: ${document.title}\n` +
-            `- **Languages**: ${document.dependencies.languages.join(', ') || 'Unknown'}\n` +
-            `- **Frameworks**: ${document.dependencies.frameworks.join(', ') || 'None'}\n` +
-            `- **Architecture**: ${document.architecture.patterns.join(', ') || 'Unknown'}\n` +
-            `- **Modules documented**: ${document.modules.length}\n` +
-            `- **Files analyzed**: ${document.structure.files.length}\n\n` +
-            `## Overview\n${document.overview}`
-        ),
-      ]);
-    } catch (error) {
-      if (error instanceof vscode.CancellationError) {
-        return new vscode.LanguageModelToolResult([
-          new vscode.LanguageModelTextPart('⚠️ DeepWiki generation was cancelled.'),
-        ]);
-      }
+        const intermediateDir = `${outputPath}/intermediate`;
+        logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return new vscode.LanguageModelToolResult([
-        new vscode.LanguageModelTextPart(
-          `❌ Error generating DeepWiki: ${errorMessage}`
-        ),
-      ]);
-    }
+        const minimalChatResponseConstraint = `
+CONSTRAINT:
+- Do NOT output the full content of any file in your chat response.
+- ONLY write to the specified files.
+- Your final chat response should be a brief confirmation.
+`;
+        const bq = '`';
+        const mdCodeBlock = bq + bq + bq;
+
+        // Define ComponentDef interface globally within invoke scope
+        interface ComponentDef { name: string; files: string[]; importance: string; description: string }
+
+        try {
+            // ==================================================================================
+            // PHASE 1: DISCOVERY & EXTRACTION (The Foundation)
+            // These phases run once to establish the baseline.
+            // ==================================================================================
+
+            // ---------------------------------------------------------
+            // Level 1-A: COMPONENT DRAFTER
+            // ---------------------------------------------------------
+            const jsonExample = `
+[
+  {
+    "name": "Auth Module", 
+    "files": ["src/auth/auth.controller.ts", "src/auth/auth.service.ts"], 
+    "importance": "high",
+    "description": "Handles user authentication"
   }
+]
+`;
+            await this.runPhase(
+                'L1-A: Drafter',
+                'Draft initial component grouping',
+                `You are the Component Drafter Agent (Level 1-A).
+Your goal is to create an INITIAL draft of logical components.
 
-  /**
-   * Get the language model for subagent queries
-   */
-  private async getLanguageModel(
-    token: vscode.CancellationToken
-  ): Promise<vscode.LanguageModelChat | null> {
-    const models = await vscode.lm.selectChatModels({
-      vendor: 'copilot',
-      family: 'gpt-4o',
-    });
+1. Scan the project files (src/).
+2. Group related files into Components based on directory structure.
+3. Assign tentative importance (High/Medium/Low).
 
-    if (models.length > 0) {
-      return models[0];
-    }
+Output:
+- Write the draft JSON to "` + intermediateDir + `/component_draft.json".
+- **Format**:
+` + mdCodeBlock + `json
+` + jsonExample + `
+` + mdCodeBlock + `
+- IMPORTANT: Write RAW JSON.
+` + minimalChatResponseConstraint,
+                token,
+                options.toolInvocationToken
+            );
 
-    // Fall back to any available model
-    const allModels = await vscode.lm.selectChatModels({
-      vendor: 'copilot',
-    });
+            // Loop for Review & Refine
+            let componentList: ComponentDef[] = [];
+            let l1RetryCount = 0;
+            const maxL1Retries = 6;
+            let isL1Success = false;
 
-    return allModels.length > 0 ? allModels[0] : null;
-  }
+            while (l1RetryCount < maxL1Retries) {
+                logger.log('DeepWiki', `L1 Review/Refine Loop: ${l1RetryCount + 1}/${maxL1Retries}`);
+                
+                const retryContextL1 = l1RetryCount > 0 
+                    ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.` 
+                    : '';
 
-  /**
-   * Run the multi-stage pipeline orchestrator
-   */
-  private async runPipelineOrchestrator(
-    workspaceFolder: vscode.WorkspaceFolder,
-    model: vscode.LanguageModelChat,
-    parameters: IDeepWikiParameters,
-    token: vscode.CancellationToken
-  ): Promise<Map<string, unknown>> {
-    logger.log('DeepWiki', 'Using new multi-stage pipeline orchestrator');
+                // ---------------------------------------------------------
+                // Level 1-B: COMPONENT REVIEWER (Critique Only)
+                // ---------------------------------------------------------
+                await this.runPhase(
+                    `L1-B: Reviewer (Attempt ${l1RetryCount + 1})`,
+                    'Critique component grouping',
+                    `You are the Component Reviewer Agent (Level 1-B).
+Your goal is to CRITIQUE the draft. Do NOT fix it yourself.
 
-    const pipelineContext: PipelineContext = {
-      workspaceFolder,
-      model,
-      parameters,
-      token,
-    };
+Input: Read "` + intermediateDir + `/component_draft.json".
+Reference: **Use file listing tools to verify the ACTUAL project structure.**
 
-    const orchestrator = new PipelineOrchestrator();
+Instructions:
+1. Critique the draft for granularity and accuracy.
+2. **Verification**: Verify that the grouped files actually exist and make sense together.
+3. Check for missing core files or included noise.${retryContextL1}
 
-    // Set progress callback
-    orchestrator.setProgressCallback((message: string) => {
-      logger.log('Pipeline', message);
-    });
+Output:
+- Write a critique report to "` + intermediateDir + `/L1_review_report.md".
+` + minimalChatResponseConstraint,
+                    token,
+                    options.toolInvocationToken
+                );
 
-    // Execute the pipeline
-    const results = await orchestrator.execute(pipelineContext);
+                // ---------------------------------------------------------
+                // Level 1-C: COMPONENT REFINER (Fix & Finalize)
+                // ---------------------------------------------------------
+                await this.runPhase(
+                    `L1-C: Refiner (Attempt ${l1RetryCount + 1})`,
+                    'Refine component list based on review',
+                    `You are the Component Refiner Agent (Level 1-C).
+Your goal is to create the FINAL component list.
 
-    return results;
-  }
+Input: 
+- Draft: "` + intermediateDir + `/component_draft.json"
+- Review: "` + intermediateDir + `/L1_review_report.md"
 
-  /**
-   * Write the documentation to files
-   */
-  private async writeDocumentation(
-    workspaceFolder: vscode.WorkspaceFolder,
-    document: DeepWikiDocument,
-    site: DeepWikiSite | undefined,
-    outputPath?: string,
-    options?: {
-      readmeContent?: string;
-      skipPages?: boolean;
-      qualityResult?: ValidationResult;
-    }
-  ): Promise<string> {
-    const basePath = outputPath || '.deepwiki';
-    const fullPath = path.join(workspaceFolder.uri.fsPath, basePath);
+Instructions:
+1. Read the Draft and the Review Report.
+2. Apply the suggested fixes to the component list.
+3. Produce the valid JSON.${retryContextL1}
 
-    // Create output directory
-    const outputUri = vscode.Uri.file(fullPath);
-    try {
-      await vscode.workspace.fs.createDirectory(outputUri);
-    } catch {
-      // Directory might already exist
-    }
+Output:
+- Write the FINAL JSON to "` + intermediateDir + `/component_list.json".
+- Format must be valid JSON array.
+` + minimalChatResponseConstraint,
+                    token,
+                    options.toolInvocationToken
+                );
 
-    // If we have a DeepWiki site, write it in DeepWiki.com format
-    if (site && !options?.skipPages) {
-      await this.writeDeepWikiSite(fullPath, site);
-    }
+                // ---------------------------------------------------------
+                // Check JSON validity
+                // ---------------------------------------------------------
+                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'component_list.json'));
+                try {
+                    const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
+                    const contentStr = new TextDecoder().decode(fileListContent);
+                    componentList = this.parseJson<ComponentDef[]>(contentStr);
+                    
+                    if (!Array.isArray(componentList) || componentList.length === 0) {
+                        throw new Error('Parsed JSON is not a valid array or is empty.');
+                    }
+                    
+                    logger.log('DeepWiki', `L1 Success: Identified ${componentList.length} logical components.`);
+                    isL1Success = true;
+                    break; // Exit loop on success
+                } catch (e) {
+                    logger.error('DeepWiki', `L1 Attempt ${l1RetryCount + 1} Failed: ${e}`);
+                    l1RetryCount++;
+                }
+            }
 
-    // Write main README
-    const readmeContent = options?.readmeContent
-      ? options.readmeContent
-      : this.generateMarkdownReadme(document, site, options?.qualityResult);
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(path.join(fullPath, 'README.md')),
-      new TextEncoder().encode(readmeContent)
-    );
+            if (!isL1Success) {
+                throw new Error('L1 Discovery failed to produce valid components after retries. Pipeline stopped.');
+            }
 
-    // Write raw JSON data
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(path.join(fullPath, 'deepwiki.json')),
-      new TextEncoder().encode(JSON.stringify({ document, site }, null, 2))
-    );
+            // ---------------------------------------------------------
+            // Level 2: EXTRACTOR (Parallel - Runs once for all components)
+            // ---------------------------------------------------------
+            const chunkSize = 3;
+            const chunks = [];
+            for (let i = 0; i < componentList.length; i += chunkSize) {
+                chunks.push(componentList.slice(i, i + chunkSize));
+            }
 
-    return fullPath;
-  }
+            const l2Promises = chunks.map((chunk, index) => {
+                const chunkStr = JSON.stringify(chunk);
+                return this.runPhase(
+                    `L2: Extractor (Chunk ${index + 1})`,
+                    `Extract entities`,
+                    `You are the Extractor Agent (Level 2).
+Assigned Components: ${chunkStr}
+Instructions: Extract public API signatures from source code.
+Output: Write to "` + intermediateDir + `/L2_extraction_chunk${index + 1}.md".
+` + minimalChatResponseConstraint,
+                    token,
+                    options.toolInvocationToken
+                );
+            });
+            await Promise.all(l2Promises);
 
-  /**
-   * Write DeepWiki.com-style site structure
-   */
-  private async writeDeepWikiSite(basePath: string, site: DeepWikiSite): Promise<void> {
-    // Create pages directory
-    const pagesDir = path.join(basePath, 'pages');
-    try {
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(pagesDir));
-    } catch {
-      // Directory might already exist
-    }
 
-    // Write each page as a separate markdown file
-    for (const page of site.pages) {
-      const pageContent = this.renderPage(page, site);
-      const fileName = `${page.slug}.md`;
-      await vscode.workspace.fs.writeFile(
-        vscode.Uri.file(path.join(pagesDir, fileName)),
-        new TextEncoder().encode(pageContent)
-      );
-    }
+            // ==================================================================================
+            // PHASE 2: ANALYSIS & WRITING LOOP (Critical Failure Loop)
+            // L3 -> L4 -> L5 -> L6 -> (Retry L3/L4/L5 if L6 requests)
+            // ==================================================================================
 
-    // Write navigation/sidebar file
-    const sidebarContent = this.renderSidebar(site.navigation);
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(path.join(basePath, '_sidebar.md')),
-      new TextEncoder().encode(sidebarContent)
-    );
+            let componentsToAnalyze = [...componentList]; // All components initially
+            let loopCount = 0;
+            const MAX_LOOPS = 5; // Initial run + 4 retries
 
-    // Write site index
-    await vscode.workspace.fs.writeFile(
-      vscode.Uri.file(path.join(basePath, 'site.json')),
-      new TextEncoder().encode(JSON.stringify(site, null, 2))
-    );
-  }
+            while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
+                logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
 
-  /**
-   * Render a single page to markdown
-   */
-  private renderPage(page: DeepWikiPage, site: DeepWikiSite): string {
-    const lines: string[] = [];
+                // Filter chunks to only include componentsToAnalyze
+                // The chunking logic here is simplified. L3/L5 should be able to handle individual component analysis.
+                // For a more robust solution, L3/L5 should accept an array of component names rather than a chunk.
+                // For now, we'll re-chunk the componentsToAnalyze.
 
-    // Page title
-    lines.push(`# ${page.title}`);
-    lines.push('');
+                const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
+                const currentChunks: ComponentDef[][] = []; // Array of arrays of ComponentDef
+                const tempChunk: ComponentDef[] = [];
+                for(const component of componentsToAnalyze) {
+                    tempChunk.push(component);
+                    if (tempChunk.length === chunkSize) {
+                        currentChunks.push([...tempChunk]);
+                        tempChunk.length = 0; // Clear tempChunk
+                    }
+                }
+                if (tempChunk.length > 0) currentChunks.push(tempChunk);
+                
 
-    // Relevant source files (if any)
-    if (page.sources && page.sources.length > 0) {
-      lines.push('**Relevant source files:**');
-      lines.push('');
-      for (const source of page.sources.slice(0, 5)) {
-        lines.push(`- ${formatSourceReference(source)}`);
-      }
-      lines.push('');
-    }
+                // ---------------------------------------------------------
+                // Level 3: ANALYZER (Process current components)
+                // L3 output files are now component-specific
+                // ---------------------------------------------------------
+                const l3Promises = currentChunks.map((chunk, index) => {
+                    return this.runPhase(
+                        `L3: Analyzer (Loop ${loopCount + 1}, Batch ${index + 1})`,
+                        `Analyze ${chunk.length} components`,
+                        `You are the Analyzer Agent (Level 3).
+Assigned Components: ${JSON.stringify(chunk)}
 
-    // Render each section
-    for (const section of page.sections) {
-      lines.push(`## ${section.title}`);
-      lines.push('');
+Instructions:
+1. For EACH component, read its L2 extraction (search in intermediate folder) and source code.
+2. **Think about Causality**: Trace logic flow and state changes.
+3. Output: Create a SEPARATE analysis file for EACH component.
+   - For a component named "MyComponent", write to "` + intermediateDir + `/analysis/MyComponent_analysis.md".
+` + minimalChatResponseConstraint,
+                        token,
+                        options.toolInvocationToken
+                    );
+                });
+                await Promise.all(l3Promises);
 
-      // Section content
-      if (section.content) {
-        lines.push(section.content);
-        lines.push('');
-      }
+                // ---------------------------------------------------------
+                // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
+                // Input: All L3 analysis files (even from previous loops)
+                // ---------------------------------------------------------
+                const bq = '`'; // Define backtick for Mermaid in L4 prompt
+                await this.runPhase(
+                    `L4: Architect (Loop ${loopCount + 1})`,
+                    'Update system overview and maps',
+                    `You are the Architect Agent (Level 4).
+Your goal is to create a system-level overview based on ALL available L3 analysis.
 
-      // Diagrams
-      if (section.diagrams && section.diagrams.length > 0) {
-        for (const diagram of section.diagrams) {
-          if (diagram) {
-            lines.push('```mermaid');
-            lines.push(diagram);
-            lines.push('```');
-            lines.push('');
-          }
+Input: Read ALL files in "` + intermediateDir + `/analysis/" (including those from previous loops).
+
+Instructions:
+1. Define the High-Level Architecture.
+2. **Analyze Causal Impact**: How does a change in one component propagate to others?
+3. Explain the 'Why' behind the architectural decisions.
+4. Draw a Component Diagram using Mermaid showing how these components interact.
+
+Output:
+- Write Overview to "` + intermediateDir + `/L4_overview.md".
+- Write Architecture Map to "` + intermediateDir + `/L4_relationships.md".
+- Include ` + bq + `graph TD` + bq + ` or ` + bq + `classDiagram` + bq + `.
+` + minimalChatResponseConstraint,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // ---------------------------------------------------------
+                // Level 5: WRITER (Process current components)
+                // ---------------------------------------------------------
+                const mdCodeBlock = bq + bq + bq;
+                const pageTemplate = `
+---
+title: {ComponentName}
+type: component
+importance: {High/Medium/Low}
+---
+
+# {ComponentName}
+
+## Summary
+{Description}
+
+## Files
+- {List of files in this component}
+
+## External Interface
+{Describe how other modules interact with this component. List public methods, props, and events.}
+
+## Internal Mechanics
+{Describe the internal logic, state management, and data flow. Explain HOW it works, not just WHAT it does.}
+
+## Usage Guidelines
+{Description of how and when to use this component}
+`;
+                const l5Promises = currentChunks.map((chunk, index) => {
+                    return this.runPhase(
+                        `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
+                        `Write documentation pages`,
+                        `You are the Writer Agent (Level 5).
+Assigned Components: ${JSON.stringify(chunk)}
+
+Input: Read "` + intermediateDir + `/analysis/{ComponentName}_analysis.md" for each assigned component.
+
+Instructions:
+1. For EACH assigned component, create/overwrite its page in "` + outputPath + `/pages/{ComponentName}.md".
+2. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
+3. Avoid static descriptions; tell the story of the data flow.
+4. Use this Template:
+` + pageTemplate + `
+
+CONSTRAINT: 
+- **Do NOT include raw source code or implementation details.**
+- **Strictly separate External Interface from Internal Mechanics.**
+- Use tables for API references.
+
+Output: Write files to "` + outputPath + `/pages/".
+` + minimalChatResponseConstraint,
+                        token,
+                        options.toolInvocationToken
+                    );
+                });
+                await Promise.all(l5Promises);
+
+                // ---------------------------------------------------------
+                // Level 6: PAGE REVIEWER (Check & Request Retry)
+                // Input: All generated pages and all L3 analysis
+                // ---------------------------------------------------------
+                const isLastLoop = loopCount === MAX_LOOPS - 1;
+                const retryInstruction = isLastLoop
+                    ? `This is the FINAL attempt. Do NOT request retries. Fix minor issues directly within the pages. If a page is fundamentally broken, add a prominent warning note to the page itself, explaining the issue.`
+                    : `If a page has MAJOR missing information or wrong analysis, list the Component Name(s) that need re-analysis (L3/L4/L5) in "` + intermediateDir + `/retry_request.json".
+                       Format: ["Auth Module", "Utils"].
+                       For minor issues (typos, formatting, broken links), fix the page directly.`;
+
+                await this.runPhase(
+                    `L6: Page Reviewer (Loop ${loopCount + 1})`,
+                    'Review pages and decide on retries',
+                    `You are the Page Reviewer Agent (Level 6).
+Goal: Check pages in "` + outputPath + `/pages/" for quality based on ALL L3 analysis files.
+
+Input: Read generated pages in "` + outputPath + `/pages/" AND all L3 analysis files in "` + intermediateDir + `/analysis/".
+
+Instructions:
+1. **Accuracy**: Verify content against ACTUAL SOURCE CODE. Read the source files referenced in the page to ensure descriptions are correct. Do not trust the text blindly.
+2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders.
+3. **Connectivity**: Verify that all links work and point to existing files.
+4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
+5. ` + retryInstruction + `
+
+Output:
+- Overwrite pages in "` + outputPath + `/pages/" if fixing.
+- Write "` + intermediateDir + `/retry_request.json" ONLY if requesting retries.
+` + minimalChatResponseConstraint,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // ---------------------------------------------------------
+                // Check for Retries
+                // ---------------------------------------------------------
+                // L6 requested a retry: need to re-run L3/L4/L5 for specific components
+                const retryFileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'retry_request.json'));
+                let retryNames: string[] | null = null;
+                try {
+                    const retryContent = await vscode.workspace.fs.readFile(retryFileUri);
+                    retryNames = this.parseJson<string[]>(new TextDecoder().decode(retryContent));
+                    await vscode.workspace.fs.delete(retryFileUri); // Delete the retry request file
+                } catch (e) {
+                    // File not found or invalid means no retries requested
+                    logger.log('DeepWiki', 'No retry request found or file invalid.');
+                }
+
+                if (retryNames && Array.isArray(retryNames) && retryNames.length > 0) {
+                    logger.log('DeepWiki', `Reviewer requested retry for: ${retryNames.join(', ')}`);
+                    // Filter componentList to get the actual component objects for retry
+                    componentsToAnalyze = componentList.filter(c => retryNames!.includes(c.name));
+                    if (componentsToAnalyze.length === 0) {
+                        logger.warn('DeepWiki', 'Retry requested for unknown components. Stopping loop.');
+                        break;
+                    }
+                } else {
+                    logger.log('DeepWiki', 'No retries requested. Pipeline finished.');
+                    componentsToAnalyze = []; // Stop loop
+                }
+
+                loopCount++;
+            }
+
+            // ---------------------------------------------------------
+            // INDEXER
+            // ---------------------------------------------------------
+            await this.runPhase(
+                'Indexer',
+                'Create README and Sidebar',
+                `You are the Indexer Agent.
+Input: 
+- "` + intermediateDir + `/L4_overview.md"
+- Scan "` + outputPath + `/pages/"
+
+Instructions:
+1. Create "` + outputPath + `/README.md" including the L4 Overview and a Table of Contents.
+2. Create "` + outputPath + `/_sidebar.md".
+
+Output:
+- Write README.md and _sidebar.md.
+` + minimalChatResponseConstraint,
+                token,
+                options.toolInvocationToken
+            );
+
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(
+                    '✅ DeepWiki Generation Completed!\n\n' +
+                    `Documented ${componentList.length} components. Check the acktick${outputPath}acktick directory.`
+                )
+            ]);
+
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : String(error);
+            logger.error('DeepWiki', `Pipeline failed: ${msg}`);
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(`❌ Pipeline failed: ${msg}`)
+            ]);
         }
-      }
+    }
 
-      // Tables
-      if (section.tables && section.tables.length > 0) {
-        for (const table of section.tables) {
-          lines.push(formatTable(table));
-          lines.push('');
+    private parseJson<T>(content: string): T {
+        let jsonStr = content.trim();
+        const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
+        if (match) {
+            jsonStr = match[1].trim();
         }
-      }
+        return JSON.parse(jsonStr);
+    }
 
-      // Code examples
-      if (section.codeExamples && section.codeExamples.length > 0) {
-        for (const example of section.codeExamples) {
-          if (example.title) {
-            lines.push(`**${example.title}:**`);
-            lines.push('');
-          }
-          lines.push(`\`\`\`${example.language}`);
-          lines.push(example.code);
-          lines.push('```');
-          lines.push('');
+    private async runPhase(
+        agentName: string,
+        description: string,
+        prompt: string,
+        cancellationToken: vscode.CancellationToken,
+        toolInvocationToken: vscode.ChatParticipantToolToken | undefined
+    ): Promise<void> {
+        logger.log('DeepWiki', `>>> Starting Phase: ${agentName}`);
+        try {
+            const result = await vscode.lm.invokeTool(
+                'runSubagent',
+                {
+                    input: {
+                        description: description,
+                        prompt: prompt
+                    },
+                    toolInvocationToken: toolInvocationToken
+                },
+                cancellationToken
+            );
+            for (const part of result.content) {
+                if (part instanceof vscode.LanguageModelTextPart) {
+                    logger.log(agentName, `Result: ${part.value.substring(0, 200)}...`);
+                }
+            }
+        } catch (error) {
+            logger.error(agentName, `Failed: ${error}`);
+            throw error;
         }
-      }
-
-      // Section sources
-      if (section.sources && section.sources.length > 0) {
-        lines.push('');
-        lines.push('**Sources:**');
-        for (const source of section.sources) {
-          lines.push(`- ${formatSourceReference(source)}`);
-        }
-        lines.push('');
-      }
     }
-
-    // Related pages
-    if (page.relatedPages && page.relatedPages.length > 0) {
-      lines.push('---');
-      lines.push('');
-      lines.push('**See also:**');
-      for (const relatedId of page.relatedPages) {
-        const relatedPage = site.pages.find(p => p.id === relatedId);
-        if (relatedPage) {
-          lines.push(`- [${relatedPage.title}](${relatedPage.slug}.md)`);
-        }
-      }
-      lines.push('');
-    }
-
-    return lines.join('\n');
-  }
-
-  /**
-   * Render sidebar navigation
-   */
-  private renderSidebar(navigation: NavigationItem[]): string {
-    const lines: string[] = [];
-    lines.push('<!-- DeepWiki Navigation -->');
-    lines.push('');
-
-    for (const item of navigation) {
-      lines.push(`- [${item.title}](pages/${item.path})`);
-      
-      if (item.children && item.children.length > 0) {
-        for (const child of item.children) {
-          lines.push(`  - [${child.title}](pages/${child.path})`);
-        }
-      }
-    }
-
-    return lines.join('\n');
-  }
-
-  /**
-   * Generate the main README markdown
-   */
-  private generateMarkdownReadme(
-    doc: DeepWikiDocument,
-    site?: DeepWikiSite,
-    quality?: ValidationResult
-  ): string {
-    const lines: string[] = [];
-
-    lines.push(`# ${doc.title}`);
-    lines.push('');
-    lines.push(`> Generated by DeepWiki on ${new Date(doc.generatedAt).toLocaleDateString()}`);
-    lines.push('');
-    
-    // Add navigation links if site is available
-    if (site && site.navigation.length > 0) {
-      lines.push('## 📚 Documentation');
-      lines.push('');
-      for (const nav of site.navigation) {
-        lines.push(`- [${nav.title}](pages/${nav.path})`);
-        if (nav.children && nav.children.length > 0) {
-          for (const child of nav.children) {
-            lines.push(`  - [${child.title}](pages/${child.path})`);
-          }
-        }
-      }
-      lines.push('');
-    }
-
-    lines.push('## Overview');
-    lines.push('');
-    lines.push(doc.overview);
-    lines.push('');
-    lines.push('## Quick Facts');
-    lines.push('');
-    lines.push(`| Property | Value |`);
-    lines.push(`| --- | --- |`);
-    lines.push(`| **Languages** | ${doc.dependencies.languages.join(', ') || 'Unknown'} |`);
-    lines.push(`| **Frameworks** | ${doc.dependencies.frameworks.join(', ') || 'None'} |`);
-    lines.push(`| **Package Manager** | ${doc.dependencies.packageManager || 'Unknown'} |`);
-    lines.push(`| **Architecture Patterns** | ${doc.architecture.patterns.join(', ') || 'Unknown'} |`);
-    lines.push('');
-    if (quality) {
-      lines.push('## Quality Summary');
-      lines.push('');
-      lines.push(`- Overall Score: ${(quality.overallScore * 100).toFixed(1)}% (${quality.isValid ? 'pass' : 'fail'})`);
-      lines.push(`- Accuracy: ${(quality.accuracy.score * 100).toFixed(1)}%`);
-      lines.push(`- Completeness: ${(quality.completeness.score * 100).toFixed(1)}%`);
-      lines.push(`- Consistency: ${(quality.consistency.score * 100).toFixed(1)}%`);
-      if (quality.recommendations?.length) {
-        lines.push('- Top Recommendations:');
-        for (const rec of quality.recommendations.slice(0, 3)) {
-          lines.push(`  - (${rec.priority}) ${rec.title}: ${rec.action}`);
-        }
-      }
-      lines.push('');
-    }
-    lines.push('## Architecture Overview');
-    lines.push('');
-    if (doc.diagrams?.architectureOverview) {
-      lines.push('```mermaid');
-      lines.push(doc.diagrams.architectureOverview);
-      lines.push('```');
-      lines.push('');
-    }
-    if (doc.architecture.patterns.length > 0) {
-      lines.push(`**Patterns:** ${doc.architecture.patterns.join(', ')}`);
-      lines.push('');
-    }
-    if (doc.diagrams?.moduleDependencies) {
-      lines.push('### Module Dependencies');
-      lines.push('');
-      lines.push('```mermaid');
-      lines.push(doc.diagrams.moduleDependencies);
-      lines.push('```');
-      lines.push('');
-    }
-    if (doc.architecture.modules.length > 0) {
-      lines.push('### Key Modules');
-      lines.push('');
-      for (const mod of doc.architecture.modules.slice(0, 10)) {
-        lines.push(`- **${mod.name}** (\`${mod.path}\`): ${mod.description}`);
-      }
-      lines.push('');
-    }
-    lines.push('## Project Structure');
-    lines.push('');
-    lines.push('### Layers');
-    lines.push('');
-    for (const layer of doc.architecture.layers) {
-      lines.push(`- ${layer}`);
-    }
-    lines.push('');
-    lines.push('### Entry Points');
-    lines.push('');
-    for (const entry of doc.structure.entryPoints) {
-      lines.push(`- \`${entry}\``);
-    }
-    lines.push('');
-    lines.push('### Configuration Files');
-    lines.push('');
-    for (const config of doc.structure.configFiles.slice(0, 10)) {
-      lines.push(`- \`${config}\``);
-    }
-    lines.push('');
-    lines.push('## Modules');
-    lines.push('');
-    
-    // Create a table for modules
-    lines.push('| Module | Path | Description |');
-    lines.push('| --- | --- | --- |');
-    for (const mod of doc.modules.slice(0, 20)) {
-      lines.push(`| **${mod.name}** | \`${mod.path}\` | ${mod.description.split('\n')[0]} |`);
-    }
-    lines.push('');
-    lines.push('## API Highlights');
-    lines.push('');
-    if (doc.modules.length === 0) {
-      lines.push('No API surface detected.');
-      lines.push('');
-    } else {
-      for (const mod of doc.modules.slice(0, 8)) {
-        lines.push(`### ${mod.name}`);
-        lines.push('');
-        lines.push(mod.description.split('\n')[0] || '');
-        lines.push('');
-
-        const exports = mod.api?.exports || [];
-        if (exports.length > 0) {
-          lines.push('| Export | Kind | Visibility |');
-          lines.push('| --- | --- | --- |');
-          for (const exp of exports.slice(0, 10)) {
-            const visibility = exp.isPublic ? 'public' : 'internal';
-            lines.push(`| \`${exp.name}\` | ${exp.type} | ${visibility} |`);
-          }
-          lines.push('');
-        } else {
-          lines.push('No exports detected.');
-          lines.push('');
-        }
-      }
-    }
-    if (site) {
-      lines.push('---');
-      lines.push('');
-      lines.push('*See the [pages/](./pages/) directory for detailed documentation.*');
-    }
-
-    return lines.join('\n');
-  }
-
-  /**
-   * Build a DeepWikiDocument from pipeline results
-   */
-  private buildDocumentFromResults(
-    results: Map<string, unknown>,
-    workspaceFolder?: vscode.WorkspaceFolder
-  ): DeepWikiDocument | null {
-    try {
-      const fileScanner = results.get('file-scanner') as
-        | Array<{ relativePath: string; language?: string; size?: number }>
-        | { files: Array<{ relativePath: string; language?: string; size?: number }> }
-        | undefined;
-      const frameworkDetector = results.get('framework-detector') as Array<{ name: string }> | undefined;
-      const dependencyAnalysis = results.get('dependency-analyzer') as DependencyAnalysis | undefined;
-      const languageDetection = results.get('language-detector') as
-        | { all?: string[]; primary?: string | null }
-        | undefined;
-      const entryPointFinder = results.get('entry-point-finder') as string[] | { entryPoints?: string[] } | undefined;
-      const configFinder = results.get('config-finder') as string[] | { configs?: string[] } | undefined;
-      const moduleSummaries = results.get('module-summary-generator') as Array<{
-        modulePath: string;
-        summary: string;
-      }> | undefined;
-
-      const workspaceName = workspaceFolder?.name || vscode.workspace.workspaceFolders?.[0]?.name || 'Project';
-      const workspaceUri = workspaceFolder?.uri || vscode.workspace.workspaceFolders?.[0]?.uri;
-
-      // Build WorkspaceFile array from file scanner results
-      const filesInput = Array.isArray(fileScanner)
-        ? fileScanner
-        : fileScanner?.files || [];
-
-      const files = filesInput.map((f) => ({
-        uri: workspaceUri ? vscode.Uri.joinPath(workspaceUri, f.relativePath) : vscode.Uri.file(f.relativePath),
-        relativePath: f.relativePath,
-        language: this.detectLanguage(f.relativePath),
-        size: f.size ?? 0,
-      }));
-
-      return {
-        title: `${workspaceName} Documentation`,
-        generatedAt: new Date().toISOString(),
-        overview: 'Documentation generated by DeepWiki 7-level pipeline.',
-        dependencies: {
-          languages: languageDetection?.all || dependencyAnalysis?.languages || [],
-          frameworks: frameworkDetector ? frameworkDetector.map((f) => f.name) : dependencyAnalysis?.frameworks || [],
-          packageManager: dependencyAnalysis?.packageManager || null,
-          dependencies: dependencyAnalysis?.dependencies || {},
-          devDependencies: dependencyAnalysis?.devDependencies || {},
-        },
-        architecture: {
-          patterns: [],
-          layers: [],
-          modules: [],
-          entryPoints: (entryPointFinder && Array.isArray(entryPointFinder)
-            ? entryPointFinder
-            : entryPointFinder && (entryPointFinder as { entryPoints?: string[] }).entryPoints) || [],
-        },
-        modules: (moduleSummaries || []).map((m) => ({
-          name: m.modulePath.split('/').pop() || m.modulePath,
-          path: m.modulePath,
-          description: m.summary,
-          usage: '',
-          api: {
-            path: m.modulePath,
-            summary: m.summary,
-            exports: [],
-            imports: [],
-            classes: [],
-            functions: [],
-          },
-        })),
-        diagrams: {
-          architectureOverview: '',
-          moduleDependencies: '',
-          directoryStructure: '',
-          layerDiagram: '',
-        },
-        structure: {
-          rootPath: workspaceUri?.fsPath || '',
-          files,
-          directories: [],
-          entryPoints: (entryPointFinder && Array.isArray(entryPointFinder)
-            ? entryPointFinder
-            : entryPointFinder && (entryPointFinder as { entryPoints?: string[] }).entryPoints) || [],
-          configFiles: (configFinder && Array.isArray(configFinder)
-            ? configFinder
-            : configFinder && (configFinder as { configs?: string[] }).configs) || [],
-        },
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  /**
-   * Build a DeepWikiDocument from a generated DeepWikiSite
-   */
-  private buildDocumentFromSite(site: DeepWikiSite): DeepWikiDocument {
-    const overviewPage =
-      site.pages.find((p) => p.slug === 'overview' || p.id.includes('overview')) ||
-      site.pages[0];
-    const overviewContent = overviewPage
-      ? overviewPage.sections.map((s) => s.content || '').join('\n\n')
-      : 'Documentation generated by DeepWiki pipeline.';
-
-    return {
-      title: site.projectName || 'Project Documentation',
-      generatedAt: site.generatedAt,
-      overview: overviewContent,
-      dependencies: {
-        languages: [],
-        frameworks: [],
-        packageManager: null,
-        dependencies: {},
-        devDependencies: {},
-      },
-      architecture: {
-        patterns: [],
-        layers: [],
-        modules: [],
-        entryPoints: [],
-      },
-      modules: [],
-      diagrams: {
-        architectureOverview: '',
-        moduleDependencies: '',
-        directoryStructure: '',
-        layerDiagram: '',
-      },
-      structure: {
-        rootPath: '',
-        files: [],
-        directories: [],
-        entryPoints: [],
-        configFiles: [],
-      },
-    };
-  }
-
-  private isDeepWikiSite(value: unknown): value is DeepWikiSite {
-    return Boolean(
-      value &&
-      typeof value === 'object' &&
-      'pages' in (value as Record<string, unknown>) &&
-      'navigation' in (value as Record<string, unknown>)
-    );
-  }
-
-  private isDeepWikiDocument(value: unknown): value is DeepWikiDocument {
-    return Boolean(
-      value &&
-      typeof value === 'object' &&
-      'modules' in (value as Record<string, unknown>) &&
-      'dependencies' in (value as Record<string, unknown>)
-    );
-  }
-
-  /**
-   * Prefer the workspace folder of the active editor; fall back to the first workspace.
-   */
-  private resolveWorkspaceFolder(): vscode.WorkspaceFolder | null {
-    const activeUri = vscode.window.activeTextEditor?.document.uri;
-    if (activeUri) {
-      const folder = vscode.workspace.getWorkspaceFolder(activeUri);
-      if (folder) {
-        return folder;
-      }
-    }
-    const folders = vscode.workspace.workspaceFolders;
-    return folders && folders.length > 0 ? folders[0] : null;
-  }
-
-  /**
-   * Remove the existing DeepWiki output directory before a fresh run.
-   * Safeguards prevent deleting workspace root.
-   */
-  private async cleanOutputDirectory(
-    workspaceFolder: vscode.WorkspaceFolder,
-    outputPath?: string
-  ): Promise<void> {
-    const dirName = outputPath?.trim() || '.deepwiki';
-    if (dirName === '' || dirName === '.' || dirName === '/' || dirName === '\\') {
-      logger.warn('DeepWiki', 'Skipping cleanup: unsafe output path');
-      return;
-    }
-
-    // Normalize and ensure target stays inside workspace
-    const targetPath = path.normalize(path.join(workspaceFolder.uri.fsPath, dirName));
-    if (!targetPath.startsWith(path.normalize(workspaceFolder.uri.fsPath + path.sep))) {
-      logger.warn('DeepWiki', `Skipping cleanup: outputPath escapes workspace (${dirName})`);
-      return;
-    }
-
-    const targetUri = vscode.Uri.file(targetPath);
-    logger.log('DeepWiki', `Preparing cleanup for output directory: ${targetUri.fsPath}`);
-    try {
-      await vscode.workspace.fs.delete(targetUri, { recursive: true });
-      logger.log('DeepWiki', `Cleaned output directory: ${targetUri.fsPath}`);
-    } catch (error) {
-      const code = (error as { code?: string }).code;
-      const message = error instanceof Error ? error.message : String(error);
-      if (code === 'FileNotFound' || /ENOENT/.test(message)) {
-        logger.log('DeepWiki', `No existing output directory to clean at: ${targetUri.fsPath}`);
-        return; // nothing to delete
-      }
-      logger.warn('DeepWiki', `Output cleanup skipped: ${message}`);
-    }
-  }
-
-  /**
-   * Detect language from file extension
-   */
-  private detectLanguage(filePath: string): string {
-    const ext = path.extname(filePath).toLowerCase();
-    const languageMap: Record<string, string> = {
-      '.ts': 'typescript',
-      '.tsx': 'typescriptreact',
-      '.js': 'javascript',
-      '.jsx': 'javascriptreact',
-      '.py': 'python',
-      '.java': 'java',
-      '.go': 'go',
-      '.rs': 'rust',
-      '.rb': 'ruby',
-      '.php': 'php',
-      '.cs': 'csharp',
-      '.cpp': 'cpp',
-      '.c': 'c',
-      '.md': 'markdown',
-      '.json': 'json',
-      '.yaml': 'yaml',
-      '.yml': 'yaml',
-    };
-    return languageMap[ext] || 'plaintext';
-  }
 }
