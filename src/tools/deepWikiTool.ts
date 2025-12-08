@@ -79,6 +79,7 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
      - L5-Pre-A Drafter: Creates initial page grouping proposal${currentStage === 'L5-Pre-A' ? ' **← YOU**' : ''}
      - L5-Pre-B Reviewer: Critiques the draft groupings${currentStage === 'L5-Pre-B' ? ' **← YOU**' : ''}
      - L5-Pre-C Refiner: Produces final page_structure.json${currentStage === 'L5-Pre-C' ? ' **← YOU**' : ''}
+     - Runs with retry loop (max 6 attempts) until valid JSON is produced
    - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages based on page_structure.json
    - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
    - Loop continues if L6 identifies components needing re-analysis
@@ -504,7 +505,14 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
   }
 ]
 `;
-                // L5-Pre-A: Page Structure Drafter
+                // L5-Pre retry loop variables
+                interface PageGroup { pageName: string; components: string[]; rationale: string }
+                let pageStructure: PageGroup[] = [];
+                let l5PreRetryCount = 0;
+                const maxL5PreRetries = 6;
+                let isL5PreSuccess = false;
+
+                // L5-Pre-A: Page Structure Drafter (runs once before retry loop)
                 await this.runPhase(
                     `L5-Pre-A: Drafter (Loop ${loopCount + 1})`,
                     'Draft initial page structure',
@@ -552,11 +560,19 @@ ${mdCodeBlock}
                     options.toolInvocationToken
                 );
 
-                // L5-Pre-B: Page Structure Reviewer
-                await this.runPhase(
-                    `L5-Pre-B: Reviewer (Loop ${loopCount + 1})`,
-                    'Review page structure draft',
-                    `# Page Structure Reviewer Agent (L5-Pre-B)
+                // L5-Pre Review/Refine Loop
+                while (l5PreRetryCount < maxL5PreRetries) {
+                    logger.log('DeepWiki', `L5-Pre Review/Refine Loop: ${l5PreRetryCount + 1}/${maxL5PreRetries}`);
+
+                    const retryContextL5Pre = l5PreRetryCount > 0
+                        ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
+                        : '';
+
+                    // L5-Pre-B: Page Structure Reviewer
+                    await this.runPhase(
+                        `L5-Pre-B: Reviewer (Loop ${loopCount + 1}, Attempt ${l5PreRetryCount + 1})`,
+                        'Review page structure draft',
+                        `# Page Structure Reviewer Agent (L5-Pre-B)
 
 ## Role
 - **Your Stage**: L5-Pre-B Reviewer (Page Consolidation Phase - Quality Gate)
@@ -592,17 +608,17 @@ Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
 Include:
 - Issues found (if any)
 - Suggested improvements
-- Overall assessment (Good/Needs Work)
+- Overall assessment (Good/Needs Work)${retryContextL5Pre}
 ` + commonConstraints,
-                    token,
-                    options.toolInvocationToken
-                );
+                        token,
+                        options.toolInvocationToken
+                    );
 
-                // L5-Pre-C: Page Structure Refiner
-                await this.runPhase(
-                    `L5-Pre-C: Refiner (Loop ${loopCount + 1})`,
-                    'Finalize page structure',
-                    `# Page Structure Refiner Agent (L5-Pre-C)
+                    // L5-Pre-C: Page Structure Refiner
+                    await this.runPhase(
+                        `L5-Pre-C: Refiner (Loop ${loopCount + 1}, Attempt ${l5PreRetryCount + 1})`,
+                        'Finalize page structure',
+                        `# Page Structure Refiner Agent (L5-Pre-C)
 
 ## Role
 - **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
@@ -621,7 +637,7 @@ Create the FINAL page structure by applying review feedback.
 ## Instructions
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
-3. Produce the final valid JSON.
+3. Produce the final valid JSON.${retryContextL5Pre}
 
 ## Output
 Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
@@ -637,22 +653,35 @@ ${mdCodeBlock}
 - \`rationale\` explains why these components belong together (or why a component stands alone)
 - Output must be valid JSON array
 ` + commonConstraints,
-                    token,
-                    options.toolInvocationToken
-                );
+                        token,
+                        options.toolInvocationToken
+                    );
 
-                // Read page structure for L5
-                interface PageGroup { pageName: string; components: string[]; rationale: string }
-                let pageStructure: PageGroup[] = [];
-                const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
-                try {
-                    const pageStructureContent = await vscode.workspace.fs.readFile(pageStructureUri);
-                    pageStructure = this.parseJson<PageGroup[]>(new TextDecoder().decode(pageStructureContent));
-                    finalPageCount = pageStructure.length;
-                    logger.log('DeepWiki', `Page Consolidator: ${componentList.length} components -> ${pageStructure.length} pages`);
-                } catch (e) {
-                    // Fallback: one page per component
-                    logger.warn('DeepWiki', `Failed to read page_structure.json, falling back to 1:1 mapping: ${e}`);
+                    // ---------------------------------------------------------
+                    // Check JSON validity for L5-Pre
+                    // ---------------------------------------------------------
+                    const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
+                    try {
+                        const pageStructureContent = await vscode.workspace.fs.readFile(pageStructureUri);
+                        pageStructure = this.parseJson<PageGroup[]>(new TextDecoder().decode(pageStructureContent));
+
+                        if (!Array.isArray(pageStructure) || pageStructure.length === 0) {
+                            throw new Error('Parsed JSON is not a valid array or is empty.');
+                        }
+
+                        finalPageCount = pageStructure.length;
+                        logger.log('DeepWiki', `L5-Pre Success: ${componentList.length} components -> ${pageStructure.length} pages`);
+                        isL5PreSuccess = true;
+                        break; // Exit loop on success
+                    } catch (e) {
+                        logger.error('DeepWiki', `L5-Pre Attempt ${l5PreRetryCount + 1} Failed: ${e}`);
+                        l5PreRetryCount++;
+                    }
+                }
+
+                // Fallback if L5-Pre failed after all retries
+                if (!isL5PreSuccess) {
+                    logger.warn('DeepWiki', `L5-Pre failed after ${maxL5PreRetries} retries, falling back to 1:1 mapping`);
                     pageStructure = componentsForThisLoop.map(name => ({
                         pageName: name,
                         components: [name],
