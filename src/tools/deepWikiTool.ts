@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
+import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
 
 /**
  * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
@@ -49,7 +50,8 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         }
 
         const intermediateDir = `${outputPath}/intermediate`;
-        logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
+        const maxConcurrency = vscode.workspace.getConfiguration('deepwiki').get<number>('maxConcurrency', DEFAULT_MAX_CONCURRENCY);
+        logger.log('DeepWiki', `Starting Component-Based Pipeline... (maxConcurrency: ${maxConcurrency})`);
 
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
@@ -232,9 +234,10 @@ Create the FINAL component list.
                 chunks.push(componentList.slice(i, i + chunkSize));
             }
 
-            const l2Promises = chunks.map((chunk, index) => {
+            // Create tasks for L2 extraction (limited concurrency to avoid rate limits)
+            const l2Tasks = chunks.map((chunk, index) => {
                 const chunkStr = JSON.stringify(chunk);
-                return this.runPhase(
+                return () => this.runPhase(
                     `L2: Extractor (Chunk ${index + 1})`,
                     `Extract entities`,
                     `# Extractor Agent (L2)
@@ -276,7 +279,8 @@ After writing the output file:
                     options.toolInvocationToken
                 );
             });
-            await Promise.all(l2Promises);
+            logger.log('DeepWiki', `Running L2 Extractor with max concurrency: ${maxConcurrency}`);
+            await runWithConcurrencyLimit(l2Tasks, maxConcurrency);
 
 
             // ==================================================================================
@@ -313,8 +317,9 @@ After writing the output file:
                 // Level 3: ANALYZER (Process current components)
                 // L3 output files are now component-specific
                 // ---------------------------------------------------------
-                const l3Promises = currentChunks.map((chunk, index) => {
-                    return this.runPhase(
+                // Create tasks for L3 analysis (limited concurrency to avoid rate limits)
+                const l3Tasks = currentChunks.map((chunk, index) => {
+                    return () => this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, Batch ${index + 1})`,
                         `Analyze ${chunk.length} components`,
                         `# Analyzer Agent (L3)
@@ -356,7 +361,8 @@ After writing each analysis file:
                         options.toolInvocationToken
                     );
                 });
-                await Promise.all(l3Promises);
+                logger.log('DeepWiki', `Running L3 Analyzer with max concurrency: ${maxConcurrency}`);
+                await runWithConcurrencyLimit(l3Tasks, maxConcurrency);
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -431,8 +437,9 @@ ${mdCodeBlock}
 ## External Interface
 {Describe how other modules interact with this component. List public methods, props, and events.}
 `; // The template ends here
-                const l5Promises = currentChunks.map((chunk, index) => {
-                    return this.runPhase(
+                // Create tasks for L5 writing (limited concurrency to avoid rate limits)
+                const l5Tasks = currentChunks.map((chunk, index) => {
+                    return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
                         `Write documentation pages`,
                         `# Writer Agent (L5)
@@ -465,7 +472,8 @@ Write files to \`${outputPath}/pages/\`.
                         options.toolInvocationToken
                     );
                 });
-                await Promise.all(l5Promises);
+                logger.log('DeepWiki', `Running L5 Writer with max concurrency: ${maxConcurrency}`);
+                await runWithConcurrencyLimit(l5Tasks, maxConcurrency);
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)
