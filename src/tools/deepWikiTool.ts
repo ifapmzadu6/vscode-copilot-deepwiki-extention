@@ -50,8 +50,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         }
 
         const intermediateDir = `${outputPath}/intermediate`;
-        const maxConcurrency = vscode.workspace.getConfiguration('deepwiki').get<number>('maxConcurrency', DEFAULT_MAX_CONCURRENCY);
-        logger.log('DeepWiki', `Starting Component-Based Pipeline... (maxConcurrency: ${maxConcurrency})`);
+        logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
 
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
@@ -279,8 +278,7 @@ After writing the output file:
                     options.toolInvocationToken
                 );
             });
-            logger.log('DeepWiki', `Running L2 Extractor with max concurrency: ${maxConcurrency}`);
-            await runWithConcurrencyLimit(l2Tasks, maxConcurrency);
+            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY);
 
 
             // ==================================================================================
@@ -361,8 +359,7 @@ After writing each analysis file:
                         options.toolInvocationToken
                     );
                 });
-                logger.log('DeepWiki', `Running L3 Analyzer with max concurrency: ${maxConcurrency}`);
-                await runWithConcurrencyLimit(l3Tasks, maxConcurrency);
+                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY);
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -472,8 +469,7 @@ Write files to \`${outputPath}/pages/\`.
                         options.toolInvocationToken
                     );
                 });
-                logger.log('DeepWiki', `Running L5 Writer with max concurrency: ${maxConcurrency}`);
-                await runWithConcurrencyLimit(l5Tasks, maxConcurrency);
+                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY);
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)

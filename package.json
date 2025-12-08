@@ -17,15 +17,7 @@
   "contributes": {
     "configuration": {
       "title": "DeepWiki Generator",
-      "properties": {
-        "deepwiki.maxConcurrency": {
-          "type": "number",
-          "default": 5,
-          "minimum": 1,
-          "maximum": 10,
-          "description": "Maximum number of subagent tasks to run concurrently. Lower values reduce API rate limit issues."
-        }
-      }
+      "properties": {}
     },
     "languageModelTools": [
       {
