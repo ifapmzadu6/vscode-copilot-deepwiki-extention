@@ -61,16 +61,23 @@ PIPELINE OVERVIEW:
 This is a multi-stage agentic pipeline designed to generate comprehensive component-based documentation.
 
 **Complete Pipeline Flow:**
+0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
+   - Analyzes project structure, build system, and conditional code patterns
+   - Outputs \`project_context.md\` for downstream agents to reference
+   - Identifies feature flags, target environments, and generated/excluded code
+
 1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
    - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
    - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
    - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
    - Runs with retry loop (max 6 attempts) until valid JSON is produced
+   - Uses L0 context to understand project structure
 
 2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
    - Extracts API signatures, internal logic, side effects, and dependency relationships
    - Runs in parallel batches (3 components per batch)
    - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
+   - Notes conditional code patterns based on L0 context
 
 3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
    - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
@@ -90,6 +97,7 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
    - Sanitizes any intermediate references
 
 **Strategic Context:**
+- **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
 - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
 - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
 - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
@@ -115,6 +123,77 @@ CONSTRAINTS:
         interface ComponentDef { name: string; files: string[]; importance: string; description: string }
 
         try {
+            // ==================================================================================
+            // PHASE 0: PROJECT CONTEXT ANALYSIS (Environment Understanding)
+            // This phase runs once to understand the project structure and build environment.
+            // ==================================================================================
+
+            // ---------------------------------------------------------
+            // Level 0: PROJECT CONTEXT ANALYZER
+            // ---------------------------------------------------------
+            logger.log('DeepWiki', 'Starting L0: Project Context Analysis...');
+            await this.runPhase(
+                'L0: Project Context Analyzer',
+                'Analyze project environment and context',
+                `# Project Context Analyzer Agent (L0)
+
+## Role
+- **Your Stage**: L0 Analyzer (Pre-Discovery Phase)
+- **Core Responsibility**: Understand project structure, build system, and conditional code patterns
+- **Critical Success Factor**: Provide context that helps subsequent agents understand which code is active/conditional
+
+` + getPipelineOverview('L0') + `
+
+## Goal
+Analyze the project and create a context document for downstream agents.
+
+## Instructions
+1. **Detect Project Type**: Identify languages, frameworks, and project structure
+2. **Identify Build System**: Look for Makefile, CMakeLists.txt, package.json, Cargo.toml, build.gradle, etc.
+3. **Find Conditional Patterns**:
+   - C/C++: \`#ifdef\`, \`#if defined\`, \`#ifndef\`
+   - Python: \`if TYPE_CHECKING\`, platform checks, \`sys.platform\`
+   - JS/TS: \`process.env\` checks, feature flags
+   - General: Environment-specific code paths
+4. **Note Generated/Excluded Code**: vendor/, generated/, third_party/, node_modules/, etc.
+5. **Identify Target Environments**: production, debug, test, platforms
+
+## Output
+Write to \`${intermediateDir}/L0/project_context.md\`
+
+Use this format:
+${mdCodeBlock}markdown
+# Project Context
+
+## Overview
+- **Project Type**: [e.g., Web Application, Embedded Firmware, CLI Tool, VS Code Extension]
+- **Languages**: [e.g., TypeScript (80%), Python (20%)]
+- **Build System**: [e.g., npm, Makefile, CMake] (entry point file if applicable)
+
+## Target Environments
+| Environment | Description |
+|------------|-------------|
+| [env name] | [description] |
+
+## Conditional Code Patterns
+[Describe patterns found in the codebase]
+- Pattern: [e.g., #ifdef FEATURE_X]
+- Examples: [list of flags/conditions found]
+- Affected files: [files where this pattern appears]
+
+## Generated/Excluded Code
+- **Generated**: [paths to auto-generated code]
+- **Vendor/External**: [paths to external dependencies]
+- **Test Code**: [paths to test files]
+
+## Notes for Analysis
+[Any important context for downstream agents, e.g., "Feature flags are defined in config.h"]
+${mdCodeBlock}
+` + commonConstraints,
+                token,
+                options.toolInvocationToken
+            );
+
             // ==================================================================================
             // PHASE 1: DISCOVERY & EXTRACTION (The Foundation)
             // These phases run once to establish the baseline.
@@ -145,13 +224,18 @@ CONSTRAINTS:
 
 ` + getPipelineOverview('L1-A') + `
 
+## Input
+- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for project structure and build system info
+
 ## Goal
 Create an INITIAL draft of logical components.
 
 ## Instructions
-1. Scan the project files (\`src/\`).
-2. Group related files into Components based on directory structure.
-3. Assign tentative importance (High/Medium/Low).
+1. Read the L0 project context to understand the project structure.
+2. Scan the project source files (refer to L0 context for relevant directories).
+3. Group related files into Components based on directory structure.
+4. Assign tentative importance (High/Medium/Low).
+5. Consider the L0 context when grouping (e.g., exclude generated/vendor code).
 
 ## Output
 Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
@@ -300,7 +384,8 @@ Create the FINAL component list.
 ` + getPipelineOverview('L2') + `
 
 ## Input
-Assigned Components: ${chunkStr}
+- Assigned Components: ${chunkStr}
+- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
 ## Instructions
 1. For EACH public function/method/class in the component's files, extract:
@@ -310,13 +395,18 @@ Assigned Components: ${chunkStr}
    - **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
    - **Called By**: Functions/methods that call this (if identifiable from the code)
    - **Calls**: Functions/methods/libraries this calls
+   - **Conditional**: If the code is within a conditional block (e.g., \`#ifdef\`, \`if (process.env.X)\`), note the condition
 
 2. **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase or summarize parameter names.
+
+3. **Conditional Code Awareness**: Based on project_context.md, identify code that is conditionally compiled/executed and note the condition (e.g., "Only when DEBUG is defined").
 
 ## Output Format Example
 \`\`\`markdown
 ### \`processData(input: DataType, options?: ProcessOptions): Result\`
 Processes input data and returns transformed result
+
+**Conditional**: Only when \`FEATURE_X\` is defined
 
 **Internal Logic**:
 - Validates input schema

@@ -17,9 +17,12 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 ## Generation Pipeline
 
-The extension orchestrates a sophisticated **6-level agentic pipeline** with two 3-stage refinement loops to generate high-quality documentation:
+The extension orchestrates a sophisticated **7-level agentic pipeline** with two 3-stage refinement loops to generate high-quality documentation:
 
 ```text
+[L0 Project Context]  (Single)
+       |
+       v
 [L1 Discoverer] <----------+
  (Draft -> Review -> Refine)| (Self-Correction Loop)
        |                   |
@@ -51,9 +54,19 @@ The extension orchestrates a sophisticated **6-level agentic pipeline** with two
    Final Docs
 ```
 
+### 0. Level 0: PROJECT CONTEXT ANALYZER
+Analyzes the project structure, build system, and conditional code patterns before component discovery:
+-   **Project Type**: Identifies languages, frameworks, and project structure
+-   **Build System**: Detects Makefile, CMake, npm, Cargo, Gradle, etc.
+-   **Conditional Patterns**: Finds `#ifdef`, `process.env` checks, feature flags
+-   **Excluded Code**: Identifies vendor/, generated/, third_party/ paths
+-   **Output**: `project_context.md` for downstream agents to reference
+
+This phase enables DeepWiki to be aware of build configurations and feature flags.
+
 ### 1. Level 1: DISCOVERER (Component Grouping & Refinement)
-Identifies and groups files into logical components, and determines their importance (High/Medium/Low). This stage is critical and uses a 3-step internal process:
--   **L1-A Drafter**: Proposes an initial component list (`component_draft.json`).
+Identifies and groups files into logical components, and determines their importance (High/Medium/Low). Uses L0 context to understand project structure. This stage uses a 3-step internal process:
+-   **L1-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L0 project context.
 -   **L1-B Reviewer**: Critiques the draft and writes a review report (`L1_review_report.md`). **Verifies against the ACTUAL file system structure.**
 -   **L1-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L1-B and L1-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
@@ -61,11 +74,12 @@ Identifies and groups files into logical components, and determines their import
 ### 2. Level 2: EXTRACTOR (Parallel)
 Extracts comprehensive API information from each component's files:
 -   **API Signatures**: Exact function/method signatures with parameter types
--   **内部処理**: Key internal logic steps (3-5 bullet points per function)
--   **副作用**: Side effects (file I/O, state mutations, events, etc.)
--   **呼び出し元/呼び出し先**: Caller and callee relationships for dependency mapping
+-   **Internal Logic**: Key internal logic steps (3-5 bullet points per function)
+-   **Side Effects**: Side effects (file I/O, state mutations, events, etc.)
+-   **Caller/Callee**: Caller and callee relationships for dependency mapping
+-   **Conditional Code**: Notes when code is conditionally compiled (e.g., `#ifdef DEBUG`)
 
-Runs in parallel chunks to efficiently process all components.
+Runs in parallel chunks and references L0 project context for conditional code awareness.
 
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
@@ -125,6 +139,8 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
 │   ├── Utils.md
 │   └── ...
 └── intermediate/           # Intermediate artifacts (for debugging/context)
+    ├── L0/                 # Project context phase outputs
+    │   └── project_context.md      # Project structure, build system, conditional patterns
     ├── L1/                 # Discovery phase outputs
     │   ├── component_draft.json    # Initial draft from L1-A
     │   ├── review_report.md        # Review from L1-B
