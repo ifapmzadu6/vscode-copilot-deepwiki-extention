@@ -108,6 +108,11 @@ Compiles the landing page (`README.md`) with:
 3.  Type: `@workspace #createDeepWiki`
 4.  The tool will orchestrate agents to generate documentation in the `.deepwiki` folder.
 
+## Logging & Troubleshooting
+
+Detailed execution logs are output to the **VS Code Output Channel**.
+Select **"DeepWiki Generator"** from the Output panel dropdown to see real-time progress, task durations, and error details.
+
 ## Generated Output
 
 The extension creates a `.deepwiki` folder in your workspace root with the following structure:
