@@ -386,7 +386,6 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 2. **Analyze Causal Impact**: How does a change in one component propagate to others?
 3. Explain the 'Why' behind the architectural decisions.
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
-5. **CRITICAL - Final Output Only**: Do NOT create references or links to intermediate directory files (e.g., intermediate/L3/, ../L3/, ../L4/, etc.). Your output will be included in the final README.md, so only reference final pages in \`pages/\` directory when needed.
 
 ## Output
 - Write Overview to \`${intermediateDir}/L4/overview.md\`.
