@@ -55,6 +55,42 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
+        // Function to generate pipeline overview with current stage highlighted
+        const getPipelineOverview = (currentStage: string) => `
+PIPELINE OVERVIEW:
+This is a multi-stage agentic pipeline designed to generate comprehensive component-based documentation.
+
+**Complete Pipeline Flow:**
+1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
+   - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
+   - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
+   - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
+   - Runs with retry loop (max 6 attempts) until valid JSON is produced
+
+2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
+   - Extracts API signatures from source code for all components
+   - Runs in parallel batches (3 components per batch)
+   - Produces precise code signatures for downstream analysis
+
+3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
+   - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
+   - **L4 Architect**${currentStage === 'L4' ? ' **← YOU**' : ''}: System-level overview, component relationships, and architecture maps
+   - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages
+   - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
+   - Loop continues if L6 identifies components needing re-analysis
+
+4. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+   - Creates final README with table of contents
+   - Links all generated pages together
+   - Sanitizes any intermediate references
+
+**Strategic Context:**
+- **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
+- **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+- **Retry Mechanism**: The system can retry problematic components rather than failing completely
+- **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
+`;
+
         const commonConstraints = `
 CONSTRAINTS:
 1. **Security & Tool Usage**:
@@ -97,8 +133,11 @@ CONSTRAINTS:
                 `# Component Drafter Agent (L1-A)
 
 ## Role
-- **Pipeline Position**: First stage of discovery. You receive nothing and output the initial draft.
-- **Responsibility**: Create a rough grouping of project files into logical components.
+- **Your Stage**: L1-A Drafter (Discovery Phase - First Pass)
+- **Core Responsibility**: Create initial component grouping from project files
+- **Critical Success Factor**: Group related files logically - perfection not required, L1-B will review
+
+` + getPipelineOverview('L1-A') + `
 
 ## Goal
 Create an INITIAL draft of logical components.
@@ -144,8 +183,11 @@ ${mdCodeBlock}
                     `# Component Reviewer Agent (L1-B)
 
 ## Role
-- **Pipeline Position**: Receives L1-A draft → outputs critique report → L1-C refines based on this.
-- **Responsibility**: Quality gate. Identify issues but do NOT fix them.
+- **Your Stage**: L1-B Reviewer (Discovery Phase - Quality Gate)
+- **Core Responsibility**: Critique L1-A's draft - identify issues but do NOT fix them
+- **Critical Success Factor**: Verify files actually exist and are grouped logically
+
+` + getPipelineOverview('L1-B') + `
 
 ## Goal
 CRITIQUE the draft. Do NOT fix it yourself.
@@ -175,8 +217,11 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
                     `# Component Refiner Agent (L1-C)
 
 ## Role
-- **Pipeline Position**: Receives L1-A draft + L1-B critique → outputs final component list → L2 uses this.
-- **Responsibility**: Merge feedback and produce the validated JSON.
+- **Your Stage**: L1-C Refiner (Discovery Phase - Final Output)
+- **Core Responsibility**: Merge L1-A draft with L1-B feedback into validated JSON
+- **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
+
+` + getPipelineOverview('L1-C') + `
 
 ## Goal
 Create the FINAL component list.
@@ -242,8 +287,11 @@ Create the FINAL component list.
                     `# Extractor Agent (L2)
 
 ## Role
-- **Pipeline Position**: Receives L1-C component list → outputs API signatures → L3 uses this for analysis.
-- **Responsibility**: Extract precise code signatures. No interpretation, just extraction.
+- **Your Stage**: L2 Extraction (runs in parallel batches)
+- **Core Responsibility**: Extract precise API signatures from source code - no interpretation
+- **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
+
+` + getPipelineOverview('L2') + `
 
 ## Input
 Assigned Components: ${chunkStr}
@@ -323,8 +371,11 @@ After writing the output file:
                         `# Analyzer Agent (L3)
 
 ## Role
-- **Pipeline Position**: Receives L2 extractions → outputs deep analysis → L4/L5 use this.
-- **Responsibility**: Understand HOW the code works, trace causality, and create diagrams.
+- **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
+- **Core Responsibility**: Deep analysis - understand HOW code works, trace causality, create diagrams
+- **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
+
+` + getPipelineOverview('L3') + `
 
 ## Input
 Assigned Components: ${JSON.stringify(chunk)}
@@ -372,8 +423,11 @@ After writing each analysis file:
                     `# Architect Agent (L4)
 
 ## Role
-- **Pipeline Position**: Receives ALL L3 analysis → outputs system overview → Indexer uses this.
-- **Responsibility**: See the big picture. Map component relationships and explain architectural decisions.
+- **Your Stage**: L4 Architect (Analysis Loop - System Overview)
+- **Core Responsibility**: See the big picture - map component relationships and architectural decisions
+- **Critical Success Factor**: Indexer uses your overview for the final README - explain the "why" behind the architecture
+
+` + getPipelineOverview('L4') + `
 
 ## Goal
 Create a system-level overview based on ALL available L3 analysis.
@@ -442,8 +496,11 @@ ${mdCodeBlock}
                         `# Writer Agent (L5)
 
 ## Role
-- **Pipeline Position**: Receives L3 analysis → outputs final documentation pages → L6 reviews this.
-- **Responsibility**: Transform technical analysis into readable, well-structured documentation.
+- **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
+- **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
+- **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
+
+` + getPipelineOverview('L5') + `
 
 ## Input
 - Assigned Components: ${JSON.stringify(chunk)}
@@ -489,8 +546,11 @@ Write files to \`${outputPath}/pages/\`.
                     `# Page Reviewer Agent (L6)
 
 ## Role
-- **Pipeline Position**: Receives L5 pages + L3 analysis → outputs fixes or retry requests → Final quality gate.
-- **Responsibility**: Ensure accuracy, consistency, and completeness. You are the last line of defense.
+- **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
+- **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
+- **Critical Success Factor**: You are the last line of defense before final output - be thorough
+
+` + getPipelineOverview('L6') + `
 
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
@@ -559,17 +619,25 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             await this.runPhase(
                 'Indexer',
                 'Create README and Sidebar',
-                `You are the Indexer Agent.
-Input:
-- "` + intermediateDir + `/L4/overview.md"
-- Scan "` + outputPath + `/pages/"
+                `# Indexer Agent
 
-Instructions:
-1. Create "` + outputPath + `/README.md" including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
+## Role
+- **Your Stage**: Indexer (Final Stage)
+- **Core Responsibility**: Create README with table of contents - organize all documentation into navigable structure
+- **Critical Success Factor**: This is the entry point users see first - make it comprehensive and well-organized
+
+` + getPipelineOverview('Indexer') + `
+
+## Input
+- Read \`${intermediateDir}/L4/overview.md\`
+- Scan \`${outputPath}/pages/\`
+
+## Instructions
+1. Create \`${outputPath}/README.md\` including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
    - Categorize pages if possible (e.g., by importance or module type).
 2. **CRITICAL - Sanitize Intermediate Links**: When including content from L4 Overview, REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/, etc.). Only include links to final pages in the \`pages/\` directory.
 
-Output:
+## Output
 - Write README.md.
 ` + commonConstraints,
                 token,
