@@ -59,7 +59,13 @@ Identifies and groups files into logical components, and determines their import
     -   *Self-Correction Loop*: L1-B and L1-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
 ### 2. Level 2: EXTRACTOR (Parallel)
-Extracts raw code entities (classes, functions, interfaces) from each component's files. Runs in parallel chunks.
+Extracts comprehensive API information from each component's files:
+-   **API Signatures**: Exact function/method signatures with parameter types
+-   **内部処理**: Key internal logic steps (3-5 bullet points per function)
+-   **副作用**: Side effects (file I/O, state mutations, events, etc.)
+-   **呼び出し元/呼び出し先**: Caller and callee relationships for dependency mapping
+
+Runs in parallel chunks to efficiently process all components.
 
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
