@@ -386,6 +386,7 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 2. **Analyze Causal Impact**: How does a change in one component propagate to others?
 3. Explain the 'Why' behind the architectural decisions.
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
+5. **CRITICAL - Final Output Only**: Do NOT create references or links to intermediate directory files (e.g., intermediate/L3/, ../L3/, ../L4/, etc.). Your output will be included in the final README.md, so only reference final pages in \`pages/\` directory when needed.
 
 ## Output
 - Write Overview to \`${intermediateDir}/L4/overview.md\`.
@@ -461,6 +462,7 @@ ${mdCodeBlock}
 - **Do NOT include raw source code or implementation details.**
 - **Strictly separate External Interface from Internal Mechanics.**
 - Use tables for API references.
+- **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other components via their final page files in \`pages/\` directory: [Component Name](../ComponentName.md)
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
@@ -510,7 +512,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 6. **Signature Accuracy**: Verify method/function signatures match actual source code.
    - Parameter names and types must match exactly.
    - If a signature is incorrect, fix it by reading the actual source file.
-7. ` + retryInstruction + `
+7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.). Only links to pages in the \`pages/\` directory should remain.
+8. ` + retryInstruction + `
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
@@ -565,6 +568,7 @@ Input:
 Instructions:
 1. Create "` + outputPath + `/README.md" including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
    - Categorize pages if possible (e.g., by importance or module type).
+2. **CRITICAL - Sanitize Intermediate Links**: When including content from L4 Overview, REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/, etc.). Only include links to final pages in the \`pages/\` directory.
 
 Output:
 - Write README.md.
