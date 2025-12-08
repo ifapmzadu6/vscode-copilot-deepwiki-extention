@@ -8,7 +8,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust 6-level (with 3-stage L1) process, where each agent builds upon the previous one's output.
 -   **Self-Correction Loop**: L1 Discoverer and L6 Page Reviewer can request re-analysis (L3/L4/L5) for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L1 loop.
--   **Parallel Processing**: Analyzes logical components in parallel for faster execution, with dynamic depth based on importance.
+-   **Parallel Processing**: Analyzes logical components in parallel for faster execution, with dynamic depth based on importance. Concurrency is limited to prevent API rate limiting (default: 5 parallel agents).
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
@@ -59,7 +59,7 @@ Extracts raw code entities (classes, functions, interfaces) from each component'
 
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
--   **Output**: Produces individual analysis files for each component (`intermediate/analysis/{ComponentName}_analysis.md`).
+-   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`).
 
 ### 4. Level 4: ARCHITECT
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
@@ -96,15 +96,21 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
 │   ├── Utils.md
 │   └── ...
 └── intermediate/           # Intermediate artifacts (for debugging/context)
-    ├── component_list.json
-    ├── L1_discovery.md
-    ├── L4_overview.md
-    ├── L6_review.md
-    ├── analysis/
-    │   └── MyComponent_analysis.md # L3 output
-    │   └── ...
-    └── drafts/
-        └── ...
+    ├── L1/                 # Discovery phase outputs
+    │   ├── component_draft.json    # Initial draft from L1-A
+    │   ├── review_report.md        # Review from L1-B
+    │   └── component_list.json     # Final component list from L1-C
+    ├── L2/                 # Extraction phase outputs
+    │   ├── extraction_chunk1.md
+    │   └── extraction_chunk2.md
+    ├── L3/                 # Analysis phase outputs
+    │   ├── AuthModule_analysis.md
+    │   └── Utils_analysis.md
+    ├── L4/                 # Architecture phase outputs
+    │   ├── overview.md
+    │   └── relationships.md
+    └── L6/                 # Review phase outputs
+        └── retry_request.json      # (temporary, deleted after processing)
 ```
 
 ## Requirements
