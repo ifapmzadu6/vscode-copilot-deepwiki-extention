@@ -16,4 +16,5 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
   logger.log('Extension', 'DeepWiki Generator extension deactivated');
+  logger.dispose();
 }
