@@ -362,7 +362,7 @@ After writing the output file:
                     options.toolInvocationToken
                 );
             });
-            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY);
+            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY, 'L2 Extraction');
 
 
             // ==================================================================================
@@ -449,7 +449,7 @@ After writing each analysis file:
                         options.toolInvocationToken
                     );
                 });
-                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY);
+                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`);
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -787,7 +787,7 @@ Write files to \`${outputPath}/pages/\`.
                         options.toolInvocationToken
                     );
                 });
-                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY);
+                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`);
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)
@@ -1004,7 +1004,9 @@ For each component shown in the block diagram above:
         cancellationToken: vscode.CancellationToken,
         toolInvocationToken: vscode.ChatParticipantToolToken | undefined
     ): Promise<void> {
-        logger.log('DeepWiki', `>>> Starting Phase: ${agentName}`);
+        const startTime = Date.now();
+        logger.log('DeepWiki', `>>> Starting Phase: ${agentName} - ${description}`);
+
         try {
             const result = await vscode.lm.invokeTool(
                 'runSubagent',
@@ -1017,13 +1019,19 @@ For each component shown in the block diagram above:
                 },
                 cancellationToken
             );
+
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            let resultPreview = '';
             for (const part of result.content) {
                 if (part instanceof vscode.LanguageModelTextPart) {
-                    logger.log(agentName, `Result: ${part.value.substring(0, 200)}...`);
+                    resultPreview = part.value.substring(0, 150).replace(/\n/g, ' ');
+                    break;
                 }
             }
+            logger.log('DeepWiki', `<<< Completed Phase: ${agentName} in ${duration}s - ${resultPreview}...`);
         } catch (error) {
-            logger.error(agentName, `Failed: ${error}`);
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
     }

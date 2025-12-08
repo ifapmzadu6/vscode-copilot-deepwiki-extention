@@ -1,6 +1,16 @@
 /**
- * Logger utility with timestamp support
+ * Logger utility with timestamp support and VS Code Output Channel
  */
+import * as vscode from 'vscode';
+
+let outputChannel: vscode.OutputChannel | undefined;
+
+function getOutputChannel(): vscode.OutputChannel {
+  if (!outputChannel) {
+    outputChannel = vscode.window.createOutputChannel('DeepWiki Generator');
+  }
+  return outputChannel;
+}
 
 function getTimestamp(): string {
   const now = new Date();
@@ -17,21 +27,40 @@ function formatMessage(prefix: string, message: string): string {
 
 export const logger = {
   log(prefix: string, message: string): void {
-    console.log(formatMessage(prefix, message));
+    const formatted = formatMessage(prefix, message);
+    console.log(formatted);
+    getOutputChannel().appendLine(formatted);
   },
 
   info(prefix: string, message: string): void {
-    console.info(formatMessage(prefix, message));
+    const formatted = formatMessage(prefix, message);
+    console.info(formatted);
+    getOutputChannel().appendLine(`ℹ️ ${formatted}`);
   },
 
   warn(prefix: string, message: string): void {
-    console.warn(formatMessage(prefix, message));
+    const formatted = formatMessage(prefix, message);
+    console.warn(formatted);
+    getOutputChannel().appendLine(`⚠️ ${formatted}`);
   },
 
   error(prefix: string, message: string, error?: unknown): void {
-    console.error(formatMessage(prefix, message));
+    const formatted = formatMessage(prefix, message);
+    console.error(formatted);
+    getOutputChannel().appendLine(`❌ ${formatted}`);
     if (error) {
       console.error(error);
+      getOutputChannel().appendLine(`   ${String(error)}`);
+    }
+  },
+
+  /**
+   * Dispose the output channel (call on extension deactivation)
+   */
+  dispose(): void {
+    if (outputChannel) {
+      outputChannel.dispose();
+      outputChannel = undefined;
     }
   },
 };
