@@ -55,13 +55,6 @@ export const logger = {
   },
 
   /**
-   * Show the output channel to the user
-   */
-  show(): void {
-    getOutputChannel().show(true);
-  },
-
-  /**
    * Dispose the output channel (call on extension deactivation)
    */
   dispose(): void {
