@@ -17,7 +17,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 ## Generation Pipeline
 
-The extension orchestrates a sophisticated **6-level (with a 3-stage L1) agentic pipeline** to generate high-quality documentation:
+The extension orchestrates a sophisticated **6-level agentic pipeline** with two 3-stage refinement loops to generate high-quality documentation:
 
 ```text
 [L1 Discoverer] <----------+
@@ -33,6 +33,10 @@ The extension orchestrates a sophisticated **6-level (with a 3-stage L1) agentic
        |                           |
        v                           |
 [L4 Architect]  (Single)           |
+       |                           |
+       v                           |
+[L5-Pre Page Consolidator]         |
+ (Draft -> Review -> Refine)       |
        |                           |
        v                           |
 [L5 Writer]     (Parallel)         |
@@ -65,16 +69,24 @@ Deeply analyzes the logic, patterns, and responsibilities of each component. Foc
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
-### 5. Level 5: WRITER (Parallel)
-Generates the final documentation pages for each component (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
+### 5. Level 5-Pre: PAGE CONSOLIDATOR
+Determines the optimal page structure by analyzing L3 outputs. Uses a 3-stage process similar to L1:
+-   **L5-Pre-A Drafter**: Proposes initial page groupings based on component analysis (`page_structure_draft.json`).
+-   **L5-Pre-B Reviewer**: Critiques the groupings for logical coherence and user experience (`page_structure_review.md`).
+-   **L5-Pre-C Refiner**: Produces the final page structure (`page_structure.json`).
 
-### 6. Level 6: PAGE REVIEWER & RETRY LOOP
+This phase consolidates similar components into single cohesive pages, reducing redundancy and improving documentation quality.
+
+### 6. Level 5: WRITER (Parallel)
+Generates the final documentation pages based on `page_structure.json` (`pages/{PageName}.md`). When multiple components are consolidated into one page, weaves their descriptions together cohesively. Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
+
+### 7. Level 6: PAGE REVIEWER & RETRY LOOP
 Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, connectivity, formatting).
 -   **Verifies against ACTUAL SOURCE CODE**: Reads referenced source files to ensure descriptions are correct.
 -   **Self-Correction**: Directly fixes minor issues in the pages.
--   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
+-   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5-Pre, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
 
-### Indexer
+### 8. Indexer
 Compiles the landing page (`README.md` - embedding L4 Overview and a comprehensive Table of Contents).
 
 ## Usage
@@ -109,6 +121,10 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     ├── L4/                 # Architecture phase outputs
     │   ├── overview.md
     │   └── relationships.md
+    ├── L5/                 # Page consolidation phase outputs
+    │   ├── page_structure_draft.json  # Initial draft from L5-Pre-A
+    │   ├── page_structure_review.md   # Review from L5-Pre-B
+    │   └── page_structure.json        # Final page structure from L5-Pre-C
     └── L6/                 # Review phase outputs
         └── retry_request.json      # (temporary, deleted after processing)
 ```

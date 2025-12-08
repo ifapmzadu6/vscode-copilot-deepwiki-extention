@@ -342,6 +342,7 @@ After writing the output file:
             let componentsToAnalyze = [...componentList]; // All components initially
             let loopCount = 0;
             const MAX_LOOPS = 5; // Initial run + 4 retries
+            let finalPageCount = 0; // Track final page count for completion message
 
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
                 logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
@@ -617,6 +618,7 @@ ${mdCodeBlock}
                 try {
                     const pageStructureContent = await vscode.workspace.fs.readFile(pageStructureUri);
                     pageStructure = this.parseJson<PageGroup[]>(new TextDecoder().decode(pageStructureContent));
+                    finalPageCount = pageStructure.length;
                     logger.log('DeepWiki', `Page Consolidator: ${componentList.length} components -> ${pageStructure.length} pages`);
                 } catch (e) {
                     // Fallback: one page per component
@@ -626,6 +628,7 @@ ${mdCodeBlock}
                         components: [name],
                         rationale: 'Fallback: individual page'
                     }));
+                    finalPageCount = pageStructure.length;
                 }
 
                 // ---------------------------------------------------------
@@ -841,7 +844,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
                     '✅ DeepWiki Generation Completed!\n\n' +
-                    `Documented ${componentList.length} components. Check the \`${outputPath}\` directory.`
+                    `Documented ${componentList.length} components into ${finalPageCount} pages. Check the \`${outputPath}\` directory.`
                 )
             ]);
 
