@@ -52,6 +52,17 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         const intermediateDir = `${outputPath}/intermediate`;
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
 
+        // Helper to check for cancellation and throw if requested
+        const checkCancellation = () => {
+            if (token.isCancellationRequested) {
+                logger.warn('DeepWiki', 'Pipeline cancelled by user');
+                throw new vscode.CancellationError();
+            }
+        };
+
+        // Check for cancellation before starting
+        checkCancellation();
+
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
@@ -131,6 +142,7 @@ CONSTRAINTS:
             // ---------------------------------------------------------
             // Level 0: PROJECT CONTEXT ANALYZER
             // ---------------------------------------------------------
+            checkCancellation();
             logger.log('DeepWiki', 'Starting L0: Project Context Analysis...');
             await this.runPhase(
                 'L0: Project Context Analyzer',
@@ -452,7 +464,7 @@ After writing the output file:
                     options.toolInvocationToken
                 );
             });
-            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY, 'L2 Extraction');
+            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY, 'L2 Extraction', token);
 
 
             // ==================================================================================
@@ -539,7 +551,7 @@ After writing each analysis file:
                         options.toolInvocationToken
                     );
                 });
-                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`);
+                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -877,7 +889,7 @@ Write files to \`${outputPath}/pages/\`.
                         options.toolInvocationToken
                     );
                 });
-                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`);
+                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)
