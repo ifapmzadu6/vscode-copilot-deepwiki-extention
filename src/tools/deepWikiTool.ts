@@ -108,7 +108,7 @@ Create an INITIAL draft of logical components.
 3. Assign tentative importance (High/Medium/Low).
 
 ## Output
-Write the draft JSON to \`${intermediateDir}/component_draft.json\`.
+Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
 
 **Format**:
 ${mdCodeBlock}json
@@ -150,7 +150,7 @@ ${mdCodeBlock}
 CRITIQUE the draft. Do NOT fix it yourself.
 
 ## Input
-- Read \`${intermediateDir}/component_draft.json\`
+- Read \`${intermediateDir}/L1/component_draft.json\`
 - **Reference**: Use file listing tools to verify the ACTUAL project structure.
 
 ## Instructions
@@ -159,7 +159,7 @@ CRITIQUE the draft. Do NOT fix it yourself.
 3. Check for missing core files or included noise.${retryContextL1}
 
 ## Output
-Write a critique report to \`${intermediateDir}/L1_review_report.md\`.
+Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -181,8 +181,8 @@ Write a critique report to \`${intermediateDir}/L1_review_report.md\`.
 Create the FINAL component list.
 
 ## Input
-- Draft: \`${intermediateDir}/component_draft.json\`
-- Review: \`${intermediateDir}/L1_review_report.md\`
+- Draft: \`${intermediateDir}/L1/component_draft.json\`
+- Review: \`${intermediateDir}/L1/review_report.md\`
 
 ## Instructions
 1. Read the Draft and the Review Report.
@@ -190,7 +190,7 @@ Create the FINAL component list.
 3. Produce the valid JSON.${retryContextL1}
 
 ## Output
-- Write the FINAL JSON to \`${intermediateDir}/component_list.json\`.
+- Write the FINAL JSON to \`${intermediateDir}/L1/component_list.json\`.
 - Format must be valid JSON array.
 ` + commonConstraints,
                     token,
@@ -200,7 +200,7 @@ Create the FINAL component list.
                 // ---------------------------------------------------------
                 // Check JSON validity
                 // ---------------------------------------------------------
-                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'component_list.json'));
+                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'component_list.json'));
                 try {
                     const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
                     const contentStr = new TextDecoder().decode(fileListContent);
@@ -254,7 +254,7 @@ Assigned Components: ${chunkStr}
 3. **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase or summarize parameter names.
 
 ## Output
-Write to \`${intermediateDir}/L2_extraction_chunk${index + 1}.md\`.
+Write to \`${intermediateDir}/L2/extraction_chunk${index + 1}.md\`.
 
 ## Self-Verification Phase (MANDATORY)
 After writing the output file:
@@ -333,7 +333,7 @@ Assigned Components: ${JSON.stringify(chunk)}
 
 ## Output
 Create a SEPARATE analysis file for EACH component.
-- For a component named "MyComponent", write to \`${intermediateDir}/analysis/MyComponent_analysis.md\`.
+- For a component named "MyComponent", write to \`${intermediateDir}/L3/MyComponent_analysis.md\`.
 
 ## Self-Verification Phase (MANDATORY)
 After writing each analysis file:
@@ -376,7 +376,7 @@ After writing each analysis file:
 Create a system-level overview based on ALL available L3 analysis.
 
 ## Input
-Read ALL files in \`${intermediateDir}/analysis/\` (including those from previous loops).
+Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
 
 ## Instructions
 1. Define the High-Level Architecture.
@@ -385,8 +385,8 @@ Read ALL files in \`${intermediateDir}/analysis/\` (including those from previou
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
 
 ## Output
-- Write Overview to \`${intermediateDir}/L4_overview.md\`.
-- Write Architecture Map to \`${intermediateDir}/L4_relationships.md\`.
+- Write Overview to \`${intermediateDir}/L4/overview.md\`.
+- Write Architecture Map to \`${intermediateDir}/L4/relationships.md\`.
 - Include at least TWO diagrams (e.g., \`graph TD\` for component interactions, \`sequenceDiagram\` for key flows).
 ` + commonConstraints,
                     token,
@@ -443,7 +443,7 @@ ${mdCodeBlock}
 
 ## Input
 - Assigned Components: ${JSON.stringify(chunk)}
-- Read \`${intermediateDir}/analysis/{ComponentName}_analysis.md\` for each assigned component.
+- Read \`${intermediateDir}/L3/{ComponentName}_analysis.md\` for each assigned component.
 
 ## Instructions
 1. For EACH assigned component, create/overwrite its page in \`${outputPath}/pages/{ComponentName}.md\`.
@@ -474,7 +474,7 @@ Write files to \`${outputPath}/pages/\`.
                 const isLastLoop = loopCount === MAX_LOOPS - 1;
                 const retryInstruction = isLastLoop
                     ? `This is the FINAL attempt. Do NOT request retries. Fix minor issues directly within the pages. If a page is fundamentally broken, add a prominent warning note to the page itself, explaining the issue.`
-                    : `If a page has MAJOR missing information or wrong analysis, list the Component Name(s) that need re-analysis (L3/L4/L5) in "` + intermediateDir + `/retry_request.json".
+                    : `If a page has MAJOR missing information or wrong analysis, list the Component Name(s) that need re-analysis (L3/L4/L5) in "` + intermediateDir + `/L6/retry_request.json".
                        Format: ["Auth Module", "Utils"].
                        For minor issues (typos, formatting, broken links), fix the page directly.`;
 
@@ -492,7 +492,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Input
 - Read generated pages in \`${outputPath}/pages/\`
-- Read all L3 analysis files in \`${intermediateDir}/analysis/\`
+- Read all L3 analysis files in \`${intermediateDir}/L3/\`
 
 ## Instructions
 1. **Accuracy**: Verify content against ACTUAL SOURCE CODE. Read the source files referenced in the page to ensure descriptions are correct. Do not trust the text blindly.
@@ -510,7 +510,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
-- Write \`${intermediateDir}/retry_request.json\` ONLY if requesting retries.
+- Write \`${intermediateDir}/L6/retry_request.json\` ONLY if requesting retries.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -520,7 +520,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
                 // Check for Retries
                 // ---------------------------------------------------------
                 // L6 requested a retry: need to re-run L3/L4/L5 for specific components
-                const retryFileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'retry_request.json'));
+                const retryFileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L6', 'retry_request.json'));
                 let retryNames: string[] | null = null;
                 try {
                     const retryContent = await vscode.workspace.fs.readFile(retryFileUri);
@@ -554,8 +554,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
                 'Indexer',
                 'Create README and Sidebar',
                 `You are the Indexer Agent.
-Input: 
-- "` + intermediateDir + `/L4_overview.md"
+Input:
+- "` + intermediateDir + `/L4/overview.md"
 - Scan "` + outputPath + `/pages/"
 
 Instructions:
