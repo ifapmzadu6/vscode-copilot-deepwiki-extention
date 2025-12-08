@@ -83,19 +83,29 @@ Our final DeepWiki implementation evolved into a **Hybrid Architecture**.
     - **L5-Pre Page Consolidation**: A 3-stage (Draft → Review → Refine) process that groups similar components into single pages.
 
 ```mermaid
-graph TD
-    Start --> L1[L1: Discovery Loop]
-    L1 --> L2[L2: Extraction]
-    L2 --> L3[L3: Analysis]
-    L3 --> L4[L4: Architecture]
-    L4 --> L5Pre[L5-Pre: Page Consolidation]
-    L5Pre --> L5[L5: Writing]
-    L5 --> L6[L6: Review]
+stateDiagram-v2
+    [*] --> L1
+    state "L1 Discovery Loop" as L1
+    state "L2 Extraction" as L2
+    state "L3 Analysis" as L3
+    state "L4 Architecture" as L4
+    state "L5-Pre Page Consolidation" as L5Pre
+    state "L5 Writing" as L5
+    state "L6 Review" as L6
+    state "Indexer" as Indexer
 
-    L6 -- "Critical Issues?" --> Decision{AI Decision}
-    Decision -- "Yes" --> L3
-    Decision -- "No" --> Indexer
-    Indexer --> End
+    L1 --> L2
+    L2 --> L3
+    L3 --> L4
+    L4 --> L5Pre
+    L5Pre --> L5
+    L5 --> L6
+
+    state L6_Decision <<choice>>
+    L6 --> L6_Decision: Critical Issues?
+    L6_Decision --> L3: Yes
+    L6_Decision --> Indexer: No
+    Indexer --> [*]
 ```
 
 ---

@@ -420,7 +420,9 @@ Assigned Components: ${JSON.stringify(chunk)}
 ## Instructions
 1. For EACH component, read its L2 extraction (search in intermediate folder) and source code.
 2. **Think about Causality**: Trace logic flow and state changes.
-3. **Visualize**: Define at least one specific Mermaid diagram for each component (e.g., Sequence Diagram for flows, State Diagram for lifecycle, Class Diagram for structure).
+3. **Visualize**: Define at least one specific Mermaid diagram for each component.
+   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+   - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 
 ## Output
 Create a SEPARATE analysis file for EACH component.
@@ -477,11 +479,13 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 2. **Analyze Causal Impact**: How does a change in one component propagate to others?
 3. Explain the 'Why' behind the architectural decisions.
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
+   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+   - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 
 ## Output
 - Write Overview to \`${intermediateDir}/L4/overview.md\`.
 - Write Architecture Map to \`${intermediateDir}/L4/relationships.md\`.
-- Include at least TWO diagrams (e.g., \`graph TD\` for component interactions, \`sequenceDiagram\` for key flows).
+- Include at least TWO diagrams (e.g., \`C4Context\` for component interactions, \`sequenceDiagram\` for key flows).
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
