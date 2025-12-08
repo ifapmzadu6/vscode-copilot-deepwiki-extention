@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
+import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
 
 /**
  * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
@@ -232,9 +233,10 @@ Create the FINAL component list.
                 chunks.push(componentList.slice(i, i + chunkSize));
             }
 
-            const l2Promises = chunks.map((chunk, index) => {
+            // Create tasks for L2 extraction (limited concurrency to avoid rate limits)
+            const l2Tasks = chunks.map((chunk, index) => {
                 const chunkStr = JSON.stringify(chunk);
-                return this.runPhase(
+                return () => this.runPhase(
                     `L2: Extractor (Chunk ${index + 1})`,
                     `Extract entities`,
                     `# Extractor Agent (L2)
@@ -276,7 +278,7 @@ After writing the output file:
                     options.toolInvocationToken
                 );
             });
-            await Promise.all(l2Promises);
+            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY);
 
 
             // ==================================================================================
@@ -313,8 +315,9 @@ After writing the output file:
                 // Level 3: ANALYZER (Process current components)
                 // L3 output files are now component-specific
                 // ---------------------------------------------------------
-                const l3Promises = currentChunks.map((chunk, index) => {
-                    return this.runPhase(
+                // Create tasks for L3 analysis (limited concurrency to avoid rate limits)
+                const l3Tasks = currentChunks.map((chunk, index) => {
+                    return () => this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, Batch ${index + 1})`,
                         `Analyze ${chunk.length} components`,
                         `# Analyzer Agent (L3)
@@ -356,7 +359,7 @@ After writing each analysis file:
                         options.toolInvocationToken
                     );
                 });
-                await Promise.all(l3Promises);
+                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY);
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -431,8 +434,9 @@ ${mdCodeBlock}
 ## External Interface
 {Describe how other modules interact with this component. List public methods, props, and events.}
 `; // The template ends here
-                const l5Promises = currentChunks.map((chunk, index) => {
-                    return this.runPhase(
+                // Create tasks for L5 writing (limited concurrency to avoid rate limits)
+                const l5Tasks = currentChunks.map((chunk, index) => {
+                    return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
                         `Write documentation pages`,
                         `# Writer Agent (L5)
@@ -465,7 +469,7 @@ Write files to \`${outputPath}/pages/\`.
                         options.toolInvocationToken
                     );
                 });
-                await Promise.all(l5Promises);
+                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY);
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)
