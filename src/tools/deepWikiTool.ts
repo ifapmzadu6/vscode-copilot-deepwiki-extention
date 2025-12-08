@@ -70,7 +70,7 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
 2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
    - Extracts API signatures, internal logic, side effects, and dependency relationships
    - Runs in parallel batches (3 components per batch)
-   - Provides structured insights (内部処理, 副作用, 呼び出し元/先) for L3's causal analysis
+   - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
 
 3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
    - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
@@ -305,10 +305,10 @@ Assigned Components: ${chunkStr}
 1. For EACH public function/method/class in the component's files, extract:
    - **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
    - **Brief description**: One-line summary of purpose
-   - **内部処理**: Key internal logic steps (3-5 bullet points)
-   - **副作用**: Side effects (file I/O, state mutations, API calls, events, etc.)
-   - **呼び出し元**: Functions/methods that call this (if identifiable from the code)
-   - **呼び出し先**: Functions/methods/libraries this calls
+   - **Internal Logic**: Key internal logic steps (3-5 bullet points)
+   - **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
+   - **Called By**: Functions/methods that call this (if identifiable from the code)
+   - **Calls**: Functions/methods/libraries this calls
 
 2. **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase or summarize parameter names.
 
@@ -317,21 +317,21 @@ Assigned Components: ${chunkStr}
 ### \`processData(input: DataType, options?: ProcessOptions): Result\`
 Processes input data and returns transformed result
 
-**内部処理**:
+**Internal Logic**:
 - Validates input schema
 - Applies transformation rules
 - Handles edge cases for null values
 
-**副作用**:
+**Side Effects**:
 - Writes to database via \`saveToDb()\`
 - Emits 'data.processed' event
 - Updates in-memory cache
 
-**呼び出し元**:
+**Called By**:
 - \`HttpHandler.handlePost()\`
 - \`BatchProcessor.processQueue()\`
 
-**呼び出し先**:
+**Calls**:
 - \`validateInput(input)\`
 - \`transformData(input, options)\`
 - \`saveToDb(result)\`
@@ -344,7 +344,7 @@ Write to \`${intermediateDir}/L2/extraction_chunk${index + 1}.md\`.
 After writing the output file:
 1. **Re-read** your output file.
 2. **Compare** extracted signatures and internal logic against the ACTUAL source code.
-3. **Verify** that 呼び出し元/呼び出し先 relationships are accurate by checking the code.
+3. **Verify** that Called By/Calls relationships are accurate by checking the code.
 4. **Append** a brief Verification Report at the end:
 
 \`\`\`markdown
