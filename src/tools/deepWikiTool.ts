@@ -55,6 +55,41 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
+        const pipelineOverview = `
+PIPELINE OVERVIEW:
+This is a multi-stage agentic pipeline designed to generate comprehensive component-based documentation. Understanding your position in the overall workflow helps you make better decisions.
+
+**Complete Pipeline Flow:**
+1. **L1 Discovery (L1-A → L1-B → L1-C)**:
+   - L1-A Drafter: Creates initial component grouping
+   - L1-B Reviewer: Critiques the draft
+   - L1-C Refiner: Produces final validated component list
+   - Runs with retry loop (max 6 attempts) until valid JSON is produced
+
+2. **L2 Extraction**:
+   - Extracts API signatures from source code for all components
+   - Runs in parallel batches (3 components per batch)
+   - Produces precise code signatures for downstream analysis
+
+3. **L3-L6 Analysis & Writing Loop** (runs up to 5 times with critical failure retry):
+   - **L3 Analyzer**: Deep component analysis with causality tracing and diagrams
+   - **L4 Architect**: System-level overview, component relationships, and architecture maps
+   - **L5 Writer**: Transforms analysis into final documentation pages
+   - **L6 Reviewer**: Quality gate - fixes minor issues, requests retry for major problems
+   - Loop continues if L6 identifies components needing re-analysis
+
+4. **Indexer**:
+   - Creates final README with table of contents
+   - Links all generated pages together
+   - Sanitizes any intermediate references
+
+**Your Strategic Context:**
+- **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
+- **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+- **Retry Mechanism**: The system can retry problematic components rather than failing completely
+- **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
+`;
+
         const commonConstraints = `
 CONSTRAINTS:
 1. **Security & Tool Usage**:
@@ -95,6 +130,8 @@ CONSTRAINTS:
                 'L1-A: Drafter',
                 'Draft initial component grouping',
                 `# Component Drafter Agent (L1-A)
+
+` + pipelineOverview + `
 
 ## Role
 - **Pipeline Position**: First stage of discovery. You receive nothing and output the initial draft.
@@ -143,6 +180,8 @@ ${mdCodeBlock}
                     'Critique component grouping',
                     `# Component Reviewer Agent (L1-B)
 
+` + pipelineOverview + `
+
 ## Role
 - **Pipeline Position**: Receives L1-A draft → outputs critique report → L1-C refines based on this.
 - **Responsibility**: Quality gate. Identify issues but do NOT fix them.
@@ -173,6 +212,8 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
                     `L1-C: Refiner (Attempt ${l1RetryCount + 1})`,
                     'Refine component list based on review',
                     `# Component Refiner Agent (L1-C)
+
+` + pipelineOverview + `
 
 ## Role
 - **Pipeline Position**: Receives L1-A draft + L1-B critique → outputs final component list → L2 uses this.
@@ -240,6 +281,8 @@ Create the FINAL component list.
                     `L2: Extractor (Chunk ${index + 1})`,
                     `Extract entities`,
                     `# Extractor Agent (L2)
+
+` + pipelineOverview + `
 
 ## Role
 - **Pipeline Position**: Receives L1-C component list → outputs API signatures → L3 uses this for analysis.
@@ -322,6 +365,8 @@ After writing the output file:
                         `Analyze ${chunk.length} components`,
                         `# Analyzer Agent (L3)
 
+` + pipelineOverview + `
+
 ## Role
 - **Pipeline Position**: Receives L2 extractions → outputs deep analysis → L4/L5 use this.
 - **Responsibility**: Understand HOW the code works, trace causality, and create diagrams.
@@ -370,6 +415,8 @@ After writing each analysis file:
                     `L4: Architect (Loop ${loopCount + 1})`,
                     'Update system overview and maps',
                     `# Architect Agent (L4)
+
+` + pipelineOverview + `
 
 ## Role
 - **Pipeline Position**: Receives ALL L3 analysis → outputs system overview → Indexer uses this.
@@ -441,6 +488,8 @@ ${mdCodeBlock}
                         `Write documentation pages`,
                         `# Writer Agent (L5)
 
+` + pipelineOverview + `
+
 ## Role
 - **Pipeline Position**: Receives L3 analysis → outputs final documentation pages → L6 reviews this.
 - **Responsibility**: Transform technical analysis into readable, well-structured documentation.
@@ -487,6 +536,8 @@ Write files to \`${outputPath}/pages/\`.
                     `L6: Page Reviewer (Loop ${loopCount + 1})`,
                     'Review pages and decide on retries',
                     `# Page Reviewer Agent (L6)
+
+` + pipelineOverview + `
 
 ## Role
 - **Pipeline Position**: Receives L5 pages + L3 analysis → outputs fixes or retry requests → Final quality gate.
@@ -559,17 +610,24 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             await this.runPhase(
                 'Indexer',
                 'Create README and Sidebar',
-                `You are the Indexer Agent.
-Input:
-- "` + intermediateDir + `/L4/overview.md"
-- Scan "` + outputPath + `/pages/"
+                `# Indexer Agent
 
-Instructions:
-1. Create "` + outputPath + `/README.md" including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
+` + pipelineOverview + `
+
+## Role
+- **Pipeline Position**: Final stage. Receives L4 Overview and all generated pages → creates README and table of contents.
+- **Responsibility**: Organize all documentation into a navigable structure.
+
+## Input
+- Read \`${intermediateDir}/L4/overview.md\`
+- Scan \`${outputPath}/pages/\`
+
+## Instructions
+1. Create \`${outputPath}/README.md\` including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
    - Categorize pages if possible (e.g., by importance or module type).
 2. **CRITICAL - Sanitize Intermediate Links**: When including content from L4 Overview, REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/, etc.). Only include links to final pages in the \`pages/\` directory.
 
-Output:
+## Output
 - Write README.md.
 ` + commonConstraints,
                 token,
