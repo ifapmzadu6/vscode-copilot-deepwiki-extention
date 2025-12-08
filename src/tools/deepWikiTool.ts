@@ -883,19 +883,54 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Role
 - **Your Stage**: Indexer (Final Stage)
-- **Core Responsibility**: Create README with table of contents - organize all documentation into navigable structure
-- **Critical Success Factor**: This is the entry point users see first - make it comprehensive and well-organized
+- **Core Responsibility**: Create a high-quality README that serves as the definitive entry point for understanding this codebase
+- **Critical Success Factor**: The README should answer "What is this? How is it organized? Where do I start?" within the first screen
 
 ` + getPipelineOverview('Indexer') + `
 
 ## Input
 - Read \`${intermediateDir}/L4/overview.md\`
+- Read \`${intermediateDir}/L4/relationships.md\`
 - Scan \`${outputPath}/pages/\`
 
 ## Instructions
-1. Create \`${outputPath}/README.md\` including the L4 Overview and a comprehensive Table of Contents, linking to ALL generated pages.
-   - Categorize pages if possible (e.g., by importance or module type).
-2. **CRITICAL - Sanitize Intermediate Links**: When including content from L4 Overview, REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/, etc.). Only include links to final pages in the \`pages/\` directory.
+Create \`${outputPath}/README.md\` with the following CONTENT sections (in order):
+
+### 1. Architecture Overview
+
+**A. One-Line Summary**
+Summarize the ENTIRE system in ONE sentence.
+
+**B. System Context (C4Context diagram) - REQUIRED**
+Show how this system fits in the bigger picture:
+- Write 2-3 sentences explaining the system context BEFORE the diagram
+- Use \`C4Context\` Mermaid diagram
+- Show: external systems/users, system boundaries
+- Keep it high-level (5-7 nodes max)
+
+**C. Core State Transitions (stateDiagram-v2) - REQUIRED**
+Show the fundamental state machine of the system:
+- Write 2-3 sentences explaining the state flow BEFORE the diagram
+- Use \`stateDiagram-v2\` Mermaid diagram
+- Show: main states, what triggers transitions
+- Focus on the CORE flow, not edge cases
+
+**D. Component Overview (block) - REQUIRED**
+List all major components/modules as a visual map:
+- Write 2-3 sentences explaining the component structure BEFORE the diagram
+- Use \`block\` Mermaid diagram
+- Group related components together
+- This should serve as a VISUAL TABLE OF CONTENTS
+
+### 2. Components
+For each component shown in the block diagram above:
+- **Name** with link to its page: [ComponentName](pages/ComponentName.md)
+- **One-line description** of what it does
+
+## Constraints
+- **CRITICAL - Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
+- Do NOT just dump the L4 Overview - synthesize it into the sections above
+- All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED
 
 ## Output
 - Write README.md.

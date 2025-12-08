@@ -94,7 +94,12 @@ Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, c
 -   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5-Pre, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
 
 ### 8. Indexer
-Compiles the landing page (`README.md` - embedding L4 Overview and a comprehensive Table of Contents).
+Compiles the landing page (`README.md`) with:
+-   **One-Line Summary**: Single sentence describing the entire system
+-   **System Context**: C4Context diagram showing external interactions
+-   **Core State Transitions**: stateDiagram-v2 showing the fundamental state machine
+-   **Component Overview**: block diagram serving as a visual table of contents
+-   **Component List**: Links to all generated pages with descriptions
 
 ## Usage
 
