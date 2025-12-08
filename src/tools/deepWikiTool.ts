@@ -401,6 +401,8 @@ Create the FINAL component list.
 
 3. **Conditional Code Awareness**: Based on project_context.md, identify code that is conditionally compiled/executed and note the condition (e.g., "Only when DEBUG is defined").
 
+4. **Dependency Limit**: If a function has an excessive number of dependencies (Called By or Calls), list only the most important ones (up to ~20) and note "(and N more...)" at the end.
+
 ## Output Format Example
 \`\`\`markdown
 ### \`processData(input: DataType, options?: ProcessOptions): Result\`
