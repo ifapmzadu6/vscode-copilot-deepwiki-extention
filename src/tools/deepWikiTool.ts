@@ -919,7 +919,8 @@ Show the fundamental state machine of the system:
 List all major components/modules as a visual map:
 - Write 2-3 sentences explaining the component structure BEFORE the diagram
 - Use \`block\` Mermaid diagram
-- Group related components together
+- Group related components together using nested blocks
+- **Arrows (-->) are forbidden** in block diagrams; use grouping alone to convey structure
 - This should serve as a VISUAL TABLE OF CONTENTS
 
 ### 2. Components
