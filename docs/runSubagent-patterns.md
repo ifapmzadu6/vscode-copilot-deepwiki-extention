@@ -82,16 +82,18 @@ CONSTRAINT:
 
 ## 3. Advanced Patterns
 
-### A. Parallel Processing (Map-Reduce)
-You can run multiple sub-agents in parallel to speed up tasks like analyzing many files.
+### A. Parallel Processing with Staggered Start and Retry
+You can run multiple sub-agents in parallel to speed up tasks like analyzing many files. To avoid API rate limiting, use **staggered starts** and **automatic retry**.
 
 ```typescript
-// 1. Split tasks into chunks
-const fileChunks = [['file1.ts', 'file2.ts'], ['file3.ts', 'file4.ts']];
+import { runWithConcurrencyLimit } from './utils/concurrency';
 
-// 2. Launch agents in parallel
-const promises = fileChunks.map((chunk, index) => {
-    return vscode.lm.invokeTool('runSubagent', {
+// 1. Split tasks into chunks
+const fileChunks = [['file1.ts', 'file2.ts'], ['file3.ts', 'file4.ts'], ['file5.ts']];
+
+// 2. Create task functions
+const tasks = fileChunks.map((chunk, index) => {
+    return () => vscode.lm.invokeTool('runSubagent', {
         input: {
             description: `Analyze chunk ${index}`,
             prompt: `Analyze these files: ${JSON.stringify(chunk)}...`
@@ -99,9 +101,13 @@ const promises = fileChunks.map((chunk, index) => {
     }, token);
 });
 
-// 3. Wait for all
-await Promise.all(promises);
+// 3. Run with concurrency limit (max 3 parallel, 5s staggered start, auto-retry on failure)
+await runWithConcurrencyLimit(tasks, 3, 'Analysis');
 ```
+
+**Features:**
+- **Staggered Start**: Workers start with 5-second delays to avoid simultaneous API requests
+- **Auto-Retry**: Failed tasks are automatically retried once after all initial tasks complete
 
 ### B. Self-Correction Loop (Draft -> Review -> Refine)
 LLMs make mistakes. Implement a feedback loop within the Manager.
