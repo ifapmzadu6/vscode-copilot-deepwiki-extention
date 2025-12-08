@@ -72,10 +72,14 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
    - Runs in parallel batches (3 components per batch)
    - Produces precise code signatures for downstream analysis
 
-3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
+3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
    - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
    - **L4 Architect**${currentStage === 'L4' ? ' **← YOU**' : ''}: System-level overview, component relationships, and architecture maps
-   - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages
+   - **L5-Pre Page Consolidator (L5-Pre-A → L5-Pre-B → L5-Pre-C)**${currentStage.startsWith('L5-Pre') ? ' **← YOU ARE HERE**' : ''}:
+     - L5-Pre-A Drafter: Creates initial page grouping proposal${currentStage === 'L5-Pre-A' ? ' **← YOU**' : ''}
+     - L5-Pre-B Reviewer: Critiques the draft groupings${currentStage === 'L5-Pre-B' ? ' **← YOU**' : ''}
+     - L5-Pre-C Refiner: Produces final page_structure.json${currentStage === 'L5-Pre-C' ? ' **← YOU**' : ''}
+   - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages based on page_structure.json
    - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
    - Loop continues if L6 identifies components needing re-analysis
 
@@ -87,6 +91,7 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
 **Strategic Context:**
 - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
 - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+- **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
 - **Retry Mechanism**: The system can retry problematic components rather than failing completely
 - **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
 `;
@@ -451,23 +456,195 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
                 );
 
                 // ---------------------------------------------------------
-                // Level 5: WRITER (Process current components)
+                // Level 5 Pre: PAGE CONSOLIDATOR (3-stage: Draft → Review → Refine)
                 // ---------------------------------------------------------
                 const mdCodeBlock = bq + bq + bq;
+                const pageStructureExample = `
+[
+  {
+    "pageName": "Authentication",
+    "components": ["Auth Module", "Session Manager", "Login Handler"],
+    "rationale": "All handle user authentication flow"
+  },
+  {
+    "pageName": "Utilities",
+    "components": ["String Utils"],
+    "rationale": "Standalone utility module"
+  }
+]
+`;
+                // L5-Pre-A: Page Structure Drafter
+                await this.runPhase(
+                    `L5-Pre-A: Drafter (Loop ${loopCount + 1})`,
+                    'Draft initial page structure',
+                    `# Page Structure Drafter Agent (L5-Pre-A)
+
+## Role
+- **Your Stage**: L5-Pre-A Drafter (Page Consolidation Phase - First Pass)
+- **Core Responsibility**: Create initial page grouping proposal based on L3 analysis
+- **Critical Success Factor**: Group related components logically - perfection not required, L5-Pre-B will review
+
+` + getPipelineOverview('L5-Pre') + `
+
+## Goal
+Create an INITIAL draft of page structure by analyzing L3 outputs.
+
+## Input
+- Read ALL files in \`${intermediateDir}/L3/\`
+- Component list: ${JSON.stringify(componentsForThisLoop)}
+
+## Instructions
+1. **Read all L3 analysis files** to understand each component's responsibility and scope.
+2. **Identify consolidation opportunities**:
+   - Components with overlapping responsibilities (e.g., "Auth", "Session", "Login" all relate to authentication)
+   - Components that are too granular to warrant separate pages
+   - Components that users would naturally look for together
+3. **Draft page structure**:
+   - Group related components into single pages where it improves readability
+   - Keep components separate if they have distinct, substantial responsibilities
+   - Aim for balanced page sizes (not too large, not too small)
+
+## Output
+Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
+
+**Format**:
+${mdCodeBlock}json
+${pageStructureExample}
+${mdCodeBlock}
+
+**Rules**:
+- Every component from the input list MUST appear in exactly one page group
+- \`pageName\` should be descriptive and user-friendly
+- \`rationale\` explains why these components belong together
+` + commonConstraints,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // L5-Pre-B: Page Structure Reviewer
+                await this.runPhase(
+                    `L5-Pre-B: Reviewer (Loop ${loopCount + 1})`,
+                    'Review page structure draft',
+                    `# Page Structure Reviewer Agent (L5-Pre-B)
+
+## Role
+- **Your Stage**: L5-Pre-B Reviewer (Page Consolidation Phase - Quality Gate)
+- **Core Responsibility**: Critique L5-Pre-A's draft - identify issues but do NOT fix them
+- **Critical Success Factor**: Ensure page groupings make sense from a documentation user's perspective
+
+` + getPipelineOverview('L5-Pre') + `
+
+## Goal
+CRITIQUE the draft page structure. Do NOT fix it yourself.
+
+## Input
+- Read \`${intermediateDir}/L5/page_structure_draft.json\`
+- Read L3 analysis files in \`${intermediateDir}/L3/\` for reference
+
+## Instructions
+1. **Check grouping logic**:
+   - Are related components grouped together?
+   - Are there groups that should be split (too large/unfocused)?
+   - Are there groups that should be merged (too small/redundant)?
+2. **Verify completeness**:
+   - Are all components from ${JSON.stringify(componentsForThisLoop)} included?
+   - Is any component listed in multiple groups?
+3. **Assess user experience**:
+   - Would a developer easily find what they're looking for?
+   - Are page names intuitive and descriptive?
+4. **Check rationales**:
+   - Do the rationales actually justify the groupings?
+
+## Output
+Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
+
+Include:
+- Issues found (if any)
+- Suggested improvements
+- Overall assessment (Good/Needs Work)
+` + commonConstraints,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // L5-Pre-C: Page Structure Refiner
+                await this.runPhase(
+                    `L5-Pre-C: Refiner (Loop ${loopCount + 1})`,
+                    'Finalize page structure',
+                    `# Page Structure Refiner Agent (L5-Pre-C)
+
+## Role
+- **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
+- **Core Responsibility**: Merge draft with review feedback into final page structure
+- **Critical Success Factor**: Produce valid JSON that L5 Writer can use
+
+` + getPipelineOverview('L5-Pre') + `
+
+## Goal
+Create the FINAL page structure by applying review feedback.
+
+## Input
+- Draft: \`${intermediateDir}/L5/page_structure_draft.json\`
+- Review: \`${intermediateDir}/L5/page_structure_review.md\`
+
+## Instructions
+1. Read the Draft and the Review Report.
+2. Apply the suggested improvements to the page structure.
+3. Produce the final valid JSON.
+
+## Output
+Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
+
+**Format**:
+${mdCodeBlock}json
+${pageStructureExample}
+${mdCodeBlock}
+
+**Rules**:
+- Every component MUST appear in exactly one page group
+- \`pageName\` should be descriptive and user-friendly
+- \`rationale\` explains why these components belong together (or why a component stands alone)
+- Output must be valid JSON array
+` + commonConstraints,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // Read page structure for L5
+                interface PageGroup { pageName: string; components: string[]; rationale: string }
+                let pageStructure: PageGroup[] = [];
+                const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
+                try {
+                    const pageStructureContent = await vscode.workspace.fs.readFile(pageStructureUri);
+                    pageStructure = this.parseJson<PageGroup[]>(new TextDecoder().decode(pageStructureContent));
+                    logger.log('DeepWiki', `Page Consolidator: ${componentList.length} components -> ${pageStructure.length} pages`);
+                } catch (e) {
+                    // Fallback: one page per component
+                    logger.warn('DeepWiki', `Failed to read page_structure.json, falling back to 1:1 mapping: ${e}`);
+                    pageStructure = componentsForThisLoop.map(name => ({
+                        pageName: name,
+                        components: [name],
+                        rationale: 'Fallback: individual page'
+                    }));
+                }
+
+                // ---------------------------------------------------------
+                // Level 5: WRITER (Process pages based on page_structure.json)
+                // ---------------------------------------------------------
                 const pageTemplate = `
 ---
-title: {ComponentName}
+title: {PageName}
 type: component
 importance: {High/Medium/Low}
 ---
 
-# {ComponentName}
+# {PageName}
 
 ## Summary
-{Description}
+{Description of what this page covers}
 
 ## Use Cases
-{Description of how and when to use this component}
+{Description of how and when to use these components}
 
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
@@ -475,7 +652,7 @@ ${mdCodeBlock}mermaid
 ${mdCodeBlock}
 **File Structure:**
 ${mdCodeBlock}text
-{ASCII Tree of files in this component with brief descriptions}
+{ASCII Tree of files in this page's components with brief descriptions}
 ${mdCodeBlock}
 
 ## Internal Mechanics Details
@@ -486,13 +663,19 @@ ${mdCodeBlock}mermaid
 ${mdCodeBlock}
 
 ## External Interface
-{Describe how other modules interact with this component. List public methods, props, and events.}
+{Describe how other modules interact with these components. List public methods, props, and events.}
 `; // The template ends here
-                // Create tasks for L5 writing (limited concurrency to avoid rate limits)
-                const l5Tasks = currentChunks.map((chunk, index) => {
+                // Create tasks for L5 writing based on page_structure.json
+                const pageChunkSize = 3;
+                const pageChunks: PageGroup[][] = [];
+                for (let i = 0; i < pageStructure.length; i += pageChunkSize) {
+                    pageChunks.push(pageStructure.slice(i, i + pageChunkSize));
+                }
+
+                const l5Tasks = pageChunks.map((pageChunk, index) => {
                     return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
-                        `Write documentation pages`,
+                        `Write ${pageChunk.length} documentation pages`,
                         `# Writer Agent (L5)
 
 ## Role
@@ -503,14 +686,25 @@ ${mdCodeBlock}
 ` + getPipelineOverview('L5') + `
 
 ## Input
-- Assigned Components: ${JSON.stringify(chunk)}
-- Read \`${intermediateDir}/L3/{ComponentName}_analysis.md\` for each assigned component.
+- Assigned Pages: ${JSON.stringify(pageChunk)}
+- For each page, read all L3 analysis files for the components listed: \`${intermediateDir}/L3/{ComponentName}_analysis.md\`
 
 ## Instructions
-1. For EACH assigned component, create/overwrite its page in \`${outputPath}/pages/{ComponentName}.md\`.
-2. **File Tree**: Generate an ASCII tree of the component's files and add a brief comment for each file explaining its role.
-3. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
-4. Avoid static descriptions; tell the story of the data flow.
+1. For EACH assigned page in the list above:
+   - Read L3 analysis for ALL components in that page's \`components\` array
+   - **Consolidate** the information into a SINGLE cohesive page
+   - Create/overwrite: \`${outputPath}/pages/{pageName}.md\`
+
+2. **Consolidation Guidelines**:
+   - If a page has multiple components, weave their descriptions together
+   - Identify shared concepts and present them once, not repeatedly
+   - Show how the components within the page interact with each other
+   - The page should read as a unified document, not separate sections glued together
+
+3. **File Tree**: Generate an ASCII tree of ALL files from ALL components in this page.
+
+4. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
+
 5. Use this Template:
 ` + pageTemplate + `
 
@@ -518,7 +712,7 @@ ${mdCodeBlock}
 - **Do NOT include raw source code or implementation details.**
 - **Strictly separate External Interface from Internal Mechanics.**
 - Use tables for API references.
-- **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other components via their final page files in \`pages/\` directory: [Component Name](../ComponentName.md)
+- **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
