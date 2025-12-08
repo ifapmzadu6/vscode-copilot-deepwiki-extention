@@ -76,10 +76,11 @@ This approach, popularized by frameworks like **LangGraph**, models the workflow
 
 ### DeepWiki's Evolution
 Our final DeepWiki implementation evolved into a **Hybrid Architecture**.
-- **Graph Structure**: `L1 -> L2 -> L3 -> L4 -> L5 -> L6`.
+- **Graph Structure**: `L1 -> L2 -> L3 -> L4 -> L5-Pre -> L5 -> L6`.
 - **Conditional Logic**:
     - **L6 Critical Failure Loop**: The L6 Reviewer (Agent) decides whether to loop back to L3 or proceed to Indexing.
     - **L1 Self-Correction**: The L1 Reviewer decides if the Draft needs refining.
+    - **L5-Pre Page Consolidation**: A 3-stage (Draft → Review → Refine) process that groups similar components into single pages.
 
 ```mermaid
 graph TD
@@ -87,9 +88,10 @@ graph TD
     L1 --> L2[L2: Extraction]
     L2 --> L3[L3: Analysis]
     L3 --> L4[L4: Architecture]
-    L4 --> L5[L5: Writing]
+    L4 --> L5Pre[L5-Pre: Page Consolidation]
+    L5Pre --> L5[L5: Writing]
     L5 --> L6[L6: Review]
-    
+
     L6 -- "Critical Issues?" --> Decision{AI Decision}
     Decision -- "Yes" --> L3
     Decision -- "No" --> Indexer
