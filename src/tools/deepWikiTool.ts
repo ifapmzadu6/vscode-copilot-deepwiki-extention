@@ -232,7 +232,7 @@ Create an INITIAL draft of logical components.
 
 ## Instructions
 1. Read the L0 project context to understand the project structure.
-2. Scan the project files (\`src/\`).
+2. Scan the project source files (refer to L0 context for relevant directories).
 3. Group related files into Components based on directory structure.
 4. Assign tentative importance (High/Medium/Low).
 5. Consider the L0 context when grouping (e.g., exclude generated/vendor code).
