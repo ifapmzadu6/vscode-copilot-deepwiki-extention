@@ -6,9 +6,9 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
--   **Multi-Stage Pipeline**: Follows a robust 6-level (with 3-stage L1) process, where each agent builds upon the previous one's output.
+-   **Multi-Stage Pipeline**: Follows a robust 7-level (L0-L6) process, where each agent builds upon the previous one's output.
 -   **Self-Correction Loop**: L1 Discoverer, L5-Pre Page Consolidator, and L6 Page Reviewer can request re-analysis for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L1 and L5-Pre loops.
--   **Parallel Processing**: Analyzes logical components in parallel for faster execution, with dynamic depth based on importance. Concurrency is limited to prevent API rate limiting (default: 3 parallel agents).
+-   **Parallel Processing**: Analyzes logical components in parallel for faster execution. Concurrency is limited to 3 parallel agents with staggered starts (5s delay) to prevent API rate limiting. Failed tasks are automatically retried once.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
