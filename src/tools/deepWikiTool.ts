@@ -408,23 +408,32 @@ Create the FINAL component list.
 - Assigned Component: ${componentStr}
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
-## Instructions
-1. For EACH public function/method/class in the component's files, extract:
-   - **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
-   - **Brief description**: One-line summary of purpose
-   - **Internal Logic**: Key internal logic steps (3-5 bullet points)
-   - **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
-   - **Called By**: Functions/methods that call this (if identifiable from the code)
-   - **Calls**: Functions/methods/libraries this calls
-   - **Conditional**: If the code is within a conditional block (e.g., \`#ifdef\`, \`if (process.env.X)\`), note the condition
+## Instructions (FOLLOW THIS WORKFLOW EXACTLY)
 
-2. **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase or summarize parameter names.
+### Step 1: Create output file with header
+Create \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\` with a header and the first 1-3 functions.
 
-3. **Conditional Code Awareness**: Based on project_context.md, identify code that is conditionally compiled/executed and note the condition (e.g., "Only when DEBUG is defined").
+### Step 2: For EACH remaining function, analyze and IMMEDIATELY append
+For each public function/method/class:
+1. Analyze the function
+2. **IMMEDIATELY append** to the file using \`apply_patch\`
+3. Move to the next function
 
-4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content (first 3-5 functions).
-   - Use \`apply_patch\` to append remaining content.
+Do NOT wait until all functions are analyzed. Write each function to the file as soon as you analyze it.
+
+### What to extract for each function:
+- **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
+- **Brief description**: One-line summary of purpose
+- **Internal Logic**: Key internal logic steps (3-5 bullet points)
+- **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
+- **Called By**: Functions/methods that call this (if identifiable)
+- **Calls**: Functions/methods/libraries this calls
+- **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
+
+**CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
+
+### Step 3: Add verification report
+After all functions are written, append the verification report using \`apply_patch\`.
 
 ## Output Format Example
 \`\`\`markdown
@@ -523,15 +532,31 @@ After writing the output file:
 ## Input
 Assigned Component: ${componentStr}
 
-## Instructions
-1. Read the component's L2 extraction (search in intermediate folder) and source code.
-2. **Think about Causality**: Trace logic flow and state changes.
-3. **Visualize**: Define at least one specific Mermaid diagram for this component.
-   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
-   - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
-4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+## Instructions (FOLLOW THIS WORKFLOW EXACTLY)
+
+### Step 1: Create output file with header
+Create \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\` with a header and initial content.
+
+### Step 2: Read and analyze
+1. Read the component's L2 extraction (search in intermediate folder)
+2. Read the actual source code files
+
+### Step 3: Write analysis sections incrementally
+For each section (Overview, Architecture, Key Logic, etc.):
+1. Analyze the relevant aspect
+2. **IMMEDIATELY append** to the file using \`apply_patch\`
+3. Move to the next section
+
+Do NOT wait until all analysis is complete. Write each section as you complete it.
+
+### Step 4: Create Mermaid diagram
+Define at least one specific Mermaid diagram for this component:
+- **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+- **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
+Append the diagram using \`apply_patch\`.
+
+### Step 5: Add verification report
+Append the verification report using \`apply_patch\`.
 
 ## Output
 Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
@@ -877,23 +902,38 @@ ${mdCodeBlock}
 - Assigned Pages: ${JSON.stringify(pageChunk)}
 - For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
 
-## Instructions
-1. For EACH assigned page in the list above:
-   - Read L3 analysis for ALL components in that page's \`components\` array
-   - **Consolidate** the information into a SINGLE cohesive page
-   - Create/overwrite: \`${outputPath}/pages/{pageName}.md\`
+## Instructions (FOLLOW THIS WORKFLOW EXACTLY)
 
-2. **Consolidation Guidelines**:
-   - If a page has multiple components, weave their descriptions together
-   - Identify shared concepts and present them once, not repeatedly
-   - Show how the components within the page interact with each other
-   - The page should read as a unified document, not separate sections glued together
+For EACH assigned page in the list above:
 
-3. **File Tree**: Generate an ASCII tree of ALL files from ALL components in this page.
+### Step 1: Create page file with header
+Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section.
 
-4. **Causal Explanation**: When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
+### Step 2: Read L3 analysis
+Read L3 analysis for ALL components in that page's \`components\` array.
 
-5. Use this Template:
+### Step 3: Write sections incrementally
+For each section (Architecture, Internal Mechanics, External Interface, etc.):
+1. Write the section content
+2. **IMMEDIATELY append** to the file using \`apply_patch\`
+3. Move to the next section
+
+Do NOT wait until all sections are ready. Write each section as you complete it.
+
+### Step 4: Add File Tree
+Generate an ASCII tree of ALL files from ALL components in this page.
+Append using \`apply_patch\`.
+
+### Consolidation Guidelines:
+- If a page has multiple components, weave their descriptions together
+- Identify shared concepts and present them once, not repeatedly
+- Show how the components within the page interact with each other
+- The page should read as a unified document, not separate sections glued together
+
+### Causal Explanation:
+When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
+
+### Template to follow:
 ` + pageTemplate + `
 
 ## Constraints
@@ -901,7 +941,6 @@ ${mdCodeBlock}
 - **Strictly separate External Interface from Internal Mechanics.**
 - Use tables for API references.
 - **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
-- **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted). Use \`apply_patch\` to append sections.
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
