@@ -1044,9 +1044,7 @@ For each component shown in the block diagram above:
 
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
-                    '✅ DeepWiki Generation Completed!\n\n' +
-                    'Documented ' + componentList.length + ' components into ' + finalPageCount + ' pages. ' +
-                    'Check the \`' + outputPath + '\` directory.'
+                    `✅ DeepWiki Generation Completed!\n\nDocumented ${componentList.length} components into ${finalPageCount} pages. Check the \`${outputPath}\` directory.`
                 )
             ]);
 
@@ -1071,29 +1069,29 @@ For each component shown in the block diagram above:
 
         const targetPath = path.normalize(path.join(workspaceFolder.uri.fsPath, dirName));
         if (!targetPath.startsWith(path.normalize(workspaceFolder.uri.fsPath + path.sep))) {
-            logger.warn('DeepWiki', `Skipping cleanup: outputPath escapes workspace(${dirName})`);
+            logger.warn('DeepWiki', `Skipping cleanup: outputPath escapes workspace (${dirName})`);
             return;
         }
 
         const targetUri = vscode.Uri.file(targetPath);
-        logger.log('DeepWiki', `Preparing cleanup for output directory: ${targetUri.fsPath} `);
+        logger.log('DeepWiki', `Preparing cleanup for output directory: ${targetUri.fsPath}`);
         try {
             await vscode.workspace.fs.delete(targetUri, { recursive: true });
-            logger.log('DeepWiki', `Cleaned output directory: ${targetUri.fsPath} `);
+            logger.log('DeepWiki', `Cleaned output directory: ${targetUri.fsPath}`);
         } catch (error) {
             const code = (error as { code?: string }).code;
             const message = error instanceof Error ? error.message : String(error);
             if (code === 'FileNotFound' || /ENOENT/.test(message)) {
-                logger.log('DeepWiki', `No existing output directory to clean at: ${targetUri.fsPath} `);
+                logger.log('DeepWiki', `No existing output directory to clean at: ${targetUri.fsPath}`);
                 return; // nothing to delete
             }
-            logger.warn('DeepWiki', `Output cleanup skipped: ${message} `);
+            logger.warn('DeepWiki', `Output cleanup skipped: ${message}`);
         }
     }
 
     private parseJson<T>(content: string): T {
         let jsonStr = content.trim();
-        const match = jsonStr.match(/```(?: json) ?\s * ([\s\S] *?)```/);
+        const match = jsonStr.match(/```(?:json)?\s*([\s\S]*?)```/);
         if (match) {
             jsonStr = match[1].trim();
         }
@@ -1108,7 +1106,7 @@ For each component shown in the block diagram above:
         toolInvocationToken: vscode.ChatParticipantToolToken | undefined
     ): Promise<void> {
         const startTime = Date.now();
-        logger.log('DeepWiki', `>>> Starting Phase: ${agentName} - ${description} `);
+        logger.log('DeepWiki', `>>> Starting Phase: ${agentName} - ${description}`);
 
         // Wait 10 seconds before each subagent call to avoid API rate limits
         await new Promise(resolve => setTimeout(resolve, 10000));
@@ -1134,10 +1132,10 @@ For each component shown in the block diagram above:
                     break;
                 }
             }
-            logger.log('DeepWiki', `<< <Completed Phase: ${agentName} in ${duration} s - ${resultPreview}...`);
+            logger.log('DeepWiki', `<<< Completed Phase: ${agentName} in ${duration}s - ${resultPreview}...`);
         } catch (error) {
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration} s`, error);
+            logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
     }
@@ -1147,20 +1145,20 @@ For each component shown in the block diagram above:
      * when run_in_terminal is detected in available tools
      */
     private returnSafePromptInstructions(): vscode.LanguageModelToolResult {
-        const promptContent = `-- -
-                mode: agent
-            description: "DeepWiki - Codebase documentation generator"
-            tools:
-            - list_dir
-                - read_file
-                - create_file
-                - create_directory
-                - apply_patch
-                - file_search
-                - grep_search
-                - semantic_search
-                - list_code_usages
-            ---
+        const promptContent = `---
+mode: agent
+description: "DeepWiki - Codebase documentation generator"
+tools:
+  - list_dir
+  - read_file
+  - create_file
+  - create_directory
+  - apply_patch
+  - file_search
+  - grep_search
+  - semantic_search
+  - list_code_usages
+---
 
 # DeepWiki Documentation Generator
 
