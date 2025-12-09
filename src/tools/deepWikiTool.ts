@@ -447,7 +447,7 @@ Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`.
 **CRITICAL - Incremental Writing Strategy**:
 The output token limit is ~10,000 tokens per operation. To avoid hitting this limit:
 1. **Create the file first** with a header and initial content (first few functions).
-2. **Append remaining content** using \`apply_patch\` or subsequent \`create_file\` operations.
+2. **Append remaining content** using \`apply_patch\` to add sections incrementally.
 3. If the component has many functions, process them in batches of 3-5 functions per write operation.
 
 ## Self-Verification Phase (MANDATORY)
