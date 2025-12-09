@@ -112,8 +112,6 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
  - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
  - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
  - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
- - **Retry Mechanism**: The system can retry problematic components rather than failing completely
- - **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
  `;
 
 
