@@ -68,6 +68,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Clean up previous output
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
+
         // Function to generate pipeline overview with current stage highlighted
         const getPipelineOverview = (currentStage: string) => `
 ## Pipeline Overview
@@ -117,6 +118,7 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
 - **Retry Mechanism**: The system can retry problematic components rather than failing completely
 - **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
 `;
+
 
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
@@ -407,8 +409,8 @@ Create the FINAL component list.
 - **Brief description**: One-line summary of purpose
 - **Internal Logic**: Key internal logic steps (3-5 bullet points)
 - **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
-- **Called By**: Functions/methods that call this (if identifiable)
-- **Calls**: Functions/methods/libraries this calls
+- **Called By**: Functions/methods that call this (Direct callers only, Depth=1)
+- **Calls**: Functions/methods/libraries this calls (Direct calls only, Depth=1)
 - **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
 
 **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
