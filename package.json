@@ -49,7 +49,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
-    "build": "npm run compile && vsce package --allow-missing-repository",
+    "build": "npm run compile && vsce package --allow-missing-repository --skip-license",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts"
   },
