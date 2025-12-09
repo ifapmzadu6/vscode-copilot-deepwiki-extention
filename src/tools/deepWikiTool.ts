@@ -1100,6 +1100,9 @@ For each component shown in the block diagram above:
         const startTime = Date.now();
         logger.log('DeepWiki', `>>> Starting Phase: ${agentName} - ${description}`);
 
+        // Wait 10 seconds before each subagent call to avoid API rate limits
+        await new Promise(resolve => setTimeout(resolve, 10000));
+
         try {
             const result = await vscode.lm.invokeTool(
                 'runSubagent',
