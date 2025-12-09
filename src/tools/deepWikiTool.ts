@@ -97,8 +97,6 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 - **Core Responsibility**: Understand project structure, build system, and conditional code patterns
 - **Critical Success Factor**: Provide context that helps subsequent agents understand which code is active/conditional
 
-
-
 ## Goal
 Analyze the project and create a context document for downstream agents.
 
@@ -180,8 +178,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Create initial component grouping from project files
 - **Critical Success Factor**: Group related files logically - perfection not required, L1-B will review
 
-
-
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for project structure and build system info
 
@@ -238,8 +234,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Critique L1-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Verify files actually exist and are grouped logically
 
-
-
 ## Goal
 CRITIQUE the draft. Do NOT fix it yourself.
 
@@ -274,8 +268,6 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
 - **Your Stage**: L1-C Refiner (Discovery Phase - Final Output)
 - **Core Responsibility**: Merge L1-A draft with L1-B feedback into validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
-
-
 
 ## Goal
 Create the FINAL component list.
@@ -343,8 +335,6 @@ Create the FINAL component list.
 - **Your Stage**: L2 Extraction (runs in parallel batches)
 - **Core Responsibility**: Extract precise API signatures from source code - no interpretation
 - **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
-
-
 
 ## Input
 - Assigned Component: ${componentStr}
@@ -444,8 +434,6 @@ Processes input data and returns transformed result
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
-
-
 ## Input
 Assigned Component: ${componentStr}
 
@@ -484,8 +472,6 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 - **Your Stage**: L4 Architect (Analysis Loop - System Overview)
 - **Core Responsibility**: See the big picture - map component relationships and architectural decisions
 - **Critical Success Factor**: Indexer uses your overview for the final README - explain the "why" behind the architecture
-
-
 
 ## Goal
 Create a system-level overview based on ALL available L3 analysis.
@@ -551,8 +537,6 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 - **Core Responsibility**: Create initial page grouping proposal based on L3 analysis
 - **Critical Success Factor**: Group related components logically - perfection not required, L5-Pre-B will review
 
-
-
 ## Goal
 Create an INITIAL draft of page structure by analyzing L3 outputs.
 
@@ -610,8 +594,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Critique L5-Pre-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Ensure page groupings make sense from a documentation user's perspective
 
-
-
 ## Goal
 CRITIQUE the draft page structure. Do NOT fix it yourself.
 
@@ -658,8 +640,6 @@ Include:
 - **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
 - **Core Responsibility**: Merge draft with review feedback into final page structure
 - **Critical Success Factor**: Produce valid JSON that L5 Writer can use
-
-
 
 ## Goal
 Create the FINAL page structure by applying review feedback.
@@ -784,8 +764,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
-
-
 ## Input
 - Assigned Pages: ${JSON.stringify(pageChunk)}
 - For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
@@ -844,8 +822,6 @@ Write files to \`${outputPath}/pages/\`.
 - **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
 - **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
 - **Critical Success Factor**: You are the last line of defense before final output - be thorough
-
-
 
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
@@ -920,8 +896,6 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - **Your Stage**: Indexer (Final Stage)
 - **Core Responsibility**: Create a high-quality README that serves as the definitive entry point for understanding this codebase
 - **Critical Success Factor**: The README should answer "What is this? How is it organized? Where do I start?" within the first screen
-
-
 
 ## Input
 - Read \`${intermediateDir}/L4/overview.md\`
