@@ -409,7 +409,7 @@ Create the FINAL component list.
 - **Brief description**: One-line summary of purpose
 - **Internal Logic**: Key internal logic steps (3-5 bullet points)
 - **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
-- **Called By**: Functions/methods that call this (if identifiable, Direct callers only, Depth=1)
+- **Called By**: Functions/methods that call this (Direct callers only, Depth=1)
 - **Calls**: Functions/methods/libraries this calls (Direct calls only, Depth=1)
 - **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
 
