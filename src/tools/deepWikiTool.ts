@@ -127,10 +127,6 @@ CONSTRAINTS:
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 
 3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep your final response brief and on a single line (e.g., "Task completed.").
-
-4. **Incremental File Writing**: The output token limit is approximately **10,000 tokens per single operation**. To avoid hitting this limit:
-   - Do NOT generate an entire large document in a single file creation.
-   - Write initial content first, then append or edit sections in subsequent operations.
 `;
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
@@ -174,6 +170,9 @@ Analyze the project and create a context document for downstream agents.
    - General: Environment-specific code paths
 4. **Note Generated/Excluded Code**: vendor/, generated/, third_party/, node_modules/, etc.
 5. **Identify Target Environments**: production, debug, test, platforms
+6. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write to \`${intermediateDir}/L0/project_context.md\`
@@ -253,6 +252,9 @@ Create an INITIAL draft of logical components.
 3. Group related files into Components based on directory structure.
 4. Assign tentative importance (High/Medium/Low).
 5. Consider the L0 context when grouping (e.g., exclude generated/vendor code).
+6. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
@@ -307,6 +309,9 @@ CRITIQUE the draft. Do NOT fix it yourself.
 1. Critique the draft for granularity and accuracy.
 2. **Verification**: Verify that the grouped files actually exist and make sense together.
 3. Check for missing core files or included noise.${retryContextL1}
+4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
@@ -341,6 +346,9 @@ Create the FINAL component list.
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
 3. Produce the valid JSON.${retryContextL1}
+4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 - Write the FINAL JSON to \`${intermediateDir}/L1/component_list.json\`.
@@ -414,6 +422,10 @@ Create the FINAL component list.
 
 3. **Conditional Code Awareness**: Based on project_context.md, identify code that is conditionally compiled/executed and note the condition (e.g., "Only when DEBUG is defined").
 
+4. **Incremental Writing**: The output token limit is ~10,000 tokens. If the component has many functions, write the file incrementally:
+   - Create the file first with initial content (first 3-5 functions).
+   - Use \`apply_patch\` to append remaining sections.
+
 ## Output Format Example
 \`\`\`markdown
 ### \`processData(input: DataType, options?: ProcessOptions): Result\`
@@ -443,12 +455,6 @@ Processes input data and returns transformed result
 
 ## Output
 Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`.
-
-**CRITICAL - Incremental Writing Strategy**:
-The output token limit is ~10,000 tokens per operation. To avoid hitting this limit:
-1. **Create the file first** with a header and initial content (first few functions).
-2. **Append remaining content** using \`apply_patch\` to add sections incrementally.
-3. If the component has many functions, process them in batches of 3-5 functions per write operation.
 
 ## Self-Verification Phase (MANDATORY)
 After writing the output file:
@@ -523,6 +529,9 @@ Assigned Component: ${componentStr}
 3. **Visualize**: Define at least one specific Mermaid diagram for this component.
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
+4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
@@ -580,6 +589,9 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
+5. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 - Write Overview to \`${intermediateDir}/L4/overview.md\`.
@@ -645,6 +657,9 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
    - Group related components into single pages where it improves readability
    - Keep components separate if they have distinct, substantial responsibilities
    - Aim for balanced page sizes (not too large, not too small)
+4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
@@ -704,6 +719,9 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
    - Are page names intuitive and descriptive?
 4. **Check rationales**:
    - Do the rationales actually justify the groupings?
+5. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
@@ -741,6 +759,9 @@ Create the FINAL page structure by applying review feedback.
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
 3. Produce the final valid JSON.${retryContextL5Pre}
+4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
@@ -880,6 +901,7 @@ ${mdCodeBlock}
 - **Strictly separate External Interface from Internal Mechanics.**
 - Use tables for API references.
 - **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
+- **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally using \`apply_patch\` to append sections.
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
@@ -934,6 +956,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    - If a signature is incorrect, fix it by reading the actual source file.
 7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.). Only links to pages in the \`pages/\` directory should remain.
 8. ` + retryInstruction + `
+9. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+   - Create the file first with initial content.
+   - Use \`apply_patch\` to append remaining sections.
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
@@ -1037,6 +1062,7 @@ For each component shown in the block diagram above:
 - **CRITICAL - Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
 - Do NOT just dump the L4 Overview - synthesize it into the sections above
 - All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED
+- **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally using \`apply_patch\` to append sections.
 
 ## Output
 - Write README.md.
