@@ -120,7 +120,7 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
 CONSTRAINTS:
 1. **Security & Tool Usage**:
    - **ALLOWED TOOLS**: You MUST ONLY use the following tools:
-     - File Operations: \`list_dir\`, \`read_file\`, \`create_file\`, \`create_directory\`, \`replace_string_in_file\`, \`multi_replace_string_in_file\`.
+     - File Operations: \`list_dir\`, \`read_file\`, \`create_file\`, \`create_directory\`, \`apply_patch\`.
      - Search: \`file_search\`, \`grep_search\`, \`semantic_search\`, \`list_code_usages\`.
    - **FORBIDDEN**: Do NOT use \`run_in_terminal\`, \`run_task\`, \`install_extension\`, or any other tools not listed above.
 
