@@ -341,47 +341,54 @@ Create the FINAL component list.
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
 ## Instructions
-1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\` using \`create_file\`.
-2. **Iterate item by item**:
-   - Pick ONE function/method/class.
-   - EXTRACT details for this ONE item.
-   - WRITE immediately using \`apply_patch\`.
-   - **FORGET** it and move to the next item.
-   - **REPEAT**.
+1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
+2. For each function/method/class: Analyze one → Use \`apply_patch\` to write → Repeat
 
 **What to extract**:
-- **Signature**: Full signature with EXACT parameter names and types (copy as-is).
-- **Brief description**: One-line summary.
-- **Internal Logic**: Key steps (3-5 bullets). **SKIP for simple getters/setters or 1-line functions.**
-- **Side Effects**: I/O, state mutations, events.
-- **Dependencies**: List *major* calls only.
+- **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
+- **Brief description**: One-line summary of purpose
+- **Internal Logic**: Key internal logic steps (3-5 bullet points)
+- **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
+- **Called By**: Functions/methods that call this (if identifiable)
+- **Calls**: Functions/methods/libraries this calls
+- **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
 
-**CRITICAL**: Copy signatures EXACTLY as they appear. Do NOT paraphrase.
+**CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
 
 ## Output
 Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
 
 Use this format:
 \`\`\`markdown
-### \`processData(input: DataType): Result\`
-Processes input data.
+### \`processData(input: DataType, options?: ProcessOptions): Result\`
+Processes input data and returns transformed result
+
+**Conditional**: Only when \`FEATURE_X\` is defined
 
 **Internal Logic**:
-- Validates schema
-- Transforms data
+- Validates input schema
+- Applies transformation rules
+- Handles edge cases for null values
 
 **Side Effects**:
-- DB Write
+- Writes to database via \`saveToDb()\`
+- Emits 'data.processed' event
+- Updates in-memory cache
 
-**Dependencies**:
-- \`saveToDb()\`
+**Called By**:
+- \`HttpHandler.handlePost()\`
+- \`BatchProcessor.processQueue()\`
+
+**Calls**:
+- \`validateInput(input)\`
+- \`transformData(input, options)\`
+- \`saveToDb(result)\`
 \`\`\`
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief.
-3. **Strict Incremental Writing**: Write ONE item at a time. NEVER batch multiple items in one tool call.
-4. **Filter Trivial**: Ignore simple getters, setters, and trivial 1-line text/formatting utilities to save tokens.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                     token,
                     options.toolInvocationToken
                 );
