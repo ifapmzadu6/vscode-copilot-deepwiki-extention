@@ -552,21 +552,18 @@ Create a system-level overview based on ALL available L3 analysis.
 Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
 
 ## Instructions
-1. Define the High-Level Architecture.
-2. **Analyze Causal Impact**: How does a change in one component propagate to others?
-3. Explain the 'Why' behind the architectural decisions.
-4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
+1. Read L3 analysis files → Understand component landscape
+2. Define High-Level Architecture → Use \`apply_patch\` to write \`overview.md\`
+3. Analyze Causal Impact (how changes propagate) → Use \`apply_patch\` to write
+4. Explain the 'Why' behind architectural decisions → Use \`apply_patch\` to write
+5. Create Mermaid diagrams → Use \`apply_patch\` to write \`relationships.md\`
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
-   - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
-5. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
-   - Do NOT: Analyze all items then write all at end
-   - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
+   - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
-- Write Overview to \`${intermediateDir}/L4/overview.md\`.
-- Write Architecture Map to \`${intermediateDir}/L4/relationships.md\`.
-- Include at least TWO diagrams (e.g., \`C4Context\` for component interactions, \`sequenceDiagram\` for key flows).
+- Write to \`${intermediateDir}/L4/overview.md\`
+- Write to \`${intermediateDir}/L4/relationships.md\`
+- Include at least TWO diagrams
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
@@ -631,10 +628,6 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
    - Group related components into single pages where it improves readability
    - Keep components separate if they have distinct, substantial responsibilities
    - Aim for balanced page sizes (not too large, not too small)
-4. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
-   - Do NOT: Analyze all items then write all at end
-   - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
@@ -651,8 +644,7 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -698,10 +690,6 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
    - Are page names intuitive and descriptive?
 4. **Check rationales**:
    - Do the rationales actually justify the groupings?
-5. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
-   - Do NOT: Analyze all items then write all at end
-   - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
@@ -713,8 +701,7 @@ Include:
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
                         token,
                         options.toolInvocationToken
                     );
@@ -743,10 +730,6 @@ Create the FINAL page structure by applying review feedback.
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
 3. Produce the final valid JSON.${retryContextL5Pre}
-4. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
-   - Do NOT: Analyze all items then write all at end
-   - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
@@ -764,8 +747,7 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
                         token,
                         options.toolInvocationToken
                     );
