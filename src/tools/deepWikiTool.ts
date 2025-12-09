@@ -49,6 +49,18 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             ]);
         }
 
+        // Security check: Detect if run_in_terminal is available in tools
+        const availableTools = vscode.lm.tools;
+        const hasRunInTerminal = availableTools.some(t =>
+            t.name.toLowerCase().includes('run_in_terminal') ||
+            t.name.toLowerCase().includes('runinterminal')
+        );
+
+        if (hasRunInTerminal) {
+            logger.warn('DeepWiki', 'Detected run_in_terminal in available tools. Aborting for security.');
+            return this.returnSafePromptInstructions();
+        }
+
         const intermediateDir = `${outputPath}/intermediate`;
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
 
@@ -1168,5 +1180,53 @@ For each component shown in the block diagram above:
             logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
+    }
+
+    /**
+     * Returns instructions for creating a safe .prompt.md file
+     * when run_in_terminal is detected in available tools
+     */
+    private returnSafePromptInstructions(): vscode.LanguageModelToolResult {
+        const promptContent = `---
+mode: agent
+description: "DeepWiki - Codebase documentation generator"
+tools:
+  - list_dir
+  - read_file
+  - create_file
+  - create_directory
+  - apply_patch
+  - file_search
+  - grep_search
+  - semantic_search
+  - list_code_usages
+---
+
+# DeepWiki Documentation Generator
+
+You are DeepWiki, a documentation generation agent that analyzes codebases and produces comprehensive technical documentation.
+`;
+
+        const message = `⚠️ **セキュリティ警告**: 現在のChat設定では \`run_in_terminal\` ツールが有効になっています。
+
+DeepWikiはファイル操作のみで動作するため、ターミナル実行は不要です。
+安全のため、以下の手順で再度実行してください：
+
+## 対処方法
+
+### 1. プロンプトファイルを作成
+以下の内容で \`.github/prompts/deepwiki.prompt.md\` を作成してください：
+
+\`\`\`markdown
+${promptContent}\`\`\`
+
+### 2. スラッシュコマンドで実行
+Chat入力欄で \`/deepwiki\` と入力し、続けて \`@createDeepWiki\` を呼び出してください。
+
+このプロンプトでは、必要なツールのみが有効になっています。`;
+
+        return new vscode.LanguageModelToolResult([
+            new vscode.LanguageModelTextPart(message)
+        ]);
     }
 }
