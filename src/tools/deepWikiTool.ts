@@ -848,45 +848,23 @@ ${mdCodeBlock}
 - Assigned Pages: ${JSON.stringify(pageChunk)}
 - For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
 
-## Instructions (FOLLOW THIS WORKFLOW EXACTLY)
+## Instructions
+1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
+2. Read L3 analysis for ALL components in that page's \`components\` array
+3. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`apply_patch\` to write immediately
+4. Generate an ASCII tree of ALL files from ALL components in this page → Use \`apply_patch\` to write
 
-For EACH assigned page in the list above:
-
-### Step 1: Create page file with header
-Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section.
-
-### Step 2: Read L3 analysis
-Read L3 analysis for ALL components in that page's \`components\` array.
-
-### Step 3: Write sections incrementally
-For each section (Architecture, Internal Mechanics, External Interface, etc.):
-1. Write the section content
-2. **IMMEDIATELY append** to the file using \`apply_patch\`
-3. Move to the next section
-
-Do NOT wait until all sections are ready. Write each section as you complete it.
-
-### Step 4: Add File Tree
-Generate an ASCII tree of ALL files from ALL components in this page.
-Append using \`apply_patch\`.
-
-### Consolidation Guidelines:
+**Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
 - Identify shared concepts and present them once, not repeatedly
 - Show how the components within the page interact with each other
 - The page should read as a unified document, not separate sections glued together
 
-### Causal Explanation:
+**Causal Explanation**:
 When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
 
-### Template to follow:
+### Template
 ` + pageTemplate + `
-
-## Constraints
-- **Do NOT include raw source code or implementation details.**
-- **Strictly separate External Interface from Internal Mechanics.**
-- Use tables for API references.
-- **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
@@ -894,7 +872,10 @@ Write files to \`${outputPath}/pages/\`.
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+4. **Do NOT include raw source code or implementation details.**
+5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references.
+6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)`,
                         token,
                         options.toolInvocationToken
                     );
@@ -932,23 +913,15 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Read all L3 analysis files in \`${intermediateDir}/L3/\`
 
 ## Instructions
-1. **Accuracy**: Verify content against ACTUAL SOURCE CODE. Read the source files referenced in the page to ensure descriptions are correct. Do not trust the text blindly.
-2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders.
-3. **Connectivity**: Verify that all links work and point to existing files.
-4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
-5. **Numerical Consistency**: Check for inconsistent numerical values within the document.
-   - Duration formats: Ensure "8 hours" vs "9 hours" vs "8h" are consistent.
-   - Percentages: Ensure "25%" vs "0.25" are unified.
-   - If values conflict, VERIFY against source code and unify to the correct value.
-6. **Signature Accuracy**: Verify method/function signatures match actual source code.
-   - Parameter names and types must match exactly.
-   - If a signature is incorrect, fix it by reading the actual source file.
-7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.). Only links to pages in the \`pages/\` directory should remain.
+1. **Accuracy**: Verify content against ACTUAL SOURCE CODE → If errors found, use \`apply_patch\` to fix immediately
+2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders → Use \`apply_patch\` to fill if needed
+3. **Connectivity**: Verify that all links work and point to existing files → Use \`apply_patch\` to fix broken links
+4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors → Use \`apply_patch\` to write fixes
+5. **Numerical Consistency**: Check for inconsistent numerical values (e.g., "8h" vs "8 hours") → Use \`apply_patch\` to unify
+6. **Signature Accuracy**: Verify method/function signatures match actual source code
+   - If a signature is incorrect, read the actual source file and use \`apply_patch\` to fix
+7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.) → Use \`apply_patch\` to fix
 8. ` + retryInstruction + `
-9. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
-   - Do NOT: Analyze all items then write all at end
-   - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
@@ -1014,60 +987,27 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Scan \`${outputPath}/pages/\`
 
 ## Instructions
-Create \`${outputPath}/README.md\` with the following CONTENT sections (in order):
-
-### 0. Disclaimer (at the very top)
-Add this exact text at the very beginning of the README:
-> **Note**: This documentation was auto-generated by an LLM. While we strive for accuracy, please refer to the source code for authoritative information.
-
-### 1. Architecture Overview
-
-**A. One-Line Summary**
-Summarize the ENTIRE system in ONE sentence.
-
-**B. System Context (C4Context diagram) - REQUIRED**
-Show how this system fits in the bigger picture:
-- Write 2-3 sentences explaining the system context BEFORE the diagram
-- Use \`C4Context\` Mermaid diagram
-- Show: external systems/users, system boundaries
-- Keep it high-level (5-7 nodes max)
-
-**C. Core State Transitions (stateDiagram-v2) - REQUIRED**
-Show the fundamental state machine of the system:
-- Write 2-3 sentences explaining the state flow BEFORE the diagram
-- Use \`stateDiagram-v2\` Mermaid diagram
-- Show: main states, what triggers transitions
-- Focus on the CORE flow, not edge cases
-
-**D. Component Overview (block) - REQUIRED**
-List all major components/modules as a visual map:
-- Write 2-3 sentences explaining the component structure BEFORE the diagram
-- Use \`block\` Mermaid diagram
-- Group related components together using nested blocks
-- **Arrows (-->) are forbidden** in block diagrams; use grouping alone to convey structure
-- This should serve as a VISUAL TABLE OF CONTENTS
-
-### 2. Components
-For each component shown in the block diagram above:
-- **Name** with link to its page: [ComponentName](pages/ComponentName.md)
-- **One-line description** of what it does
-
-## Constraints
-- **CRITICAL - Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
-- Do NOT just dump the L4 Overview - synthesize it into the sections above
-- All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED
-- **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
-  - Do NOT: Analyze all items then write all at end
-  - DO: Analyze one item, write immediately, then move to next
-  - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
+1. Read L4 overview and relationships files, and scan generated pages
+2. Create \`${outputPath}/README.md\` starting with Disclaimer → Use \`apply_patch\` to write:
+   > **Note**: This documentation was auto-generated by an LLM. While we strive for accuracy, please refer to the source code for authoritative information.
+3. Synthesize **Architecture Overview** into README → Use \`apply_patch\` to write:
+   - **A. One-Line Summary**: Summarize the ENTIRE system in ONE sentence.
+   - **B. System Context (C4Context diagram) - REQUIRED**: Show external systems/users and boundaries (high-level, 5-7 nodes max). Write 2-3 sentences explanation BEFORE the diagram.
+   - **C. Core State Transitions (stateDiagram-v2) - REQUIRED**: Show main states and triggers (CORE flow, not edge cases). Write 2-3 sentences explanation BEFORE the diagram.
+   - **D. Component Overview (block) - REQUIRED**: Visual map/TOC of major components. Group related components using nested blocks. **Arrows (-->) are forbidden** in block diagrams. Write 2-3 sentences explanation BEFORE the diagram.
+4. Add **Components** section → Use \`apply_patch\` to write:
+   - For each component in the block diagram: Name with link to its page ([ComponentName](pages/ComponentName.md)) and one-line description.
 
 ## Output
-- Write README.md.
+- Write README.md to \`${outputPath}/README.md\`
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+1. **Scope**: Do NOT Modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+4. **Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
+5. **Synthesize, Don't Dump**: Do NOT just copy L4 Overview - synthesize it into the sections above.
+6. **Required Diagrams**: All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED.`,
                 token,
                 options.toolInvocationToken
             );
