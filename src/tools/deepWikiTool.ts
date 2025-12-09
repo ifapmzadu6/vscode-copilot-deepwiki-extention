@@ -432,9 +432,6 @@ Do NOT wait until all functions are analyzed. Write each function to the file as
 
 **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
 
-### Step 3: Add verification report
-After all functions are written, append the verification report using \`apply_patch\`.
-
 ## Output Format Example
 \`\`\`markdown
 ### \`processData(input: DataType, options?: ProcessOptions): Result\`
@@ -464,23 +461,6 @@ Processes input data and returns transformed result
 
 ## Output
 Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`.
-
-## Self-Verification Phase (MANDATORY)
-After writing the output file:
-1. **Re-read** your output file.
-2. **Compare** extracted signatures and internal logic against the ACTUAL source code.
-3. **Verify** that Called By/Calls relationships are accurate by checking the code.
-4. **Append** a brief Verification Report at the end:
-
-\`\`\`markdown
----
-## Verification Report
-| Verified | Notes |
-|----------|-------|
-| ✅/❌ | Brief summary of any fixes made |
-\`\`\`
-
-5. If issues found, **FIX** before completing.
 ` + commonConstraints,
                     token,
                     options.toolInvocationToken
@@ -555,27 +535,8 @@ Define at least one specific Mermaid diagram for this component:
 - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 Append the diagram using \`apply_patch\`.
 
-### Step 5: Add verification report
-Append the verification report using \`apply_patch\`.
-
 ## Output
 Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
-
-## Self-Verification Phase (MANDATORY)
-After writing the analysis file:
-1. **Re-read** your output file.
-2. **Compare** key values against ACTUAL source code.
-3. **Append** a brief Verification Report at the end:
-
-\`\`\`markdown
----
-## Verification Report
-| Verified | Notes |
-|----------|-------|
-| ✅/❌ | Brief summary of any fixes made |
-\`\`\`
-
-4. If issues found, **FIX** before completing.
 
 ` + commonConstraints,
                         token,
