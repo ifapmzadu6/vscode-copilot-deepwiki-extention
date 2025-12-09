@@ -170,7 +170,7 @@ Analyze the project and create a context document for downstream agents.
    - General: Environment-specific code paths
 4. **Note Generated/Excluded Code**: vendor/, generated/, third_party/, node_modules/, etc.
 5. **Identify Target Environments**: production, debug, test, platforms
-6. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+6. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -252,7 +252,7 @@ Create an INITIAL draft of logical components.
 3. Group related files into Components based on directory structure.
 4. Assign tentative importance (High/Medium/Low).
 5. Consider the L0 context when grouping (e.g., exclude generated/vendor code).
-6. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+6. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -309,7 +309,7 @@ CRITIQUE the draft. Do NOT fix it yourself.
 1. Critique the draft for granularity and accuracy.
 2. **Verification**: Verify that the grouped files actually exist and make sense together.
 3. Check for missing core files or included noise.${retryContextL1}
-4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -346,7 +346,7 @@ Create the FINAL component list.
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
 3. Produce the valid JSON.${retryContextL1}
-4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -422,7 +422,7 @@ Create the FINAL component list.
 
 3. **Conditional Code Awareness**: Based on project_context.md, identify code that is conditionally compiled/executed and note the condition (e.g., "Only when DEBUG is defined").
 
-4. **Incremental Writing**: The output token limit is ~10,000 tokens. If the component has many functions, write the file incrementally:
+4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content (first 3-5 functions).
    - Use \`apply_patch\` to append remaining sections.
 
@@ -529,7 +529,7 @@ Assigned Component: ${componentStr}
 3. **Visualize**: Define at least one specific Mermaid diagram for this component.
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
-4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -589,7 +589,7 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
-5. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+5. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -657,7 +657,7 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
    - Group related components into single pages where it improves readability
    - Keep components separate if they have distinct, substantial responsibilities
    - Aim for balanced page sizes (not too large, not too small)
-4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -719,7 +719,7 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
    - Are page names intuitive and descriptive?
 4. **Check rationales**:
    - Do the rationales actually justify the groupings?
-5. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+5. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -759,7 +759,7 @@ Create the FINAL page structure by applying review feedback.
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
 3. Produce the final valid JSON.${retryContextL5Pre}
-4. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -901,7 +901,7 @@ ${mdCodeBlock}
 - **Strictly separate External Interface from Internal Mechanics.**
 - Use tables for API references.
 - **CRITICAL - No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
-- **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally using \`apply_patch\` to append sections.
+- **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted). Use \`apply_patch\` to append sections.
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
@@ -956,7 +956,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    - If a signature is incorrect, fix it by reading the actual source file.
 7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.). Only links to pages in the \`pages/\` directory should remain.
 8. ` + retryInstruction + `
-9. **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally:
+9. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
    - Use \`apply_patch\` to append remaining sections.
 
@@ -1062,7 +1062,7 @@ For each component shown in the block diagram above:
 - **CRITICAL - Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
 - Do NOT just dump the L4 Overview - synthesize it into the sections above
 - All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED
-- **Incremental Writing**: Output token limit is ~10,000 tokens. If output is large, write incrementally using \`apply_patch\` to append sections.
+- **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted). Use \`apply_patch\` to append sections.
 
 ## Output
 - Write README.md.
