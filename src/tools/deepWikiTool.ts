@@ -172,7 +172,7 @@ Analyze the project and create a context document for downstream agents.
 5. **Identify Target Environments**: production, debug, test, platforms
 6. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write to \`${intermediateDir}/L0/project_context.md\`
@@ -254,7 +254,7 @@ Create an INITIAL draft of logical components.
 5. Consider the L0 context when grouping (e.g., exclude generated/vendor code).
 6. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
@@ -311,7 +311,7 @@ CRITIQUE the draft. Do NOT fix it yourself.
 3. Check for missing core files or included noise.${retryContextL1}
 4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
@@ -348,7 +348,7 @@ Create the FINAL component list.
 3. Produce the valid JSON.${retryContextL1}
 4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 - Write the FINAL JSON to \`${intermediateDir}/L1/component_list.json\`.
@@ -424,7 +424,7 @@ Create the FINAL component list.
 
 4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content (first 3-5 functions).
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output Format Example
 \`\`\`markdown
@@ -531,7 +531,7 @@ Assigned Component: ${componentStr}
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
@@ -591,7 +591,7 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 5. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 - Write Overview to \`${intermediateDir}/L4/overview.md\`.
@@ -659,7 +659,7 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
    - Aim for balanced page sizes (not too large, not too small)
 4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
@@ -721,7 +721,7 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
    - Do the rationales actually justify the groupings?
 5. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
@@ -761,7 +761,7 @@ Create the FINAL page structure by applying review feedback.
 3. Produce the final valid JSON.${retryContextL5Pre}
 4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
@@ -958,7 +958,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 8. ` + retryInstruction + `
 9. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
    - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining sections.
+   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
