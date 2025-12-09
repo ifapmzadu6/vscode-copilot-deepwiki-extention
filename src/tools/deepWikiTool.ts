@@ -376,20 +376,16 @@ Create the FINAL component list.
                 throw new Error('L1 Discovery failed to produce valid components after retries. Pipeline stopped.');
             }
 
-            // ---------------------------------------------------------
             // Level 2: EXTRACTOR (Parallel - Runs once for all components)
             // ---------------------------------------------------------
-            const chunkSize = 3;
-            const chunks = [];
-            for (let i = 0; i < componentList.length; i += chunkSize) {
-                chunks.push(componentList.slice(i, i + chunkSize));
-            }
-
-            // Create tasks for L2 extraction (limited concurrency to avoid rate limits)
-            const l2Tasks = chunks.map((chunk, index) => {
-                const chunkStr = JSON.stringify(chunk);
+            // Create tasks for L2 extraction (1 component per file)
+            const l2Tasks = componentList.map((component, index) => {
+                const componentStr = JSON.stringify(component);
+                // Create a safe filename from component name (remove special chars, limit length)
+                const safeComponentName = component.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+                const paddedIndex = String(index + 1).padStart(3, '0'); // 001, 002, etc.
                 return () => this.runPhase(
-                    `L2: Extractor (Chunk ${index + 1})`,
+                    `L2: Extractor (${component.name})`,
                     `Extract entities`,
                     `# Extractor Agent (L2)
 
@@ -401,7 +397,7 @@ Create the FINAL component list.
 ` + getPipelineOverview('L2') + `
 
 ## Input
-- Assigned Components: ${chunkStr}
+- Assigned Component: ${componentStr}
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
 ## Instructions
@@ -446,7 +442,7 @@ Processes input data and returns transformed result
 \`\`\`
 
 ## Output
-Write to \`${intermediateDir}/L2/extraction_chunk${index + 1}.md\`.
+Write to \`${intermediateDir}/L2/${paddedIndex}_${safeComponentName}.md\`.
 
 ## Self-Verification Phase (MANDATORY)
 After writing the output file:
@@ -491,11 +487,12 @@ After writing the output file:
                 // For now, we'll re-chunk the componentsToAnalyze.
 
                 const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
+                const l3ChunkSize = 3; // Chunk size for L3/L5 batching
                 const currentChunks: ComponentDef[][] = []; // Array of arrays of ComponentDef
                 const tempChunk: ComponentDef[] = [];
                 for (const component of componentsToAnalyze) {
                     tempChunk.push(component);
-                    if (tempChunk.length === chunkSize) {
+                    if (tempChunk.length === l3ChunkSize) {
                         currentChunks.push([...tempChunk]);
                         tempChunk.length = 0; // Clear tempChunk
                     }
