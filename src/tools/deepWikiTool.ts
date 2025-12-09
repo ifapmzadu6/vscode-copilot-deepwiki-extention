@@ -80,7 +80,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
         // Function to generate pipeline overview with current stage highlighted
         const getPipelineOverview = (currentStage: string) => `
-PIPELINE OVERVIEW:
+## Pipeline Overview
 This is a multi-stage agentic pipeline designed to generate comprehensive component-based documentation.
 
 **Complete Pipeline Flow:**
@@ -128,18 +128,6 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
 - **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
 `;
 
-        const commonConstraints = `
-CONSTRAINTS:
-1. **Security & Tool Usage**:
-   - **ALLOWED TOOLS**: You MUST ONLY use the following tools:
-     - File Operations: \`list_dir\`, \`read_file\`, \`create_file\`, \`create_directory\`, \`apply_patch\`.
-     - Search: \`file_search\`, \`grep_search\`, \`semantic_search\`, \`list_code_usages\`.
-   - **FORBIDDEN**: Do NOT use \`run_in_terminal\`, \`run_task\`, \`install_extension\`, or any other tools not listed above.
-
-2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-
-3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep your final response brief and on a single line (e.g., "Task completed.").
-`;
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
 
@@ -173,18 +161,14 @@ CONSTRAINTS:
 Analyze the project and create a context document for downstream agents.
 
 ## Instructions
-1. **Detect Project Type**: Identify languages, frameworks, and project structure
-2. **Identify Build System**: Look for Makefile, CMakeLists.txt, package.json, Cargo.toml, build.gradle, etc.
-3. **Find Conditional Patterns**:
+1. Detect Project Type, Languages, Build System → Use \`apply_patch\` to write "## Overview" section
+2. Identify Target Environments → Use \`apply_patch\` to write "## Target Environments" table
+3. Find Conditional Patterns → Use \`apply_patch\` to write "## Conditional Code Patterns" section
    - C/C++: \`#ifdef\`, \`#if defined\`, \`#ifndef\`
    - Python: \`if TYPE_CHECKING\`, platform checks, \`sys.platform\`
    - JS/TS: \`process.env\` checks, feature flags
-   - General: Environment-specific code paths
-4. **Note Generated/Excluded Code**: vendor/, generated/, third_party/, node_modules/, etc.
-5. **Identify Target Environments**: production, debug, test, platforms
-6. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+4. Note Generated/Excluded Code → Use \`apply_patch\` to write "## Generated/Excluded Code" section
+5. Add important notes for downstream agents → Use \`apply_patch\` to write "## Notes for Analysis" section
 
 ## Output
 Write to \`${intermediateDir}/L0/project_context.md\`
@@ -217,7 +201,11 @@ ${mdCodeBlock}markdown
 ## Notes for Analysis
 [Any important context for downstream agents, e.g., "Feature flags are defined in config.h"]
 ${mdCodeBlock}
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                 token,
                 options.toolInvocationToken
             );
@@ -264,9 +252,6 @@ Create an INITIAL draft of logical components.
 3. Group related files into Components based on directory structure.
 4. Assign tentative importance (High/Medium/Low).
 5. Consider the L0 context when grouping (e.g., exclude generated/vendor code).
-6. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
@@ -277,7 +262,10 @@ ${jsonExample}
 ${mdCodeBlock}
 
 > **IMPORTANT**: Write RAW JSON only.
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
                 token,
                 options.toolInvocationToken
             );
@@ -321,13 +309,13 @@ CRITIQUE the draft. Do NOT fix it yourself.
 1. Critique the draft for granularity and accuracy.
 2. **Verification**: Verify that the grouped files actually exist and make sense together.
 3. Check for missing core files or included noise.${retryContextL1}
-4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -358,14 +346,14 @@ Create the FINAL component list.
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
 3. Produce the valid JSON.${retryContextL1}
-4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
 
 ## Output
 - Write the FINAL JSON to \`${intermediateDir}/L1/component_list.json\`.
 - Format must be valid JSON array.
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -420,20 +408,11 @@ Create the FINAL component list.
 - Assigned Component: ${componentStr}
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
-## Instructions (FOLLOW THIS WORKFLOW EXACTLY)
+## Instructions
+1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
+2. For each function/method/class: Analyze one → Use \`apply_patch\` to write → Repeat
 
-### Step 1: Create output file with header
-Create \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\` with a header and the first 1-3 functions.
-
-### Step 2: For EACH remaining function, analyze and IMMEDIATELY append
-For each public function/method/class:
-1. Analyze the function
-2. **IMMEDIATELY append** to the file using \`apply_patch\`
-3. Move to the next function
-
-Do NOT wait until all functions are analyzed. Write each function to the file as soon as you analyze it.
-
-### What to extract for each function:
+**What to extract**:
 - **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
 - **Brief description**: One-line summary of purpose
 - **Internal Logic**: Key internal logic steps (3-5 bullet points)
@@ -444,7 +423,10 @@ Do NOT wait until all functions are analyzed. Write each function to the file as
 
 **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
 
-## Output Format Example
+## Output
+Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
+
+Use this format:
 \`\`\`markdown
 ### \`processData(input: DataType, options?: ProcessOptions): Result\`
 Processes input data and returns transformed result
@@ -471,9 +453,10 @@ Processes input data and returns transformed result
 - \`saveToDb(result)\`
 \`\`\`
 
-## Output
-Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`.
-` + commonConstraints,
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -524,33 +507,21 @@ Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`.
 ## Input
 Assigned Component: ${componentStr}
 
-## Instructions (FOLLOW THIS WORKFLOW EXACTLY)
-
-### Step 1: Create output file with header
-Create \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\` with a header and initial content.
-
-### Step 2: Read and analyze
-1. Read the component's L2 extraction (search in intermediate folder)
-2. Read the actual source code files
-
-### Step 3: Write analysis sections incrementally
-For each section (Overview, Architecture, Key Logic, etc.):
-1. Analyze the relevant aspect
-2. **IMMEDIATELY append** to the file using \`apply_patch\`
-3. Move to the next section
-
-Do NOT wait until all analysis is complete. Write each section as you complete it.
-
-### Step 4: Create Mermaid diagram
-Define at least one specific Mermaid diagram for this component:
+## Instructions
+1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+2. Read L2 extraction and source code files
+3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`apply_patch\` to write
+4. Create Mermaid diagram → Use \`apply_patch\` to write
 - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
-- **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
-Append the diagram using \`apply_patch\`.
+   - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
-Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
+Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 
-` + commonConstraints,
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                         token,
                         options.toolInvocationToken
                     );
@@ -587,15 +558,20 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 4. **Visualize**: Draw a Component Diagram using Mermaid showing interactions. Also consider a Data Flow Diagram or System Context Diagram.
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
-5. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+5. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
+   - Do NOT: Analyze all items then write all at end
+   - DO: Analyze one item, write immediately, then move to next
+   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 - Write Overview to \`${intermediateDir}/L4/overview.md\`.
 - Write Architecture Map to \`${intermediateDir}/L4/relationships.md\`.
 - Include at least TWO diagrams (e.g., \`C4Context\` for component interactions, \`sequenceDiagram\` for key flows).
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -655,9 +631,10 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
    - Group related components into single pages where it improves readability
    - Keep components separate if they have distinct, substantial responsibilities
    - Aim for balanced page sizes (not too large, not too small)
-4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+4. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
+   - Do NOT: Analyze all items then write all at end
+   - DO: Analyze one item, write immediately, then move to next
+   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
@@ -671,7 +648,11 @@ ${mdCodeBlock}
 - Every component from the input list MUST appear in exactly one page group
 - \`pageName\` should be descriptive and user-friendly
 - \`rationale\` explains why these components belong together
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -717,9 +698,10 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
    - Are page names intuitive and descriptive?
 4. **Check rationales**:
    - Do the rationales actually justify the groupings?
-5. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+5. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
+   - Do NOT: Analyze all items then write all at end
+   - DO: Analyze one item, write immediately, then move to next
+   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
@@ -728,7 +710,11 @@ Include:
 - Issues found (if any)
 - Suggested improvements
 - Overall assessment (Good/Needs Work)${retryContextL5Pre}
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                         token,
                         options.toolInvocationToken
                     );
@@ -757,9 +743,10 @@ Create the FINAL page structure by applying review feedback.
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
 3. Produce the final valid JSON.${retryContextL5Pre}
-4. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+4. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
+   - Do NOT: Analyze all items then write all at end
+   - DO: Analyze one item, write immediately, then move to next
+   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
@@ -774,7 +761,11 @@ ${mdCodeBlock}
 - \`pageName\` should be descriptive and user-friendly
 - \`rationale\` explains why these components belong together (or why a component stands alone)
 - Output must be valid JSON array
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                         token,
                         options.toolInvocationToken
                     );
@@ -917,7 +908,11 @@ When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X ha
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                         token,
                         options.toolInvocationToken
                     );
@@ -968,14 +963,19 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    - If a signature is incorrect, fix it by reading the actual source file.
 7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.). Only links to pages in the \`pages/\` directory should remain.
 8. ` + retryInstruction + `
-9. **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted):
-   - Create the file first with initial content.
-   - Use \`apply_patch\` to append remaining content.
+9. **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
+   - Do NOT: Analyze all items then write all at end
+   - DO: Analyze one item, write immediately, then move to next
+   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
 - Write \`${intermediateDir}/L6/retry_request.json\` ONLY if requesting retries.
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                     token,
                     options.toolInvocationToken
                 );
@@ -1074,11 +1074,18 @@ For each component shown in the block diagram above:
 - **CRITICAL - Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
 - Do NOT just dump the L4 Overview - synthesize it into the sections above
 - All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED
-- **Incremental Writing**: ALWAYS write incrementally (preserves progress if interrupted). Use \`apply_patch\` to append sections.
+- **Incremental Writing (CRITICAL)**: You have a limited token budget. Writing all at once will lose data.
+  - Do NOT: Analyze all items then write all at end
+  - DO: Analyze one item, write immediately, then move to next
+  - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 
 ## Output
 - Write README.md.
-` + commonConstraints,
+
+## Constraints
+1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
                 token,
                 options.toolInvocationToken
             );
@@ -1207,7 +1214,7 @@ tools:
 You are DeepWiki, a documentation generation agent that analyzes codebases and produces comprehensive technical documentation.
 `;
 
-        const message = `⚠️ **Security Warning**: The \`run_in_terminal\` tool is currently enabled in your Chat settings.
+        const message = `**Security Warning**: The \`run_in_terminal\` tool is currently enabled in your Chat settings.
 
 DeepWiki only requires file operations and does not need terminal execution.
 For security, please follow these steps to run safely:
