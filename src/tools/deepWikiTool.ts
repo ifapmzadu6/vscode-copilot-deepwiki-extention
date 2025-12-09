@@ -72,46 +72,37 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Function to generate pipeline overview with current stage highlighted
         const getPipelineOverview = (currentStage: string) => `
 ## Pipeline Overview
-
-**Complete Pipeline Flow:**
-0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
-   - Analyzes project structure, build system, and conditional code patterns
-   - Outputs \`project_context.md\` for downstream agents to reference
-
-1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
-   - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
-   - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
-   - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
-   - Uses L0 context to understand project structure
-
-2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
-   - Extracts API signatures, internal logic, side effects, and dependency relationships
-   - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
-   - Notes conditional code patterns based on L0 context
-
-3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
-   - Deep component analysis with causality tracing and diagrams
-
-4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
-   - System-level overview, component relationships, and architecture maps
-
-5. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
-   - **L5-Pre Consolidator** (Pre-A → Pre-B → Pre-C): Groups components into pages${currentStage.startsWith('L5-Pre') ? ' **← YOU**' : ''}
-   - **L5 Writer**: Transforms analysis into final documentation pages based on page_structure.json${currentStage === 'L5' ? ' **← YOU**' : ''}
-
-6. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
-   - Quality gate - fixes minor issues, requests retry for major problems
-
-7. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
-   - Creates final README with table of contents
-   - Links all generated pages together
-   - Sanitizes any intermediate references
-
- **Strategic Context:**
- - **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
- - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
- - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
- - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
+- **Complete Pipeline Flow:**
+   0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
+      - Analyzes project structure, build system, and conditional code patterns
+      - Outputs \`project_context.md\` for downstream agents to reference
+   1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
+      - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
+      - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
+      - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
+      - Uses L0 context to understand project structure
+   2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
+      - Extracts API signatures, internal logic, side effects, and dependency relationships
+      - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
+      - Notes conditional code patterns based on L0 context
+   3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
+      - Deep component analysis with causality tracing and diagrams
+   4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
+      - System-level overview, component relationships, and architecture maps
+   5. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
+      - **L5-Pre Consolidator** (Pre-A → Pre-B → Pre-C): Groups components into pages${currentStage.startsWith('L5-Pre') ? ' **← YOU**' : ''}
+      - **L5 Writer**: Transforms analysis into final documentation pages based on page_structure.json${currentStage === 'L5' ? ' **← YOU**' : ''}
+   6. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
+      - Quality gate - fixes minor issues, requests retry for major problems
+   7. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+      - Creates final README with table of contents
+      - Links all generated pages together
+      - Sanitizes any intermediate references
+- **Strategic Context:**
+   - **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
+   - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
+   - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+   - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
  `;
 
 
@@ -145,7 +136,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 ## Goal
 Analyze the project and create a context document for downstream agents.
 
-## Instructions
+## Workflow
 1. Detect Project Type, Languages, Build System → Use \`apply_patch\` to write "## Overview" section
 2. Identify Target Environments → Use \`apply_patch\` to write "## Target Environments" table
 3. Find Conditional Patterns → Use \`apply_patch\` to write "## Conditional Code Patterns" section
@@ -231,7 +222,7 @@ ${mdCodeBlock}
 ## Goal
 Create an INITIAL draft of logical components.
 
-## Instructions
+## Workflow
 1. Read the L0 project context to understand the project structure.
 2. Scan the project source files (refer to L0 context for relevant directories).
 3. Group related files into Components based on directory structure.
@@ -290,7 +281,7 @@ CRITIQUE the draft. Do NOT fix it yourself.
 - Read \`${intermediateDir}/L1/component_draft.json\`
 - **Reference**: Use file listing tools to verify the ACTUAL project structure.
 
-## Instructions
+## Workflow
 1. Critique the draft for granularity and accuracy.
 2. **Verification**: Verify that the grouped files actually exist and make sense together.
 3. Check for missing core files or included noise.${retryContextL1}
@@ -327,7 +318,7 @@ Create the FINAL component list.
 - Draft: \`${intermediateDir}/L1/component_draft.json\`
 - Review: \`${intermediateDir}/L1/review_report.md\`
 
-## Instructions
+## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
 3. Produce the valid JSON.${retryContextL1}
@@ -393,7 +384,7 @@ Create the FINAL component list.
 - Assigned Component: ${componentStr}
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
-## Instructions
+## Workflow
 1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
 2. For each function/method/class: Analyze one → Use \`apply_patch\` to write → Repeat
 
@@ -492,7 +483,7 @@ Processes input data and returns transformed result
 ## Input
 Assigned Component: ${componentStr}
 
-## Instructions
+## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 2. Read L2 extraction and source code files
 3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`apply_patch\` to write
@@ -536,7 +527,7 @@ Create a system-level overview based on ALL available L3 analysis.
 ## Input
 Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
 
-## Instructions
+## Workflow
 1. Read L3 analysis files → Understand component landscape
 2. Define High-Level Architecture → Use \`apply_patch\` to write \`overview.md\`
 3. Analyze Causal Impact (how changes propagate) → Use \`apply_patch\` to write
@@ -603,7 +594,7 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
 - Read ALL files in \`${intermediateDir}/L3/\`
 - Component list: ${JSON.stringify(componentsForThisLoop)}
 
-## Instructions
+## Workflow
 1. **Read all L3 analysis files** to understand each component's responsibility and scope.
 2. **Identify consolidation opportunities**:
    - Components with overlapping responsibilities (e.g., "Auth", "Session", "Login" all relate to authentication)
@@ -662,7 +653,7 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
 - Read \`${intermediateDir}/L5/page_structure_draft.json\`
 - Read L3 analysis files in \`${intermediateDir}/L3/\` for reference
 
-## Instructions
+## Workflow
 1. **Check grouping logic**:
    - Are related components grouped together?
    - Are there groups that should be split (too large/unfocused)?
@@ -711,7 +702,7 @@ Create the FINAL page structure by applying review feedback.
 - Draft: \`${intermediateDir}/L5/page_structure_draft.json\`
 - Review: \`${intermediateDir}/L5/page_structure_review.md\`
 
-## Instructions
+## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
 3. Produce the final valid JSON.${retryContextL5Pre}
@@ -833,7 +824,7 @@ ${mdCodeBlock}
 - Assigned Pages: ${JSON.stringify(pageChunk)}
 - For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
 
-## Instructions
+## Workflow
 1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
 2. Read L3 analysis for ALL components in that page's \`components\` array
 3. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`apply_patch\` to write immediately
@@ -897,7 +888,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Read generated pages in \`${outputPath}/pages/\`
 - Read all L3 analysis files in \`${intermediateDir}/L3/\`
 
-## Instructions
+## Workflow
 1. **Accuracy**: Verify content against ACTUAL SOURCE CODE → If errors found, use \`apply_patch\` to fix immediately
 2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders → Use \`apply_patch\` to fill if needed
 3. **Connectivity**: Verify that all links work and point to existing files → Use \`apply_patch\` to fix broken links
@@ -971,7 +962,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Read \`${intermediateDir}/L4/relationships.md\`
 - Scan \`${outputPath}/pages/\`
 
-## Instructions
+## Workflow
 Create \`${outputPath}/README.md\` with the following CONTENT sections (in order):
 
 ### 0. Disclaimer (at the very top)
