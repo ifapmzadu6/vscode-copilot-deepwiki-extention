@@ -1207,23 +1207,23 @@ tools:
 You are DeepWiki, a documentation generation agent that analyzes codebases and produces comprehensive technical documentation.
 `;
 
-        const message = `⚠️ **セキュリティ警告**: 現在のChat設定では \`run_in_terminal\` ツールが有効になっています。
+        const message = `⚠️ **Security Warning**: The \`run_in_terminal\` tool is currently enabled in your Chat settings.
 
-DeepWikiはファイル操作のみで動作するため、ターミナル実行は不要です。
-安全のため、以下の手順で再度実行してください：
+DeepWiki only requires file operations and does not need terminal execution.
+For security, please follow these steps to run safely:
 
-## 対処方法
+## How to Fix
 
-### 1. プロンプトファイルを作成
-以下の内容で \`.github/prompts/deepwiki.prompt.md\` を作成してください：
+### 1. Create a Prompt File
+Create \`.github/prompts/deepwiki.prompt.md\` with the following content:
 
 \`\`\`markdown
 ${promptContent}\`\`\`
 
-### 2. スラッシュコマンドで実行
-Chat入力欄で \`/deepwiki\` と入力し、続けて \`@createDeepWiki\` を呼び出してください。
+### 2. Run via Slash Command
+Type \`/deepwiki\` in the Chat input, then call \`@createDeepWiki\`.
 
-このプロンプトでは、必要なツールのみが有効になっています。`;
+This prompt restricts tools to only the necessary ones.`;
 
         return new vscode.LanguageModelToolResult([
             new vscode.LanguageModelTextPart(message)
