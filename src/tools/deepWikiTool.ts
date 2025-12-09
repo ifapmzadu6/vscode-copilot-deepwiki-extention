@@ -848,7 +848,7 @@ ${mdCodeBlock}
 
 ## Input
 - Assigned Pages: ${JSON.stringify(pageChunk)}
-- For each page, read all L3 analysis files for the components listed: \`${intermediateDir}/L3/{ComponentName}_analysis.md\`
+- For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
 
 ## Instructions
 1. For EACH assigned page in the list above:
