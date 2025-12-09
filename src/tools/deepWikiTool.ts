@@ -72,52 +72,47 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Function to generate pipeline overview with current stage highlighted
         const getPipelineOverview = (currentStage: string) => `
 ## Pipeline Overview
-This is a multi-stage agentic pipeline designed to generate comprehensive component-based documentation.
 
 **Complete Pipeline Flow:**
 0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
    - Analyzes project structure, build system, and conditional code patterns
    - Outputs \`project_context.md\` for downstream agents to reference
-   - Identifies feature flags, target environments, and generated/excluded code
 
 1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
    - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
    - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
    - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
-   - Runs with retry loop (max 6 attempts) until valid JSON is produced
    - Uses L0 context to understand project structure
 
 2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
    - Extracts API signatures, internal logic, side effects, and dependency relationships
-   - Runs in parallel batches (3 components per batch)
    - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
    - Notes conditional code patterns based on L0 context
 
-3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
-   - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
-   - **L4 Architect**${currentStage === 'L4' ? ' **← YOU**' : ''}: System-level overview, component relationships, and architecture maps
-   - **L5-Pre Page Consolidator (L5-Pre-A → L5-Pre-B → L5-Pre-C)**${currentStage.startsWith('L5-Pre') ? ' **← YOU ARE HERE**' : ''}:
-     - L5-Pre-A Drafter: Creates initial page grouping proposal${currentStage === 'L5-Pre-A' ? ' **← YOU**' : ''}
-     - L5-Pre-B Reviewer: Critiques the draft groupings${currentStage === 'L5-Pre-B' ? ' **← YOU**' : ''}
-     - L5-Pre-C Refiner: Produces final page_structure.json${currentStage === 'L5-Pre-C' ? ' **← YOU**' : ''}
-     - Runs with retry loop (max 6 attempts) until valid JSON is produced
-   - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages based on page_structure.json
-   - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
-   - Loop continues if L6 identifies components needing re-analysis
+3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
+   - Deep component analysis with causality tracing and diagrams
 
-4. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
+   - System-level overview, component relationships, and architecture maps
+
+5. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
+   - **L5-Pre Consolidator** (Pre-A → Pre-B → Pre-C): Groups components into pages${currentStage.startsWith('L5-Pre') ? ' **← YOU**' : ''}
+   - **L5 Writer**: Transforms analysis into final documentation pages based on page_structure.json${currentStage === 'L5' ? ' **← YOU**' : ''}
+
+6. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
+   - Quality gate - fixes minor issues, requests retry for major problems
+
+7. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
    - Creates final README with table of contents
    - Links all generated pages together
    - Sanitizes any intermediate references
 
-**Strategic Context:**
-- **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
-- **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
-- **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
-- **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
-- **Retry Mechanism**: The system can retry problematic components rather than failing completely
-- **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
-`;
+ **Strategic Context:**
+ - **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
+ - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
+ - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+ - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
+ `;
 
 
         const bq = '`';
@@ -146,8 +141,6 @@ This is a multi-stage agentic pipeline designed to generate comprehensive compon
 - **Your Stage**: L0 Analyzer (Pre-Discovery Phase)
 - **Core Responsibility**: Understand project structure, build system, and conditional code patterns
 - **Critical Success Factor**: Provide context that helps subsequent agents understand which code is active/conditional
-
-` + getPipelineOverview('L0') + `
 
 ## Goal
 Analyze the project and create a context document for downstream agents.
@@ -197,7 +190,9 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+
+` + getPipelineOverview('L0'),
                 token,
                 options.toolInvocationToken
             );
@@ -230,8 +225,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Create initial component grouping from project files
 - **Critical Success Factor**: Group related files logically - perfection not required, L1-B will review
 
-` + getPipelineOverview('L1-A') + `
-
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for project structure and build system info
 
@@ -257,7 +250,9 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+
+` + getPipelineOverview('L1-A'),
                 token,
                 options.toolInvocationToken
             );
@@ -288,8 +283,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Critique L1-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Verify files actually exist and are grouped logically
 
-` + getPipelineOverview('L1-B') + `
-
 ## Goal
 CRITIQUE the draft. Do NOT fix it yourself.
 
@@ -307,7 +300,9 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+
+` + getPipelineOverview('L1-B'),
                     token,
                     options.toolInvocationToken
                 );
@@ -324,8 +319,6 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
 - **Your Stage**: L1-C Refiner (Discovery Phase - Final Output)
 - **Core Responsibility**: Merge L1-A draft with L1-B feedback into validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
-
-` + getPipelineOverview('L1-C') + `
 
 ## Goal
 Create the FINAL component list.
@@ -345,7 +338,9 @@ Create the FINAL component list.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+
+` + getPipelineOverview('L1-C'),
                     token,
                     options.toolInvocationToken
                 );
@@ -393,8 +388,6 @@ Create the FINAL component list.
 - **Your Stage**: L2 Extraction (runs in parallel batches)
 - **Core Responsibility**: Extract precise API signatures from source code - no interpretation
 - **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
-
-` + getPipelineOverview('L2') + `
 
 ## Input
 - Assigned Component: ${componentStr}
@@ -448,7 +441,9 @@ Processes input data and returns transformed result
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+
+` + getPipelineOverview('L2'),
                     token,
                     options.toolInvocationToken
                 );
@@ -494,8 +489,6 @@ Processes input data and returns transformed result
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
-` + getPipelineOverview('L3') + `
-
 ## Input
 Assigned Component: ${componentStr}
 
@@ -513,7 +506,9 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+
+` + getPipelineOverview('L3'),
                         token,
                         options.toolInvocationToken
                     );
@@ -534,8 +529,6 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 - **Your Stage**: L4 Architect (Analysis Loop - System Overview)
 - **Core Responsibility**: See the big picture - map component relationships and architectural decisions
 - **Critical Success Factor**: Indexer uses your overview for the final README - explain the "why" behind the architecture
-
-` + getPipelineOverview('L4') + `
 
 ## Goal
 Create a system-level overview based on ALL available L3 analysis.
@@ -560,7 +553,9 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+
+` + getPipelineOverview('L4'),
                     token,
                     options.toolInvocationToken
                 );
@@ -601,8 +596,6 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 - **Core Responsibility**: Create initial page grouping proposal based on L3 analysis
 - **Critical Success Factor**: Group related components logically - perfection not required, L5-Pre-B will review
 
-` + getPipelineOverview('L5-Pre') + `
-
 ## Goal
 Create an INITIAL draft of page structure by analyzing L3 outputs.
 
@@ -636,7 +629,9 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+
+` + getPipelineOverview('L5-Pre'),
                     token,
                     options.toolInvocationToken
                 );
@@ -659,8 +654,6 @@ ${mdCodeBlock}
 - **Your Stage**: L5-Pre-B Reviewer (Page Consolidation Phase - Quality Gate)
 - **Core Responsibility**: Critique L5-Pre-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Ensure page groupings make sense from a documentation user's perspective
-
-` + getPipelineOverview('L5-Pre') + `
 
 ## Goal
 CRITIQUE the draft page structure. Do NOT fix it yourself.
@@ -693,7 +686,9 @@ Include:
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+
+` + getPipelineOverview('L5-Pre'),
                         token,
                         options.toolInvocationToken
                     );
@@ -708,8 +703,6 @@ Include:
 - **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
 - **Core Responsibility**: Merge draft with review feedback into final page structure
 - **Critical Success Factor**: Produce valid JSON that L5 Writer can use
-
-` + getPipelineOverview('L5-Pre') + `
 
 ## Goal
 Create the FINAL page structure by applying review feedback.
@@ -739,7 +732,9 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.`,
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+
+` + getPipelineOverview('L5-Pre'),
                         token,
                         options.toolInvocationToken
                     );
@@ -834,8 +829,6 @@ ${mdCodeBlock}
 - **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
-` + getPipelineOverview('L5') + `
-
 ## Input
 - Assigned Pages: ${JSON.stringify(pageChunk)}
 - For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
@@ -867,7 +860,9 @@ Write files to \`${outputPath}/pages/\`.
 3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 4. **Do NOT include raw source code or implementation details.**
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references.
-6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)`,
+6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
+
+` + getPipelineOverview('L5'),
                         token,
                         options.toolInvocationToken
                     );
@@ -895,8 +890,6 @@ Write files to \`${outputPath}/pages/\`.
 - **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
 - **Critical Success Factor**: You are the last line of defense before final output - be thorough
 
-` + getPipelineOverview('L6') + `
-
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
 
@@ -922,7 +915,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.`,
+3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+
+` + getPipelineOverview('L6'),
                     token,
                     options.toolInvocationToken
                 );
@@ -970,8 +965,6 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - **Your Stage**: Indexer (Final Stage)
 - **Core Responsibility**: Create a high-quality README that serves as the definitive entry point for understanding this codebase
 - **Critical Success Factor**: The README should answer "What is this? How is it organized? Where do I start?" within the first screen
-
-` + getPipelineOverview('Indexer') + `
 
 ## Input
 - Read \`${intermediateDir}/L4/overview.md\`
@@ -1029,7 +1022,9 @@ For each component shown in the block diagram above:
    - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
 4. **Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
 5. **Synthesize, Don't Dump**: Do NOT just copy L4 Overview - synthesize it into the sections above.
-6. **Required Diagrams**: All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED.`,
+6. **Required Diagrams**: All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED.
+
+` + getPipelineOverview('Indexer'),
                 token,
                 options.toolInvocationToken
             );
