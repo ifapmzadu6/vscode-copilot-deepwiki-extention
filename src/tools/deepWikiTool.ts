@@ -128,8 +128,8 @@ CONSTRAINTS:
 
 3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep it brief.
 
-4. **Incremental File Writing**: To avoid output token limits, write files incrementally:
-   - Do NOT try to generate an entire large document in a single file creation.
+4. **Incremental File Writing**: The output token limit is approximately **10,000 tokens**. To avoid hitting this limit:
+   - Do NOT generate an entire large document in a single file creation.
    - Write initial content first, then append or edit sections in subsequent operations.
 `;
         const bq = '`';
