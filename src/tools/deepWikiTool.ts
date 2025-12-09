@@ -69,6 +69,56 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
 
+        // Function to generate pipeline overview with current stage highlighted
+        const getPipelineOverview = (currentStage: string) => `
+## Pipeline Overview
+This is a multi-stage agentic pipeline designed to generate comprehensive component-based documentation.
+
+**Complete Pipeline Flow:**
+0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
+   - Analyzes project structure, build system, and conditional code patterns
+   - Outputs \`project_context.md\` for downstream agents to reference
+   - Identifies feature flags, target environments, and generated/excluded code
+
+1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
+   - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
+   - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
+   - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
+   - Runs with retry loop (max 6 attempts) until valid JSON is produced
+   - Uses L0 context to understand project structure
+
+2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
+   - Extracts API signatures, internal logic, side effects, and dependency relationships
+   - Runs in parallel batches (3 components per batch)
+   - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
+   - Notes conditional code patterns based on L0 context
+
+3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
+   - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
+   - **L4 Architect**${currentStage === 'L4' ? ' **← YOU**' : ''}: System-level overview, component relationships, and architecture maps
+   - **L5-Pre Page Consolidator (L5-Pre-A → L5-Pre-B → L5-Pre-C)**${currentStage.startsWith('L5-Pre') ? ' **← YOU ARE HERE**' : ''}:
+     - L5-Pre-A Drafter: Creates initial page grouping proposal${currentStage === 'L5-Pre-A' ? ' **← YOU**' : ''}
+     - L5-Pre-B Reviewer: Critiques the draft groupings${currentStage === 'L5-Pre-B' ? ' **← YOU**' : ''}
+     - L5-Pre-C Refiner: Produces final page_structure.json${currentStage === 'L5-Pre-C' ? ' **← YOU**' : ''}
+     - Runs with retry loop (max 6 attempts) until valid JSON is produced
+   - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages based on page_structure.json
+   - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
+   - Loop continues if L6 identifies components needing re-analysis
+
+4. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+   - Creates final README with table of contents
+   - Links all generated pages together
+   - Sanitizes any intermediate references
+
+**Strategic Context:**
+- **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
+- **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
+- **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+- **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
+- **Retry Mechanism**: The system can retry problematic components rather than failing completely
+- **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
+`;
+
 
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
@@ -96,6 +146,8 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 - **Your Stage**: L0 Analyzer (Pre-Discovery Phase)
 - **Core Responsibility**: Understand project structure, build system, and conditional code patterns
 - **Critical Success Factor**: Provide context that helps subsequent agents understand which code is active/conditional
+
+` + getPipelineOverview('L0') + `
 
 ## Goal
 Analyze the project and create a context document for downstream agents.
@@ -178,6 +230,8 @@ ${mdCodeBlock}
 - **Core Responsibility**: Create initial component grouping from project files
 - **Critical Success Factor**: Group related files logically - perfection not required, L1-B will review
 
+` + getPipelineOverview('L1-A') + `
+
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for project structure and build system info
 
@@ -234,6 +288,8 @@ ${mdCodeBlock}
 - **Core Responsibility**: Critique L1-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Verify files actually exist and are grouped logically
 
+` + getPipelineOverview('L1-B') + `
+
 ## Goal
 CRITIQUE the draft. Do NOT fix it yourself.
 
@@ -268,6 +324,8 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
 - **Your Stage**: L1-C Refiner (Discovery Phase - Final Output)
 - **Core Responsibility**: Merge L1-A draft with L1-B feedback into validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
+
+` + getPipelineOverview('L1-C') + `
 
 ## Goal
 Create the FINAL component list.
@@ -335,6 +393,8 @@ Create the FINAL component list.
 - **Your Stage**: L2 Extraction (runs in parallel batches)
 - **Core Responsibility**: Extract precise API signatures from source code - no interpretation
 - **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
+
+` + getPipelineOverview('L2') + `
 
 ## Input
 - Assigned Component: ${componentStr}
@@ -434,6 +494,8 @@ Processes input data and returns transformed result
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
+` + getPipelineOverview('L3') + `
+
 ## Input
 Assigned Component: ${componentStr}
 
@@ -472,6 +534,8 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 - **Your Stage**: L4 Architect (Analysis Loop - System Overview)
 - **Core Responsibility**: See the big picture - map component relationships and architectural decisions
 - **Critical Success Factor**: Indexer uses your overview for the final README - explain the "why" behind the architecture
+
+` + getPipelineOverview('L4') + `
 
 ## Goal
 Create a system-level overview based on ALL available L3 analysis.
@@ -537,6 +601,8 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 - **Core Responsibility**: Create initial page grouping proposal based on L3 analysis
 - **Critical Success Factor**: Group related components logically - perfection not required, L5-Pre-B will review
 
+` + getPipelineOverview('L5-Pre') + `
+
 ## Goal
 Create an INITIAL draft of page structure by analyzing L3 outputs.
 
@@ -594,6 +660,8 @@ ${mdCodeBlock}
 - **Core Responsibility**: Critique L5-Pre-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Ensure page groupings make sense from a documentation user's perspective
 
+` + getPipelineOverview('L5-Pre') + `
+
 ## Goal
 CRITIQUE the draft page structure. Do NOT fix it yourself.
 
@@ -640,6 +708,8 @@ Include:
 - **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
 - **Core Responsibility**: Merge draft with review feedback into final page structure
 - **Critical Success Factor**: Produce valid JSON that L5 Writer can use
+
+` + getPipelineOverview('L5-Pre') + `
 
 ## Goal
 Create the FINAL page structure by applying review feedback.
@@ -764,6 +834,8 @@ ${mdCodeBlock}
 - **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
+` + getPipelineOverview('L5') + `
+
 ## Input
 - Assigned Pages: ${JSON.stringify(pageChunk)}
 - For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
@@ -822,6 +894,8 @@ Write files to \`${outputPath}/pages/\`.
 - **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
 - **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
 - **Critical Success Factor**: You are the last line of defense before final output - be thorough
+
+` + getPipelineOverview('L6') + `
 
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
@@ -896,6 +970,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - **Your Stage**: Indexer (Final Stage)
 - **Core Responsibility**: Create a high-quality README that serves as the definitive entry point for understanding this codebase
 - **Critical Success Factor**: The README should answer "What is this? How is it organized? Where do I start?" within the first screen
+
+` + getPipelineOverview('Indexer') + `
 
 ## Input
 - Read \`${intermediateDir}/L4/overview.md\`
