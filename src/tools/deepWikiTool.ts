@@ -74,22 +74,25 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 ## Pipeline Overview
 
 **Complete Pipeline Flow:**
-0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
+- **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
    - Analyzes project structure, build system, and conditional code patterns
    - Outputs \`project_context.md\` for downstream agents to reference
    - Identifies feature flags, target environments, and generated/excluded code
-1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
+
+- **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
    - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
    - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
    - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
    - Runs with retry loop (max 6 attempts) until valid JSON is produced
    - Uses L0 context to understand project structure
-2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
+
+- **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
    - Extracts API signatures, internal logic, side effects, and dependency relationships
    - Runs in parallel batches (3 components per batch)
    - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
    - Notes conditional code patterns based on L0 context
-3. **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
+
+- **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
    - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
    - **L4 Architect**${currentStage === 'L4' ? ' **← YOU**' : ''}: System-level overview, component relationships, and architecture maps
    - **L5-Pre Page Consolidator (L5-Pre-A → L5-Pre-B → L5-Pre-C)**${currentStage.startsWith('L5-Pre') ? ' **← YOU ARE HERE**' : ''}:
@@ -100,7 +103,8 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
    - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages based on page_structure.json
    - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
    - Loop continues if L6 identifies components needing re-analysis
-4. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+
+- **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
    - Creates final README with table of contents
    - Links all generated pages together
    - Sanitizes any intermediate references
