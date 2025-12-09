@@ -130,7 +130,7 @@ CONSTRAINTS:
 
 4. **Incremental File Writing**: To avoid output token limits, write files incrementally:
    - Do NOT try to generate an entire large document in a single file creation.
-   - Write initial content first, then append additional sections in subsequent operations.
+   - Write initial content first, then append or edit sections in subsequent operations.
 `;
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
