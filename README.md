@@ -145,9 +145,10 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── component_draft.json    # Initial draft from L1-A
     │   ├── review_report.md        # Review from L1-B
     │   └── component_list.json     # Final component list from L1-C
-    ├── L2/                 # Extraction phase outputs
-    │   ├── extraction_chunk1.md
-    │   └── extraction_chunk2.md
+    ├── L2/                 # Extraction phase outputs (1 component per file)
+    │   ├── 001_AuthModule.md
+    │   ├── 002_Utils.md
+    │   └── ...
     ├── L3/                 # Analysis phase outputs
     │   ├── AuthModule_analysis.md
     │   └── Utils_analysis.md
