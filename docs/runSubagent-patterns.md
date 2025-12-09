@@ -101,8 +101,8 @@ const tasks = fileChunks.map((chunk, index) => {
     }, token);
 });
 
-// 3. Run with concurrency limit (max 3 parallel, 5s staggered start, auto-retry on failure)
-await runWithConcurrencyLimit(tasks, 3, 'Analysis');
+// 3. Run with concurrency limit (max 2 parallel, 5s staggered start, auto-retry on failure)
+await runWithConcurrencyLimit(tasks, 2, 'Analysis');
 ```
 
 **Features:**
