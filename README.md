@@ -149,9 +149,10 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── 001_AuthModule.md
     │   ├── 002_Utils.md
     │   └── ...
-    ├── L3/                 # Analysis phase outputs
-    │   ├── AuthModule_analysis.md
-    │   └── Utils_analysis.md
+    ├── L3/                 # Analysis phase outputs (1 component per file)
+    │   ├── 001_AuthModule_analysis.md
+    │   ├── 002_Utils_analysis.md
+    │   └── ...
     ├── L4/                 # Architecture phase outputs
     │   ├── overview.md
     │   └── relationships.md
