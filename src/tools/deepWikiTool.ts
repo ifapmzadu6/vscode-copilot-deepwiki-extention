@@ -512,7 +512,7 @@ Assigned Component: ${componentStr}
 2. Read L2 extraction and source code files
 3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`apply_patch\` to write
 4. Create Mermaid diagram → Use \`apply_patch\` to write
-- **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
