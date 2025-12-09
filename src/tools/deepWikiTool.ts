@@ -487,28 +487,18 @@ After writing the output file:
                 // For now, we'll re-chunk the componentsToAnalyze.
 
                 const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
-                const l3ChunkSize = 3; // Chunk size for L3/L5 batching
-                const currentChunks: ComponentDef[][] = []; // Array of arrays of ComponentDef
-                const tempChunk: ComponentDef[] = [];
-                for (const component of componentsToAnalyze) {
-                    tempChunk.push(component);
-                    if (tempChunk.length === l3ChunkSize) {
-                        currentChunks.push([...tempChunk]);
-                        tempChunk.length = 0; // Clear tempChunk
-                    }
-                }
-                if (tempChunk.length > 0) currentChunks.push(tempChunk);
-
 
                 // ---------------------------------------------------------
-                // Level 3: ANALYZER (Process current components)
-                // L3 output files are now component-specific
+                // Level 3: ANALYZER (Process current components - 1 component per task)
                 // ---------------------------------------------------------
-                // Create tasks for L3 analysis (limited concurrency to avoid rate limits)
-                const l3Tasks = currentChunks.map((chunk, index) => {
+                // Create tasks for L3 analysis (1 component per task, like L2)
+                const l3Tasks = componentsToAnalyze.map((component, index) => {
+                    const componentStr = JSON.stringify(component);
+                    const safeComponentName = component.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+                    const paddedIndex = String(index + 1).padStart(3, '0');
                     return () => this.runPhase(
-                        `L3: Analyzer (Loop ${loopCount + 1}, Batch ${index + 1})`,
-                        `Analyze ${chunk.length} components`,
+                        `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
+                        `Analyze component`,
                         `# Analyzer Agent (L3)
 
 ## Role
@@ -519,21 +509,20 @@ After writing the output file:
 ` + getPipelineOverview('L3') + `
 
 ## Input
-Assigned Components: ${JSON.stringify(chunk)}
+Assigned Component: ${componentStr}
 
 ## Instructions
-1. For EACH component, read its L2 extraction (search in intermediate folder) and source code.
+1. Read the component's L2 extraction (search in intermediate folder) and source code.
 2. **Think about Causality**: Trace logic flow and state changes.
-3. **Visualize**: Define at least one specific Mermaid diagram for each component.
+3. **Visualize**: Define at least one specific Mermaid diagram for this component.
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 
 ## Output
-Create a SEPARATE analysis file for EACH component.
-- For a component named "MyComponent", write to \`${intermediateDir}/L3/MyComponent_analysis.md\`.
+Write to \`${intermediateDir}/L3/${paddedIndex}_${safeComponentName}_analysis.md\`.
 
 ## Self-Verification Phase (MANDATORY)
-After writing each analysis file:
+After writing the analysis file:
 1. **Re-read** your output file.
 2. **Compare** key values against ACTUAL source code.
 3. **Append** a brief Verification Report at the end:
