@@ -126,7 +126,7 @@ CONSTRAINTS:
 
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 
-3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep it brief.
+3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep your final response brief and on a single line (e.g., "Task completed.").
 
 4. **Incremental File Writing**: The output token limit is approximately **10,000 tokens per single operation**. To avoid hitting this limit:
    - Do NOT generate an entire large document in a single file creation.
