@@ -49,6 +49,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
+    "build": "npm run compile && vsce package --allow-missing-repository",
     "watch": "tsc -watch -p ./",
     "lint": "eslint src --ext ts"
   },
@@ -57,6 +58,7 @@
     "@types/vscode": "^1.95.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
+    "@vscode/vsce": "^3.0.0",
     "eslint": "^8.56.0",
     "typescript": "^5.3.0"
   }

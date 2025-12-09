@@ -161,3 +161,6 @@ ehthumbs_vista.db
 # Gemini CLI test output
 test_result/
 vscode_defs.d.ts
+
+# VSIX package files
+*.vsix
