@@ -382,7 +382,7 @@ Create the FINAL component list.
             const l2Tasks = componentList.map((component, index) => {
                 const componentStr = JSON.stringify(component);
                 // Create a safe filename from component name (remove special chars, limit length)
-                const safeComponentName = component.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+                // Keep number prefix for ordering
                 const paddedIndex = String(index + 1).padStart(3, '0'); // 001, 002, etc.
                 return () => this.runPhase(
                     `L2: Extractor (${component.name})`,
@@ -442,7 +442,7 @@ Processes input data and returns transformed result
 \`\`\`
 
 ## Output
-Write to \`${intermediateDir}/L2/${paddedIndex}_${safeComponentName}.md\`.
+Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`.
 
 ## Self-Verification Phase (MANDATORY)
 After writing the output file:
@@ -494,7 +494,7 @@ After writing the output file:
                 // Create tasks for L3 analysis (1 component per task, like L2)
                 const l3Tasks = componentsToAnalyze.map((component, index) => {
                     const componentStr = JSON.stringify(component);
-                    const safeComponentName = component.name.replace(/[^a-zA-Z0-9_-]/g, '_').substring(0, 30);
+                    // Keep number prefix for ordering
                     const paddedIndex = String(index + 1).padStart(3, '0');
                     return () => this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
@@ -519,7 +519,7 @@ Assigned Component: ${componentStr}
    - **Forbidden**: \`flowchart\`, \`graph TD\` (these are prohibited)
 
 ## Output
-Write to \`${intermediateDir}/L3/${paddedIndex}_${safeComponentName}_analysis.md\`.
+Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
 
 ## Self-Verification Phase (MANDATORY)
 After writing the analysis file:
