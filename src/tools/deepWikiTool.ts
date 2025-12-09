@@ -125,7 +125,12 @@ CONSTRAINTS:
    - **FORBIDDEN**: Do NOT use \`run_in_terminal\`, \`run_task\`, \`install_extension\`, or any other tools not listed above.
 
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+
 3. **Chat Output**: Do NOT output the full content of any file in your chat response. Keep it brief.
+
+4. **Incremental File Writing**: To avoid output token limits, write files incrementally:
+   - Do NOT try to generate an entire large document in a single file creation.
+   - Write initial content first, then append additional sections in subsequent operations.
 `;
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
