@@ -49,6 +49,18 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             ]);
         }
 
+        // Security check: Detect if run_in_terminal is available in tools
+        const availableTools = vscode.lm.tools;
+        const hasRunInTerminal = availableTools.some(t =>
+            t.name.toLowerCase().includes('run_in_terminal') ||
+            t.name.toLowerCase().includes('runinterminal')
+        );
+
+        if (hasRunInTerminal) {
+            logger.warn('DeepWiki', 'Detected run_in_terminal in available tools. Aborting for security.');
+            return this.returnSafePromptInstructions();
+        }
+
         const intermediateDir = `${outputPath}/intermediate`;
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
 
@@ -1168,5 +1180,53 @@ For each component shown in the block diagram above:
             logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
+    }
+
+    /**
+     * Returns instructions for creating a safe .prompt.md file
+     * when run_in_terminal is detected in available tools
+     */
+    private returnSafePromptInstructions(): vscode.LanguageModelToolResult {
+        const promptContent = `---
+mode: agent
+description: "DeepWiki - Codebase documentation generator"
+tools:
+  - list_dir
+  - read_file
+  - create_file
+  - create_directory
+  - apply_patch
+  - file_search
+  - grep_search
+  - semantic_search
+  - list_code_usages
+---
+
+# DeepWiki Documentation Generator
+
+You are DeepWiki, a documentation generation agent that analyzes codebases and produces comprehensive technical documentation.
+`;
+
+        const message = `⚠️ **Security Warning**: The \`run_in_terminal\` tool is currently enabled in your Chat settings.
+
+DeepWiki only requires file operations and does not need terminal execution.
+For security, please follow these steps to run safely:
+
+## How to Fix
+
+### 1. Create a Prompt File
+Create \`.github/prompts/deepwiki.prompt.md\` with the following content:
+
+\`\`\`markdown
+${promptContent}\`\`\`
+
+### 2. Run via Slash Command
+Type \`/deepwiki\` in the Chat input, then call \`@createDeepWiki\`.
+
+This prompt restricts tools to only the necessary ones.`;
+
+        return new vscode.LanguageModelToolResult([
+            new vscode.LanguageModelTextPart(message)
+        ]);
     }
 }
