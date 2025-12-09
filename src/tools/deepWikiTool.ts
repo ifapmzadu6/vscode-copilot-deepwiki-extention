@@ -74,49 +74,52 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 ## Pipeline Overview
 
 **Complete Pipeline Flow:**
-- **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
+0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
    - Analyzes project structure, build system, and conditional code patterns
    - Outputs \`project_context.md\` for downstream agents to reference
    - Identifies feature flags, target environments, and generated/excluded code
 
-- **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
+1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
    - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
    - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
    - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
    - Runs with retry loop (max 6 attempts) until valid JSON is produced
    - Uses L0 context to understand project structure
 
-- **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
+2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
    - Extracts API signatures, internal logic, side effects, and dependency relationships
    - Runs in parallel batches (3 components per batch)
    - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
    - Notes conditional code patterns based on L0 context
 
-- **L3-L6 Analysis & Writing Loop**${['L3', 'L4', 'L5-Pre', 'L5-Pre-A', 'L5-Pre-B', 'L5-Pre-C', 'L5', 'L6'].includes(currentStage) ? ' **← YOU ARE HERE**' : ''} (runs up to 5 times with critical failure retry):
-   - **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU**' : ''}: Deep component analysis with causality tracing and diagrams
-   - **L4 Architect**${currentStage === 'L4' ? ' **← YOU**' : ''}: System-level overview, component relationships, and architecture maps
-   - **L5-Pre Page Consolidator (L5-Pre-A → L5-Pre-B → L5-Pre-C)**${currentStage.startsWith('L5-Pre') ? ' **← YOU ARE HERE**' : ''}:
-     - L5-Pre-A Drafter: Creates initial page grouping proposal${currentStage === 'L5-Pre-A' ? ' **← YOU**' : ''}
-     - L5-Pre-B Reviewer: Critiques the draft groupings${currentStage === 'L5-Pre-B' ? ' **← YOU**' : ''}
-     - L5-Pre-C Refiner: Produces final page_structure.json${currentStage === 'L5-Pre-C' ? ' **← YOU**' : ''}
-     - Runs with retry loop (max 6 attempts) until valid JSON is produced
-   - **L5 Writer**${currentStage === 'L5' ? ' **← YOU**' : ''}: Transforms analysis into final documentation pages based on page_structure.json
-   - **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU**' : ''}: Quality gate - fixes minor issues, requests retry for major problems
-   - Loop continues if L6 identifies components needing re-analysis
+3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
+   - Deep component analysis with causality tracing and diagrams
+   - (Part of Analysis Loop: Runs up to 5 times if L6 requests retry)
 
-- **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
+   - System-level overview, component relationships, and architecture maps
+
+5. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
+   - **L5-Pre Consolidator** (Pre-A → Pre-B → Pre-C): Groups components into pages${currentStage.startsWith('L5-Pre') ? ' **← YOU**' : ''}
+   - **L5 Writer**: Transforms analysis into final documentation pages based on page_structure.json${currentStage === 'L5' ? ' **← YOU**' : ''}
+
+6. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
+   - Quality gate - fixes minor issues, requests retry for major problems
+   - **Loop Control**: Can trigger re-analysis (Back to L3) if components need deeper work
+
+7. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
    - Creates final README with table of contents
    - Links all generated pages together
    - Sanitizes any intermediate references
-
-**Strategic Context:**
-- **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
-- **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
-- **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
-- **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
-- **Retry Mechanism**: The system can retry problematic components rather than failing completely
-- **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
-`;
+ 
+ **Strategic Context:**
+ - **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
+ - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
+ - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+ - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
+ - **Retry Mechanism**: The system can retry problematic components rather than failing completely
+ - **Incremental Refinement**: Each retry loop improves specific components while preserving successful ones
+ `;
 
 
         const bq = '`';
