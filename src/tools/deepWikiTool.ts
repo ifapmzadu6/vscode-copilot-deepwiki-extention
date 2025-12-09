@@ -77,24 +77,20 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
    - Analyzes project structure, build system, and conditional code patterns
    - Outputs \`project_context.md\` for downstream agents to reference
-   - Identifies feature flags, target environments, and generated/excluded code
 
 1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
    - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
    - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
    - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
-   - Runs with retry loop (max 6 attempts) until valid JSON is produced
    - Uses L0 context to understand project structure
 
 2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
    - Extracts API signatures, internal logic, side effects, and dependency relationships
-   - Runs in parallel batches (3 components per batch)
    - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
    - Notes conditional code patterns based on L0 context
 
 3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
    - Deep component analysis with causality tracing and diagrams
-   - (Part of Analysis Loop: Runs up to 5 times if L6 requests retry)
 
 4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
    - System-level overview, component relationships, and architecture maps
@@ -105,13 +101,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
 6. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
    - Quality gate - fixes minor issues, requests retry for major problems
-   - **Loop Control**: Can trigger re-analysis (Back to L3) if components need deeper work
 
 7. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
    - Creates final README with table of contents
    - Links all generated pages together
    - Sanitizes any intermediate references
- 
+
  **Strategic Context:**
  - **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
  - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
