@@ -349,8 +349,8 @@ Create the FINAL component list.
 - **Brief description**: One-line summary of purpose
 - **Internal Logic**: Key internal logic steps (3-5 bullet points)
 - **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
-- **Called By**: Functions/methods that call this (if identifiable)
-- **Calls**: Functions/methods/libraries this calls
+- **Called By**: Functions/methods that call this (if identifiable, limit to 30 items max, suffix with "... (truncated)" if more)
+- **Calls**: Functions/methods/libraries this calls (limit to 30 items max, suffix with "... (truncated)" if more)
 - **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
 
 **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
