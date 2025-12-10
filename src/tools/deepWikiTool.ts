@@ -441,6 +441,91 @@ Processes input data and returns transformed result
             });
             await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY, 'L2 Extraction', token);
 
+            // ---------------------------------------------------------
+            // L2 Validator: Check for missing files and retry if needed
+            // ---------------------------------------------------------
+            const l2ExpectedFiles = componentList.map((c, i) => ({
+                name: c.name,
+                file: `${String(i + 1).padStart(3, '0')}_${c.name}.md`
+            }));
+            await this.runPhase(
+                'L2-V: Validator',
+                'Validate L2 output files',
+                `# L2 Validator Agent
+
+## Role
+Check that all expected L2 output files exist.
+
+## Expected Files
+Directory: \`${intermediateDir}/L2/\`
+Files to verify:
+${l2ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
+
+## Workflow
+1. List files in \`${intermediateDir}/L2/\`
+2. Compare against expected files above
+3. If ALL files exist → Write empty array to \`${intermediateDir}/L2/validation_failures.json\`
+4. If ANY files are MISSING → Write JSON array of missing component names to \`${intermediateDir}/L2/validation_failures.json\`
+
+## Output
+Write to \`${intermediateDir}/L2/validation_failures.json\`:
+- If all present: \`[]\`
+- If missing: \`["Component A", "Component B"]\`
+
+## Constraints
+1. Keep response brief (e.g., "Validation complete.")
+`,
+                token,
+                options.toolInvocationToken
+            );
+
+            // Check validation result and retry failed components
+            const l2FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'validation_failures.json'));
+            let l2FailedComponents: string[] = [];
+            try {
+                const content = await vscode.workspace.fs.readFile(l2FailuresUri);
+                l2FailedComponents = this.parseJson<string[]>(new TextDecoder().decode(content));
+                await vscode.workspace.fs.delete(l2FailuresUri);
+            } catch { /* no failures file or invalid */ }
+
+            if (l2FailedComponents.length > 0) {
+                logger.log('DeepWiki', `L2 Validator found ${l2FailedComponents.length} missing files, retrying: ${l2FailedComponents.join(', ')}`);
+                const l2RetryTasks = componentList
+                    .filter(c => l2FailedComponents.includes(c.name))
+                    .map((component, index) => {
+                        const componentStr = JSON.stringify(component);
+                        const paddedIndex = String(componentList.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
+                        return () => this.runPhase(
+                            `L2: Extractor Retry (${component.name})`,
+                            `Extract entities (retry)`,
+                            `# Extractor Agent (L2) - RETRY
+
+## Role
+- **Your Stage**: L2 Extraction (RETRY - previous attempt failed)
+- **Core Responsibility**: Extract precise API signatures from source code
+
+## Input
+- Assigned Component: ${componentStr}
+- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\`
+
+## Workflow
+1. Create file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
+2. Extract signatures for each function/method/class
+
+## Output
+Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
+
+## Constraints
+1. Keep response brief.
+2. Use \`apply_patch\` after each step.
+
+` + getPipelineOverview('L2'),
+                            token,
+                            options.toolInvocationToken
+                        );
+                    });
+                await runWithConcurrencyLimit(l2RetryTasks, DEFAULT_MAX_CONCURRENCY, 'L2 Retry', token);
+            }
 
             // ==================================================================================
             // PHASE 2: ANALYSIS & WRITING LOOP (Critical Failure Loop)
@@ -505,6 +590,91 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
                     );
                 });
                 await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`, token);
+
+                // ---------------------------------------------------------
+                // L3 Validator: Check for missing files and retry if needed
+                // ---------------------------------------------------------
+                const l3ExpectedFiles = componentsToAnalyze.map((c, i) => ({
+                    name: c.name,
+                    file: `${String(i + 1).padStart(3, '0')}_${c.name}_analysis.md`
+                }));
+                await this.runPhase(
+                    `L3-V: Validator (Loop ${loopCount + 1})`,
+                    'Validate L3 output files',
+                    `# L3 Validator Agent
+
+## Role
+Check that all expected L3 analysis files exist.
+
+## Expected Files
+Directory: \`${intermediateDir}/L3/\`
+Files to verify:
+${l3ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
+
+## Workflow
+1. List files in \`${intermediateDir}/L3/\`
+2. Compare against expected files above
+3. If ALL files exist → Write empty array to \`${intermediateDir}/L3/validation_failures.json\`
+4. If ANY files are MISSING → Write JSON array of missing component names to \`${intermediateDir}/L3/validation_failures.json\`
+
+## Output
+Write to \`${intermediateDir}/L3/validation_failures.json\`:
+- If all present: \`[]\`
+- If missing: \`["Component A", "Component B"]\`
+
+## Constraints
+1. Keep response brief (e.g., "Validation complete.")
+`,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // Check L3 validation result and retry failed components
+                const l3FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', 'validation_failures.json'));
+                let l3FailedComponents: string[] = [];
+                try {
+                    const content = await vscode.workspace.fs.readFile(l3FailuresUri);
+                    l3FailedComponents = this.parseJson<string[]>(new TextDecoder().decode(content));
+                    await vscode.workspace.fs.delete(l3FailuresUri);
+                } catch { /* no failures file or invalid */ }
+
+                if (l3FailedComponents.length > 0) {
+                    logger.log('DeepWiki', `L3 Validator found ${l3FailedComponents.length} missing files, retrying: ${l3FailedComponents.join(', ')}`);
+                    const l3RetryTasks = componentsToAnalyze
+                        .filter(c => l3FailedComponents.includes(c.name))
+                        .map((component) => {
+                            const componentStr = JSON.stringify(component);
+                            const paddedIndex = String(componentsToAnalyze.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
+                            return () => this.runPhase(
+                                `L3: Analyzer Retry (${component.name})`,
+                                `Analyze component (retry)`,
+                                `# Analyzer Agent (L3) - RETRY
+
+## Role
+- **Your Stage**: L3 Analyzer (RETRY - previous attempt failed)
+- **Core Responsibility**: Deep analysis of component
+
+## Input
+Assigned Component: ${componentStr}
+
+## Workflow
+1. Create file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+2. Analyze the component and create diagrams
+
+## Output
+Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+
+## Constraints
+1. Keep response brief.
+2. Use \`apply_patch\` after each step.
+
+` + getPipelineOverview('L3'),
+                                token,
+                                options.toolInvocationToken
+                            );
+                        });
+                    await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Retry (Loop ${loopCount + 1})`, token);
+                }
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -859,6 +1029,89 @@ Write files to \`${outputPath}/pages/\`.
                     );
                 });
                 await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
+
+                // ---------------------------------------------------------
+                // L5 Validator: Check for missing page files and retry if needed
+                // ---------------------------------------------------------
+                const l5ExpectedPages = pageStructure.map(p => ({
+                    pageName: p.pageName,
+                    file: `${p.pageName}.md`
+                }));
+                await this.runPhase(
+                    `L5-V: Validator (Loop ${loopCount + 1})`,
+                    'Validate L5 output files',
+                    `# L5 Validator Agent
+
+## Role
+Check that all expected L5 documentation page files exist.
+
+## Expected Files
+Directory: \`${outputPath}/pages/\`
+Files to verify:
+${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
+
+## Workflow
+1. List files in \`${outputPath}/pages/\`
+2. Compare against expected files above
+3. If ALL files exist → Write empty array to \`${intermediateDir}/L5/page_validation_failures.json\`
+4. If ANY files are MISSING → Write JSON array of missing page names to \`${intermediateDir}/L5/page_validation_failures.json\`
+
+## Output
+Write to \`${intermediateDir}/L5/page_validation_failures.json\`:
+- If all present: \`[]\`
+- If missing: \`["Page A", "Page B"]\`
+
+## Constraints
+1. Keep response brief (e.g., "Validation complete.")
+`,
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // Check L5 validation result and retry failed pages
+                const l5FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_validation_failures.json'));
+                let l5FailedPages: string[] = [];
+                try {
+                    const content = await vscode.workspace.fs.readFile(l5FailuresUri);
+                    l5FailedPages = this.parseJson<string[]>(new TextDecoder().decode(content));
+                    await vscode.workspace.fs.delete(l5FailuresUri);
+                } catch { /* no failures file or invalid */ }
+
+                if (l5FailedPages.length > 0) {
+                    logger.log('DeepWiki', `L5 Validator found ${l5FailedPages.length} missing pages, retrying: ${l5FailedPages.join(', ')}`);
+                    const failedPageStructure = pageStructure.filter(p => l5FailedPages.includes(p.pageName));
+                    const l5RetryTasks = failedPageStructure.map((page) => {
+                        return () => this.runPhase(
+                            `L5: Writer Retry (${page.pageName})`,
+                            `Write documentation page (retry)`,
+                            `# Writer Agent (L5) - RETRY
+
+## Role
+- **Your Stage**: L5 Writer (RETRY - previous attempt failed)
+- **Core Responsibility**: Transform L3 analysis into documentation page
+
+## Input
+- Page: ${JSON.stringify(page)}
+- Read L3 analysis files for components: ${page.components.join(', ')}
+
+## Workflow
+1. Create file \`${outputPath}/pages/${page.pageName}.md\`
+2. Write documentation content based on L3 analysis
+
+## Output
+Write to \`${outputPath}/pages/${page.pageName}.md\`
+
+## Constraints
+1. Keep response brief.
+2. Use \`apply_patch\` after each step.
+
+` + getPipelineOverview('L5'),
+                            token,
+                            options.toolInvocationToken
+                        );
+                    });
+                    await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
+                }
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)
