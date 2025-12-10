@@ -995,7 +995,7 @@ Show the fundamental state machine of the system:
 - Each block in the diagram = one page from page_structure.json
 - Write 2-3 sentences explaining the component structure BEFORE the diagram
 - Use \`block\` Mermaid diagram
-- **Keep it FLAT and SIMPLE**: Do NOT nest boxes inside boxes. Just list all pages as blocks in a grid layout.
+- **Nesting rules**: One level of nesting is OK (box inside box for grouping). Deeper nesting (box inside box inside box) is FORBIDDEN.
 - **Arrows (-->) are forbidden** in block diagrams
 - This should serve as a VISUAL TABLE OF CONTENTS that matches the Components section
 
