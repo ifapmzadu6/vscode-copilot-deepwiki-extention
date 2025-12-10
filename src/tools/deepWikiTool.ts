@@ -960,6 +960,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Input
 - Read \`${intermediateDir}/L4/overview.md\`
 - Read \`${intermediateDir}/L4/relationships.md\`
+- **Read \`${intermediateDir}/L5/page_structure.json\`** - This defines the EXACT pages and their components
 - Scan \`${outputPath}/pages/\`
 
 ## Workflow
@@ -989,17 +990,20 @@ Show the fundamental state machine of the system:
 - Focus on the CORE flow, not edge cases
 
 **D. Component Overview (block) - REQUIRED**
-List all major components/modules as a visual map:
+**CRITICAL: Use page_structure.json as the source of truth.**
+- The block diagram MUST match EXACTLY the pages listed in \`${intermediateDir}/L5/page_structure.json\`
+- Each block in the diagram = one page from page_structure.json
 - Write 2-3 sentences explaining the component structure BEFORE the diagram
 - Use \`block\` Mermaid diagram
-- Group related components together using nested blocks
-- **Arrows (-->) are forbidden** in block diagrams; use grouping alone to convey structure
-- This should serve as a VISUAL TABLE OF CONTENTS
+- **Keep it FLAT and SIMPLE**: Do NOT nest boxes inside boxes. Just list all pages as blocks in a grid layout.
+- **Arrows (-->) are forbidden** in block diagrams
+- This should serve as a VISUAL TABLE OF CONTENTS that matches the Components section
 
 ### 2. Components
-For each component shown in the block diagram above:
-- **Name** with link to its page: [ComponentName](pages/ComponentName.md)
-- **One-line description** of what it does
+**CRITICAL: Use page_structure.json as the source of truth.**
+For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
+- **Name** with link to its page: [PageName](pages/PageName.md)
+- **One-line description** of what it covers (use the rationale from page_structure.json)
 
 ## Output
 - Write README.md to \`${outputPath}/README.md\`
