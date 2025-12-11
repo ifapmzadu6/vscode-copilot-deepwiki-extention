@@ -2,7 +2,7 @@
   "name": "deepwiki-generator",
   "displayName": "DeepWiki Generator",
   "description": "Generate comprehensive DeepWiki documentation using autonomous AI agents.",
-  "version": "0.7.1",
+  "version": "0.8.0",
   "publisher": "your-publisher",
   "engines": {
     "vscode": "^1.95.0"

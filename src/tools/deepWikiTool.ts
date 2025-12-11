@@ -3,6 +3,12 @@ import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
 import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
+import {
+    extractSymbolsFromFile,
+    enrichSymbolsWithCalls,
+    generateL2Skeleton,
+    ExtractedSymbol
+} from '../utils/symbolExtractor';
 
 /**
  * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
@@ -374,6 +380,11 @@ Create the FINAL component list.
             // Step 2: Create a task for each symbol to fill in details
 
             // Recursive symbol type for caching (children can have children)
+            interface CallInfo {
+                name: string;
+                file: string;
+                children?: CallInfo[];
+            }
             interface ExtractedSymbol {
                 name: string;
                 kind: string;
@@ -381,6 +392,8 @@ Create the FINAL component list.
                 startLine: number;
                 endLine: number;
                 children?: ExtractedSymbol[];
+                calls?: CallInfo[];
+                calledBy?: CallInfo[];
             }
 
             // Step 1: Extract symbols from all files and generate skeletons
@@ -405,11 +418,12 @@ Create the FINAL component list.
                     const fileName = path.basename(file);
                     const skeletonPath = `${intermediateDir}/L2/${componentDir}/${fileName}.md`;
 
-                    // Extract symbols ONCE and cache
-                    const symbols = await this.extractSymbolsFromFile(fileUri);
+                    // Extract symbols and enrich with call hierarchy (using utils)
+                    const symbols = await extractSymbolsFromFile(fileUri);
+                    const symbolsWithCalls = await enrichSymbolsWithCalls(fileUri, symbols);
 
                     // Generate skeleton and write to file
-                    const skeleton = this.generateL2Skeleton(file, symbols);
+                    const skeleton = generateL2Skeleton(file, symbolsWithCalls);
                     const skeletonUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, skeletonPath));
                     await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(skeletonUri.fsPath)));
                     await vscode.workspace.fs.writeFile(skeletonUri, new TextEncoder().encode(skeleton));
@@ -420,7 +434,7 @@ Create the FINAL component list.
                         file,
                         fileIndex: j,
                         skeletonPath,
-                        symbols // Cache symbols for task generation
+                        symbols: symbolsWithCalls // Cache symbols with call hierarchy
                     });
 
                     if (symbols.length > 0) {
@@ -433,182 +447,6 @@ Create the FINAL component list.
 
             logger.log('DeepWiki', `L2: Generated skeletons for ${allL2FileData.length} files across ${componentList.length} components`);
 
-            // Step 2: Build symbol-level tasks from cached symbols
-            interface L2SymbolTask {
-                component: ComponentDef;
-                componentIndex: number;
-                file: string;
-                symbolName: string;
-                symbolKind: string;
-                startLine: number;
-                endLine: number;
-                skeletonPath: string;
-                hasChildren: boolean;
-            }
-
-            const allL2SymbolTasks: L2SymbolTask[] = [];
-
-            // Recursive helper to flatten nested symbols
-            const flattenSymbols = (
-                symbols: ExtractedSymbol[],
-                fileData: L2FileData,
-                parentName: string = ''
-            ) => {
-                for (const symbol of symbols) {
-                    const fullName = parentName ? `${parentName}.${symbol.name}` : symbol.name;
-                    const hasChildren = !!(symbol.children && symbol.children.length > 0);
-
-                    allL2SymbolTasks.push({
-                        component: fileData.component,
-                        componentIndex: fileData.componentIndex,
-                        file: fileData.file,
-                        symbolName: fullName,
-                        symbolKind: symbol.kind,
-                        startLine: symbol.startLine,
-                        endLine: symbol.endLine,
-                        skeletonPath: fileData.skeletonPath,
-                        hasChildren
-                    });
-
-                    // Recursively process children (now fully recursive)
-                    if (symbol.children) {
-                        flattenSymbols(symbol.children, fileData, fullName);
-                    }
-                }
-            };
-
-            for (const fileData of allL2FileData) {
-                flattenSymbols(fileData.symbols, fileData);
-            }
-
-            logger.log('DeepWiki', `L2: Processing ${allL2SymbolTasks.length} symbol tasks across ${allL2FileData.length} files`);
-
-            // Task generator for symbol-level L2 extraction
-            const createL2SymbolTask = (task: L2SymbolTask) => {
-                const { component, componentIndex, file, symbolName, symbolKind, startLine, endLine, skeletonPath, hasChildren } = task;
-                const paddedComponentIndex = String(componentIndex + 1).padStart(3, '0');
-                const componentDir = `${paddedComponentIndex}_${component.name}`;
-                const isContainer = hasChildren; // Containers have children, leaf nodes don't
-
-                const sectionsToFill = isContainer
-                    ? '- **Description**: One-line summary of purpose'
-                    : `- **Description**: One-line summary of purpose
-- **Internal Logic**: Key internal logic steps (3-5 bullet points)
-- **Calls**: Functions/methods this calls (names only)
-- **Called By**: Functions/methods that call this (names only)`;
-
-                const workflowStep4 = isContainer
-                    ? 'Fill in the empty section: Description'
-                    : 'Fill in the empty sections: Description, Internal Logic, Calls, Called By';
-
-                return () => this.runPhase(
-                    `L2-Sym: ${symbolName}`,
-                    `Analyze ${symbolName}`,
-                    `# Symbol Analyzer Agent (L2-Symbol)
-
-## Role
-- **Your Stage**: L2 Symbol-Level Extraction (runs in parallel batches)
-- **Core Responsibility**: Analyze ONE symbol (${symbolKind}) and fill in its documentation
-- **Critical Success Factor**: Read ONLY the specified line range, fill in ONLY the empty sections
-
-## Input
-- Component: **${component.name}**
-- File: \`${file}\`
-- Symbol: **${symbolName}** (${symbolKind})
-- Lines: ${startLine}-${endLine}
-
-## Workflow
-1. Read ONLY lines ${startLine} to ${endLine} of \`${file}\`
-2. Read the skeleton file: \`${skeletonPath}\`
-3. Find the section for \`${symbolName}\` in the skeleton
-4. ${workflowStep4}
-5. Use \`applyPatch\` to update ONLY that symbol's section in the skeleton file
-
-## What to fill in:
-${sectionsToFill}
-
-## Constraints
-1. **Scope**: Read ONLY lines ${startLine}-${endLine}.
-2. **Output**: Use \`applyPatch\` to update the skeleton. Do NOT rewrite the entire file.
-3. **Shallow Analysis**: For Calls/Called By, list names only. Do NOT trace implementations.
-4. **Chat Final Response**: Keep your chat reply brief (e.g., "Completed ${symbolName}").
-
-` + getPipelineOverview('L2'),
-                    token,
-                    options.toolInvocationToken
-                );
-            };
-
-            // Execute all symbol-level L2 tasks in parallel batches
-            const l2SymbolTasks = allL2SymbolTasks.map(createL2SymbolTask);
-            await runWithConcurrencyLimit(l2SymbolTasks, DEFAULT_MAX_CONCURRENCY, 'L2 Symbol Extraction', token);
-
-            // ---------------------------------------------------------
-            // L2 Validator: Check for missing component directories and retry if needed
-            // ---------------------------------------------------------
-            const l2ExpectedDirs = componentList.map((c, i) => ({
-                name: c.name,
-                dir: `${String(i + 1).padStart(3, '0')}_${c.name}`
-            }));
-
-            const MAX_L2_RETRIES = 3;
-            for (let l2RetryCount = 0; l2RetryCount < MAX_L2_RETRIES; l2RetryCount++) {
-                await this.runPhase(
-                    `L2-V: Validator (Attempt ${l2RetryCount + 1})`,
-                    'Validate L2 output content',
-                    `# L2 Validator Agent
-
-## Role
-Check that L2 extraction was successful by verifying output directories exist and contain meaningful content.
-
-## Expected Directories
-Base: \`${intermediateDir}/L2/\`
-${l2ExpectedDirs.map(d => `- \`${d.dir}/\` (Component: ${d.name})`).join('\n')}
-
-## Workflow
-1. List directories in \`${intermediateDir}/L2/\`
-2. For each expected directory:
-   - Check if directory exists
-   - Read each .md file and verify it contains API signatures (look for \`### \\\`functionName\` patterns)
-   - Empty or placeholder-only files indicate failed extraction
-3. If ALL directories exist with valid content → Write empty array to \`${intermediateDir}/L2/validation_failures.json\`
-4. If ANY directory is MISSING or has EMPTY/INVALID content → Write JSON array of those component names
-
-## Output
-Write to \`${intermediateDir}/L2/validation_failures.json\`:
-- If all correct: \`[]\`
-- If issues: \`["Component A", "Component B"]\`
-
-## Constraints
-1. Keep response brief (e.g., "Validation complete.")
-`,
-                    token,
-                    options.toolInvocationToken
-                );
-
-                // Check validation result and retry failed components (file-level retry)
-                const l2FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'validation_failures.json'));
-                let l2FailedComponents: string[] = [];
-                try {
-                    const content = await vscode.workspace.fs.readFile(l2FailuresUri);
-                    l2FailedComponents = this.parseJson<string[]>(new TextDecoder().decode(content));
-                    await vscode.workspace.fs.delete(l2FailuresUri);
-                } catch { /* no failures file or invalid */ }
-
-                if (l2FailedComponents.length === 0) {
-                    logger.log('DeepWiki', 'L2 Validator: All components validated successfully');
-                    break; // All good, exit retry loop
-                }
-
-                logger.log('DeepWiki', `L2 Validator (Attempt ${l2RetryCount + 1}/${MAX_L2_RETRIES}): Found ${l2FailedComponents.length} missing components, retrying: ${l2FailedComponents.join(', ')}`);
-
-                if (l2RetryCount < MAX_L2_RETRIES - 1) {
-                    // Retry symbol-level extraction for failed components
-                    const failedSymbolTasks = allL2SymbolTasks.filter(t => l2FailedComponents.includes(t.component.name));
-                    const l2RetryTasks = failedSymbolTasks.map(createL2SymbolTask);
-                    await runWithConcurrencyLimit(l2RetryTasks, DEFAULT_MAX_CONCURRENCY, `L2 Symbol Retry ${l2RetryCount + 1}`, token);
-                }
-            }
 
             // ==================================================================================
             // PHASE 2: ANALYSIS & WRITING LOOP (Critical Failure Loop)
@@ -655,7 +493,7 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
 
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-2. Read L2 extraction files and source code files (L2 may contain errors - verify against source)
+2. Read L2 extraction files (programmatically generated, contains accurate symbol metadata: Kind, Lines, Detail, Calls, Called By) and source code files
 3. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
@@ -665,7 +503,7 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Causal Analysis Requirements
-Based on L2's extracted events and state mutations, analyze and document:
+Based on L2's extracted **Calls/Called By relationships**, analyze and document:
 
 ### Event Causality
 - **Event Chain**: Trace how events propagate (e.g., "User clicks button → \`click\` event → \`handleClick()\` → emits \`data.updated\` → \`onDataUpdated()\` triggers")
@@ -1439,148 +1277,6 @@ For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
             logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
-    }
-
-    /**
-     * Extract symbols from a file using VS Code's DocumentSymbolProvider.
-     * Works with any language that has Language Server support (TypeScript, C/C++, Python, etc.)
-     */
-    private async extractSymbolsFromFile(fileUri: vscode.Uri): Promise<{
-        name: string;
-        kind: string;
-        detail: string;
-        startLine: number;
-        endLine: number;
-        children?: { name: string; kind: string; detail: string; startLine: number; endLine: number }[];
-    }[]> {
-        try {
-            const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
-                'vscode.executeDocumentSymbolProvider',
-                fileUri
-            );
-
-            if (!symbols || symbols.length === 0) {
-                return [];
-            }
-
-            const kindToString = (kind: vscode.SymbolKind): string => {
-                const kindMap: Record<number, string> = {
-                    [vscode.SymbolKind.Function]: 'Function',
-                    [vscode.SymbolKind.Method]: 'Method',
-                    [vscode.SymbolKind.Class]: 'Class',
-                    [vscode.SymbolKind.Interface]: 'Interface',
-                    [vscode.SymbolKind.Enum]: 'Enum',
-                    [vscode.SymbolKind.Struct]: 'Struct',
-                    [vscode.SymbolKind.Constructor]: 'Constructor',
-                    [vscode.SymbolKind.Property]: 'Property',
-                    [vscode.SymbolKind.Variable]: 'Variable',
-                    [vscode.SymbolKind.Constant]: 'Constant',
-                    [vscode.SymbolKind.Namespace]: 'Namespace',
-                    [vscode.SymbolKind.Module]: 'Module',
-                };
-                return kindMap[kind] || 'Symbol';
-            };
-
-            // Recursive type for extracted symbols
-            interface ExtractedSymbolResult {
-                name: string;
-                kind: string;
-                detail: string;
-                startLine: number;
-                endLine: number;
-                children?: ExtractedSymbolResult[];
-            }
-
-            // Recursive helper to extract symbol and its children
-            const extractSymbol = (symbol: vscode.DocumentSymbol): ExtractedSymbolResult => ({
-                name: symbol.name,
-                kind: kindToString(symbol.kind),
-                detail: symbol.detail || '',
-                startLine: symbol.range.start.line + 1,
-                endLine: symbol.range.end.line + 1,
-                children: symbol.children?.map(extractSymbol)
-            });
-
-            return symbols.map(extractSymbol);
-        } catch (error) {
-            logger.error('DeepWiki', `Failed to extract symbols from ${fileUri.fsPath}`, error);
-            return [];
-        }
-    }
-
-    /**
-     * Generate L2 markdown skeleton with empty sections for AI to fill.
-     */
-    private generateL2Skeleton(
-        filePath: string,
-        symbols: {
-            name: string;
-            kind: string;
-            detail: string;
-            startLine: number;
-            endLine: number;
-            children?: any[]; // Recursive - children have same structure
-        }[]
-    ): string {
-        const lines: string[] = [];
-        lines.push(`## ${filePath}`);
-
-        // Recursive type for addSymbol
-        interface SymbolNode {
-            name: string;
-            kind: string;
-            detail?: string;
-            startLine: number;
-            endLine: number;
-            children?: SymbolNode[];
-        }
-
-        // Recursive helper to generate skeleton for nested symbols
-        const addSymbol = (
-            symbol: SymbolNode,
-            depth: number,
-            parentName: string = ''
-        ) => {
-            const fullName = parentName ? `${parentName}.${symbol.name}` : symbol.name;
-            const signature = symbol.detail ? `${symbol.name}${symbol.detail}` : symbol.name;
-            const hasChildren = !!(symbol.children && symbol.children.length > 0);
-            const headingLevel = '#'.repeat(Math.min(depth + 2, 6)); // ### for depth 1, #### for depth 2, etc.
-
-            lines.push(`${headingLevel} \`${signature}\``);
-            lines.push(`**Kind**: ${symbol.kind}`);
-            lines.push(`**Lines**: ${symbol.startLine}-${symbol.endLine}`);
-            lines.push('**Description**: ');
-
-            // Only add detailed sections for leaf nodes (no children)
-            if (!hasChildren) {
-                lines.push('**Internal Logic**:');
-                lines.push('**Calls**:');
-                lines.push('**Called By**:');
-            }
-
-            // Recursively add children
-            if (symbol.children) {
-                for (const child of symbol.children) {
-                    addSymbol(child, depth + 1, fullName);
-                }
-            }
-
-            // Add separator and blank line at top level
-            if (depth === 1) {
-                lines.push('');
-                lines.push('---');
-                lines.push('');
-            } else {
-                // Add blank line between child symbols
-                lines.push('');
-            }
-        };
-
-        for (const symbol of symbols) {
-            addSymbol(symbol, 1);
-        }
-
-        return lines.join('\n');
     }
 
 

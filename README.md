@@ -25,8 +25,7 @@ stateDiagram-v2
 
     L0: L0 Project Context
     L1: L1 Discoverer
-    L2: L2 Extractor (Parallel)
-    L2V: L2-V Validator
+    L2: L2 Symbol Extractor (Programmatic)
     L3: L3 Analyzer (Parallel)
     L3V: L3-V Validator
     L4: L4 Architect
@@ -48,9 +47,7 @@ stateDiagram-v2
     }
     
     L1 --> L2
-    L2 --> L2V
-    L2V --> L2: Files Missing
-    L2V --> L3: All Files Present
+    L2 --> L3
     
     L3 --> L3V
     L3V --> L3: Files Missing
@@ -98,17 +95,15 @@ Identifies and groups files into logical components, and determines their import
 -   **L1-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L1-B and L1-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
-### 2. Level 2: EXTRACTOR (File-Level Parallel)
-Extracts comprehensive API information from each source file individually (1 file = 1 subagent):
--   **API Signatures**: Exact function/method signatures with parameter types
--   **Internal Logic**: Key internal logic steps (3-5 bullet points per function)
--   **Side Effects**: Side effects (file I/O, state mutations, events, etc.)
--   **Caller/Callee**: Caller and callee relationships for dependency mapping
--   **Conditional Code**: Notes when code is conditionally compiled (e.g., `#ifdef DEBUG`)
+### 2. Level 2: SYMBOL EXTRACTOR (Programmatic)
+Extracts API information from each source file **programmatically** using VS Code's Language Server APIs:
+-   **Symbol Extraction**: Uses `vscode.executeDocumentSymbolProvider` to extract all symbols (functions, classes, methods, etc.)
+-   **Call Hierarchy**: Uses `vscode.CallHierarchyProvider` to extract Calls/Called By relationships (2 levels deep)
+-   **Type Information**: Captures symbol details (type signatures, return types) when available
 
-Each file is processed by a separate subagent to reduce output volume and prevent token limit errors. For C/C++ files, the agent is instructed to also check corresponding header files. Output is organized into component directories: `L2/{componentIndex}_{componentName}/`.
+This phase is **100% programmatic** with no AI subagents, ensuring fast and accurate extraction. Output is organized into component directories: `L2/{componentIndex}_{componentName}/`.
 
-**L2-V Validator**: After extraction completes, validates that all expected output files exist (checking file count per component). If files are missing, triggers automatic retry for failed components.
+**Note**: CallHierarchyProvider availability depends on the Language Server for each file type (TypeScript, Python, C++, etc.).
 
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
