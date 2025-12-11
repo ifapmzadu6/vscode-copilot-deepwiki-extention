@@ -364,12 +364,10 @@ Create the FINAL component list.
 
             // Level 2: EXTRACTOR (Parallel - Runs once for all components)
             // ---------------------------------------------------------
-            // Create tasks for L2 extraction (1 component per file)
-            const l2Tasks = componentList.map((component, index) => {
+            // Task generator function for L2 extraction (shared by initial and retry)
+            const createL2Task = (component: ComponentDef) => {
                 const componentStr = JSON.stringify(component);
-                // Create a safe filename from component name (remove special chars, limit length)
-                // Keep number prefix for ordering
-                const paddedIndex = String(index + 1).padStart(3, '0'); // 001, 002, etc.
+                const paddedIndex = String(componentList.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
                 return () => this.runPhase(
                     `L2: Extractor (${component.name})`,
                     `Extract entities`,
@@ -438,7 +436,10 @@ Processes input data and returns transformed result
                     token,
                     options.toolInvocationToken
                 );
-            });
+            };
+
+            // Initial L2 extraction
+            const l2Tasks = componentList.map(createL2Task);
             await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY, 'L2 Extraction', token);
 
             // ---------------------------------------------------------
@@ -490,80 +491,9 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
 
             if (l2FailedComponents.length > 0) {
                 logger.log('DeepWiki', `L2 Validator found ${l2FailedComponents.length} missing files, retrying: ${l2FailedComponents.join(', ')}`);
-                // Reuse the same task generation logic as the original L2 extraction
+                // Retry using the same task generator function
                 const failedL2Components = componentList.filter(c => l2FailedComponents.includes(c.name));
-                const l2RetryTasks = failedL2Components.map((component) => {
-                    const componentStr = JSON.stringify(component);
-                    const paddedIndex = String(componentList.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
-                    return () => this.runPhase(
-                        `L2: Extractor (${component.name}) [Retry]`,
-                        `Extract entities`,
-                        `# Extractor Agent (L2)
-
-## Role
-- **Your Stage**: L2 Extraction (runs in parallel batches)
-- **Core Responsibility**: Extract precise API signatures from source code - no interpretation
-- **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
-
-## Input
-- Assigned Component: ${componentStr}
-- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
-
-## Workflow
-1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
-2. For each function/method/class: Analyze one → Use \`apply_patch\` to write → Repeat
-
-**What to extract**:
-- **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
-- **Brief description**: One-line summary of purpose
-- **Internal Logic**: Key internal logic steps (3-5 bullet points)
-- **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
-- **Called By**: Functions/methods that call this (Direct callers only, Depth=1)
-- **Calls**: Functions/methods/libraries this calls (Direct calls only, Depth=1)
-- **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
-
-**CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
-
-## Output
-Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
-
-Use this format:
-\`\`\`markdown
-### \`processData(input: DataType, options?: ProcessOptions): Result\`
-Processes input data and returns transformed result
-
-**Conditional**: Only when \`FEATURE_X\` is defined
-
-**Internal Logic**:
-- Validates input schema
-- Applies transformation rules
-- Handles edge cases for null values
-
-**Side Effects**:
-- Writes to database via \`saveToDb()\`
-- Emits 'data.processed' event
-- Updates in-memory cache
-
-**Called By**:
-- \`HttpHandler.handlePost()\`
-- \`BatchProcessor.processQueue()\`
-
-**Calls**:
-- \`validateInput(input)\`
-- \`transformData(input, options)\`
-- \`saveToDb(result)\`
-\`\`\`
-
-## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
-
-` + getPipelineOverview('L2'),
-                        token,
-                        options.toolInvocationToken
-                    );
-                });
+                const l2RetryTasks = failedL2Components.map(createL2Task);
                 await runWithConcurrencyLimit(l2RetryTasks, DEFAULT_MAX_CONCURRENCY, 'L2 Retry', token);
             }
 
@@ -590,10 +520,9 @@ Processes input data and returns transformed result
                 // ---------------------------------------------------------
                 // Level 3: ANALYZER (Process current components - 1 component per task)
                 // ---------------------------------------------------------
-                // Create tasks for L3 analysis (1 component per task, like L2)
-                const l3Tasks = componentsToAnalyze.map((component) => {
+                // Task generator function for L3 analysis (shared by initial and retry)
+                const createL3Task = (component: ComponentDef) => {
                     const componentStr = JSON.stringify(component);
-                    // Keep number prefix for ordering - use componentList index for consistency across loops
                     const originalIndex = componentList.findIndex(c => c.name === component.name);
                     const paddedIndex = String(originalIndex + 1).padStart(3, '0');
                     return () => this.runPhase(
@@ -629,7 +558,10 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
                         token,
                         options.toolInvocationToken
                     );
-                });
+                };
+
+                // Initial L3 analysis
+                const l3Tasks = componentsToAnalyze.map(createL3Task);
                 await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
@@ -684,46 +616,9 @@ Write to \`${intermediateDir}/L3/validation_failures.json\`:
 
                 if (l3FailedComponents.length > 0) {
                     logger.log('DeepWiki', `L3 Validator found ${l3FailedComponents.length} missing files, retrying: ${l3FailedComponents.join(', ')}`);
-                    // Reuse the same task generation logic as the original L3 analysis
+                    // Retry using the same task generator function
                     const failedL3Components = componentsToAnalyze.filter(c => l3FailedComponents.includes(c.name));
-                    const l3RetryTasks = failedL3Components.map((component) => {
-                        const componentStr = JSON.stringify(component);
-                        const originalIndex = componentList.findIndex(c => c.name === component.name);
-                        const paddedIndex = String(originalIndex + 1).padStart(3, '0');
-                        return () => this.runPhase(
-                            `L3: Analyzer (Loop ${loopCount + 1}, ${component.name}) [Retry]`,
-                            `Analyze component`,
-                            `# Analyzer Agent (L3)
-
-## Role
-- **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
-- **Core Responsibility**: Deep analysis - understand HOW code works, trace causality, create diagrams
-- **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
-
-## Input
-Assigned Component: ${componentStr}
-
-## Workflow
-1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-2. Read L2 extraction and source code files
-3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`apply_patch\` to write
-4. Create Mermaid diagram → Use \`apply_patch\` to write
-   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
-   - **Forbidden**: \`flowchart\`, \`graph TD\`
-
-## Output
-Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-
-## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
-
-` + getPipelineOverview('L3'),
-                            token,
-                            options.toolInvocationToken
-                        );
-                    });
+                    const l3RetryTasks = failedL3Components.map(createL3Task);
                     await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Retry (Loop ${loopCount + 1})`, token);
                 }
 
@@ -1023,16 +918,10 @@ ${mdCodeBlock}
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
 `; // The template ends here
-                // Create tasks for L5 writing based on page_structure.json
-                const pageChunkSize = 3;
-                const pageChunks: PageGroup[][] = [];
-                for (let i = 0; i < pageStructure.length; i += pageChunkSize) {
-                    pageChunks.push(pageStructure.slice(i, i + pageChunkSize));
-                }
-
-                const l5Tasks = pageChunks.map((pageChunk, index) => {
+                // Task generator function for L5 writing (shared by initial and retry)
+                const createL5Task = (pageChunk: PageGroup[]) => {
                     return () => this.runPhase(
-                        `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1})`,
+                        `L5: Writer (Loop ${loopCount + 1})`,
                         `Write ${pageChunk.length} documentation pages`,
                         `# Writer Agent (L5)
 
@@ -1078,7 +967,17 @@ Write files to \`${outputPath}/pages/\`.
                         token,
                         options.toolInvocationToken
                     );
-                });
+                };
+
+                // Create page chunks for L5 writing
+                const pageChunkSize = 3;
+                const pageChunks: PageGroup[][] = [];
+                for (let i = 0; i < pageStructure.length; i += pageChunkSize) {
+                    pageChunks.push(pageStructure.slice(i, i + pageChunkSize));
+                }
+
+                // Initial L5 writing
+                const l5Tasks = pageChunks.map(createL5Task);
                 await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
@@ -1130,64 +1029,13 @@ Write to \`${intermediateDir}/L5/page_validation_failures.json\`:
 
                 if (l5FailedPages.length > 0) {
                     logger.log('DeepWiki', `L5 Validator found ${l5FailedPages.length} missing pages, retrying: ${l5FailedPages.join(', ')}`);
-                    // Reuse the same task generation logic as the original L5 writing
+                    // Retry using the same task generator function
                     const failedPageStructure = pageStructure.filter(p => l5FailedPages.includes(p.pageName));
-
-                    // Chunk failed pages the same way as original
                     const retryPageChunks: PageGroup[][] = [];
                     for (let i = 0; i < failedPageStructure.length; i += pageChunkSize) {
                         retryPageChunks.push(failedPageStructure.slice(i, i + pageChunkSize));
                     }
-
-                    const l5RetryTasks = retryPageChunks.map((pageChunk, index) => {
-                        return () => this.runPhase(
-                            `L5: Writer (Loop ${loopCount + 1}, Batch ${index + 1}) [Retry]`,
-                            `Write ${pageChunk.length} documentation pages`,
-                            `# Writer Agent (L5)
-
-## Role
-- **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
-- **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
-- **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
-
-## Input
-- Assigned Pages: ${JSON.stringify(pageChunk)}
-- For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
-
-## Workflow
-1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
-2. Read L3 analysis for ALL components in that page's \`components\` array
-3. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`apply_patch\` to write immediately
-4. Generate an ASCII tree of ALL files from ALL components in this page → Use \`apply_patch\` to write
-
-**Consolidation Guidelines**:
-- If a page has multiple components, weave their descriptions together
-- Identify shared concepts and present them once, not repeatedly
-- Show how the components within the page interact with each other
-- The page should read as a unified document, not separate sections glued together
-
-**Causal Explanation**:
-When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
-
-### Template
-` + pageTemplate + `
-
-## Output
-Write files to \`${outputPath}/pages/\`.
-
-## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
-4. **Do NOT include raw source code or implementation details.**
-5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references.
-6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
-
-` + getPipelineOverview('L5'),
-                            token,
-                            options.toolInvocationToken
-                        );
-                    });
+                    const l5RetryTasks = retryPageChunks.map(createL5Task);
                     await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
 
