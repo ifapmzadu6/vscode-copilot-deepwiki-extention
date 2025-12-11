@@ -369,162 +369,145 @@ Create the FINAL component list.
             // Output goes to L2/{componentIndex}_{componentName}/ directory for L3 to read
 
             // Build list of all file-level tasks across all components
+            // Uses VS Code DocumentSymbolProvider to extract symbols and generate markdown skeleton
             interface L2FileTask {
                 component: ComponentDef;
                 componentIndex: number;
                 file: string;
                 fileIndex: number;
-                lineCount: number;
-                // For large files, split into chunks
-                startLine?: number;
-                endLine?: number;
-                partNumber?: number;
-                totalParts?: number;
+                skeletonPath: string;
+                symbolCount: number;
             }
 
-            const LARGE_FILE_THRESHOLD = 2000; // lines
-            const CHUNK_SIZE = 1000; // lines per chunk
             const allL2FileTasks: L2FileTask[] = [];
             for (let i = 0; i < componentList.length; i++) {
                 const component = componentList[i];
                 for (let j = 0; j < component.files.length; j++) {
                     const file = component.files[j];
-                    // Get line count for the file
-                    let lineCount = 0;
-                    try {
-                        const fileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, file));
-                        const content = await vscode.workspace.fs.readFile(fileUri);
-                        lineCount = new TextDecoder().decode(content).split('\n').length;
-                    } catch { /* ignore read errors */ }
+                    const fileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, file));
 
-                    if (lineCount > LARGE_FILE_THRESHOLD) {
-                        // Split large files into chunks
-                        const totalParts = Math.ceil(lineCount / CHUNK_SIZE);
-                        for (let part = 0; part < totalParts; part++) {
-                            const startLine = part * CHUNK_SIZE + 1;
-                            const endLine = Math.min((part + 1) * CHUNK_SIZE, lineCount);
-                            allL2FileTasks.push({
-                                component,
-                                componentIndex: i,
-                                file,
-                                fileIndex: j,
-                                lineCount,
-                                startLine,
-                                endLine,
-                                partNumber: part + 1,
-                                totalParts
-                            });
-                        }
-                        logger.log('DeepWiki', `L2: Large file ${file} (${lineCount} lines) split into ${totalParts} chunks`);
+                    const paddedComponentIndex = String(i + 1).padStart(3, '0');
+                    const componentDir = `${paddedComponentIndex}_${component.name}`;
+                    const fileName = path.basename(file);
+                    const skeletonPath = `${intermediateDir}/L2/${componentDir}/${fileName}.md`;
+
+                    // Extract symbols using VS Code Language Server
+                    const symbols = await this.extractSymbolsFromFile(fileUri);
+
+                    // Generate skeleton and write to file
+                    const skeleton = this.generateL2Skeleton(file, symbols);
+                    const skeletonUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, skeletonPath));
+                    await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(skeletonUri.fsPath)));
+                    await vscode.workspace.fs.writeFile(skeletonUri, new TextEncoder().encode(skeleton));
+
+                    allL2FileTasks.push({
+                        component,
+                        componentIndex: i,
+                        file,
+                        fileIndex: j,
+                        skeletonPath,
+                        symbolCount: symbols.length
+                    });
+
+                    if (symbols.length > 0) {
+                        logger.log('DeepWiki', `L2: ${file} - skeleton generated with ${symbols.length} symbols`);
                     } else {
-                        // Normal file - single task
-                        allL2FileTasks.push({
-                            component,
-                            componentIndex: i,
-                            file,
-                            fileIndex: j,
-                            lineCount
-                        });
+                        logger.log('DeepWiki', `L2: ${file} - no symbols found (Language Server may not be available)`);
                     }
                 }
             }
 
-            logger.log('DeepWiki', `L2: Processing ${allL2FileTasks.length} file tasks across ${componentList.length} components`);
+            logger.log('DeepWiki', `L2: Generated skeletons for ${allL2FileTasks.length} files across ${componentList.length} components`);
 
-            // Task generator for file-level L2 extraction
-            const createL2FileTask = (task: L2FileTask) => {
-                const { component, componentIndex, file, lineCount, startLine, endLine, partNumber, totalParts } = task;
+            // Build list of all symbol-level tasks
+            interface L2SymbolTask {
+                component: ComponentDef;
+                componentIndex: number;
+                file: string;
+                symbolName: string;
+                symbolKind: string;
+                startLine: number;
+                endLine: number;
+                skeletonPath: string;
+            }
+
+            const allL2SymbolTasks: L2SymbolTask[] = [];
+            for (const fileTask of allL2FileTasks) {
+                const fileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, fileTask.file));
+                const symbols = await this.extractSymbolsFromFile(fileUri);
+
+                for (const symbol of symbols) {
+                    allL2SymbolTasks.push({
+                        component: fileTask.component,
+                        componentIndex: fileTask.componentIndex,
+                        file: fileTask.file,
+                        symbolName: symbol.name,
+                        symbolKind: symbol.kind,
+                        startLine: symbol.startLine,
+                        endLine: symbol.endLine,
+                        skeletonPath: fileTask.skeletonPath
+                    });
+
+                    // Add children (methods of a class)
+                    if (symbol.children) {
+                        for (const child of symbol.children) {
+                            allL2SymbolTasks.push({
+                                component: fileTask.component,
+                                componentIndex: fileTask.componentIndex,
+                                file: fileTask.file,
+                                symbolName: `${symbol.name}.${child.name}`,
+                                symbolKind: child.kind,
+                                startLine: child.startLine,
+                                endLine: child.endLine,
+                                skeletonPath: fileTask.skeletonPath
+                            });
+                        }
+                    }
+                }
+            }
+
+            logger.log('DeepWiki', `L2: Processing ${allL2SymbolTasks.length} symbol tasks across ${allL2FileTasks.length} files`);
+
+            // Task generator for symbol-level L2 extraction
+            const createL2SymbolTask = (task: L2SymbolTask) => {
+                const { component, componentIndex, file, symbolName, symbolKind, startLine, endLine, skeletonPath } = task;
                 const paddedComponentIndex = String(componentIndex + 1).padStart(3, '0');
-                const fileName = path.basename(file);
                 const componentDir = `${paddedComponentIndex}_${component.name}`;
 
-                // Determine if this is a chunked task
-                const isChunked = partNumber !== undefined && totalParts !== undefined;
-                const baseName = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
-                const outputFileName = isChunked ? `${baseName}_part${partNumber}.md` : `${fileName}.md`;
-                const lineRangeInfo = isChunked ? ` (lines ${startLine}-${endLine} of ${lineCount})` : (lineCount > 0 ? ` (${lineCount} lines)` : '');
-                const readInstruction = isChunked
-                    ? `Read ONLY lines ${startLine} to ${endLine} of the file: \`${file}\``
-                    : `Read the assigned file: \`${file}\``;
-
                 return () => this.runPhase(
-                    `L2-File: ${component.name} / ${fileName}${isChunked ? ` (Part ${partNumber}/${totalParts})` : ''}`,
-                    `Extract from ${fileName}${isChunked ? ` part ${partNumber}` : ''}`,
-                    `# File Extractor Agent (L2-File)
+                    `L2-Sym: ${symbolName}`,
+                    `Analyze ${symbolName}`,
+                    `# Symbol Analyzer Agent (L2-Symbol)
 
 ## Role
-- **Your Stage**: L2 File-Level Extraction (runs in parallel batches)
-- **Core Responsibility**: Extract precise API signatures from ${isChunked ? 'a PORTION of' : 'ONE'} source file - no interpretation
-- **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
+- **Your Stage**: L2 Symbol-Level Extraction (runs in parallel batches)
+- **Core Responsibility**: Analyze ONE symbol (function/class/method) and fill in its documentation
+- **Critical Success Factor**: Read ONLY the specified line range, fill in ONLY the empty sections
 
 ## Input
 - Component: **${component.name}**
-- File to process: \`${file}\`${lineRangeInfo}
-- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns${isChunked ? `\n\n**CHUNKED FILE**: This is part ${partNumber} of ${totalParts}. Process ONLY lines ${startLine}-${endLine}.\n**SHALLOW ANALYSIS**: For "Calls" and "Called By" sections, list function names only. Do NOT read or analyze the implementation of those functions.` : ''}
+- File: \`${file}\`
+- Symbol: **${symbolName}** (${symbolKind})
+- Lines: ${startLine}-${endLine}
 
 ## Workflow
-1. Create file \`${intermediateDir}/L2/${componentDir}/${outputFileName}\`
-2. ${readInstruction}
-3. For each function/method/class: Extract signature and details, then write to output file
+1. Read ONLY lines ${startLine} to ${endLine} of \`${file}\`
+2. Read the skeleton file: \`${skeletonPath}\`
+3. Find the section for \`${symbolName}\` in the skeleton
+4. Fill in the empty sections: Description, Internal Logic, Calls, Called By
+5. Use \`applyPatch\` to update ONLY that symbol's section in the skeleton file
 
-**Note (C/C++)**: If processing a .c/.cpp file, also check the corresponding .h/.hpp header for declarations. Vice versa for header files.
-
-**What to extract**:
-- **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
-- **Brief description**: One-line summary of purpose
+## What to fill in:
+- **Description**: One-line summary of purpose
 - **Internal Logic**: Key internal logic steps (3-5 bullet points)
-- **Side Effects**: Side effects (file I/O, API calls, etc.)
-- **Events Emitted**: Events/signals this function emits (event name, payload, trigger condition)
-- **Events Subscribed**: Events this function listens to (event name, handler behavior)
-- **State Mutations**: State variables this function modifies (variable name, before→after, trigger condition)
-- **Called By**: Functions/methods that call this (Direct callers only, Depth=1)
-- **Calls**: Functions/methods/libraries this calls (Direct calls only, Depth=1)
-- **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
-
-**CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
-
-## Output
-Write to \`${intermediateDir}/L2/${componentDir}/${fileName}.md\`
-
-Use this format:
-\`\`\`markdown
-### \`processData(input: DataType, options?: ProcessOptions): Result\`
-Processes input data and returns transformed result
-
-**Conditional**: Only when \`FEATURE_X\` is defined
-
-**Internal Logic**:
-- Validates input schema
-- Applies transformation rules
-- Handles edge cases for null values
-
-**Events Emitted**:
-- \`data.processed\` → emitted after successful processing, payload: \`{result, timestamp}\`
-- \`data.error\` → emitted on validation failure, payload: \`{error, input}\`
-
-**Events Subscribed**:
-- \`config.changed\` → reloads transformation rules when config updates
-
-**State Mutations**:
-- \`this.cache\` → updated with new result (null → Result)
-- \`this.lastProcessedTime\` → updated to current timestamp
-
-**Side Effects**:
-- Writes to database via \`saveToDb()\`
-
-**Called By**:
-- \`HttpHandler.handlePost()\`
-- \`BatchProcessor.processQueue()\`
-
-**Calls**:
-- \`validateInput(input)\`
-- \`transformData(input, options)\`
-- \`saveToDb(result)\`
-\`\`\`
+- **Calls**: Functions/methods this calls (names only, no implementation details)
+- **Called By**: Functions/methods that call this (names only)
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+1. **Scope**: Read ONLY lines ${startLine}-${endLine}. Do NOT read other parts of the file.
+2. **Output**: Use \`applyPatch\` to update the skeleton. Do NOT rewrite the entire file.
+3. **Shallow Analysis**: For Calls/Called By, list names only. Do NOT trace implementations.
+4. **Chat Final Response**: Keep your chat reply brief (e.g., "Completed ${symbolName}").
 
 ` + getPipelineOverview('L2'),
                     token,
@@ -532,9 +515,9 @@ Processes input data and returns transformed result
                 );
             };
 
-            // Execute all file-level L2 tasks in parallel batches
-            const l2FileTasks = allL2FileTasks.map(createL2FileTask);
-            await runWithConcurrencyLimit(l2FileTasks, DEFAULT_MAX_CONCURRENCY, 'L2 File Extraction', token);
+            // Execute all symbol-level L2 tasks in parallel batches
+            const l2SymbolTasks = allL2SymbolTasks.map(createL2SymbolTask);
+            await runWithConcurrencyLimit(l2SymbolTasks, DEFAULT_MAX_CONCURRENCY, 'L2 Symbol Extraction', token);
 
             // ---------------------------------------------------------
             // L2 Validator: Check for missing component directories and retry if needed
@@ -596,10 +579,10 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
                 logger.log('DeepWiki', `L2 Validator (Attempt ${l2RetryCount + 1}/${MAX_L2_RETRIES}): Found ${l2FailedComponents.length} missing components, retrying: ${l2FailedComponents.join(', ')}`);
 
                 if (l2RetryCount < MAX_L2_RETRIES - 1) {
-                    // Retry file-level extraction for failed components
-                    const failedTasks = allL2FileTasks.filter(t => l2FailedComponents.includes(t.component.name));
-                    const l2RetryFileTasks = failedTasks.map(createL2FileTask);
-                    await runWithConcurrencyLimit(l2RetryFileTasks, DEFAULT_MAX_CONCURRENCY, `L2 File Retry ${l2RetryCount + 1}`, token);
+                    // Retry symbol-level extraction for failed components
+                    const failedSymbolTasks = allL2SymbolTasks.filter(t => l2FailedComponents.includes(t.component.name));
+                    const l2RetryTasks = failedSymbolTasks.map(createL2SymbolTask);
+                    await runWithConcurrencyLimit(l2RetryTasks, DEFAULT_MAX_CONCURRENCY, `L2 Symbol Retry ${l2RetryCount + 1}`, token);
                 }
             }
 
@@ -1432,6 +1415,136 @@ For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
             logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
+    }
+
+    /**
+     * Extract symbols from a file using VS Code's DocumentSymbolProvider.
+     * Works with any language that has Language Server support (TypeScript, C/C++, Python, etc.)
+     */
+    private async extractSymbolsFromFile(fileUri: vscode.Uri): Promise<{
+        name: string;
+        kind: string;
+        detail: string;
+        startLine: number;
+        endLine: number;
+        children?: { name: string; kind: string; startLine: number; endLine: number }[];
+    }[]> {
+        try {
+            const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+                'vscode.executeDocumentSymbolProvider',
+                fileUri
+            );
+
+            if (!symbols || symbols.length === 0) {
+                return [];
+            }
+
+            const kindToString = (kind: vscode.SymbolKind): string => {
+                const kindMap: Record<number, string> = {
+                    [vscode.SymbolKind.Function]: 'Function',
+                    [vscode.SymbolKind.Method]: 'Method',
+                    [vscode.SymbolKind.Class]: 'Class',
+                    [vscode.SymbolKind.Interface]: 'Interface',
+                    [vscode.SymbolKind.Enum]: 'Enum',
+                    [vscode.SymbolKind.Struct]: 'Struct',
+                    [vscode.SymbolKind.Constructor]: 'Constructor',
+                    [vscode.SymbolKind.Property]: 'Property',
+                    [vscode.SymbolKind.Variable]: 'Variable',
+                    [vscode.SymbolKind.Constant]: 'Constant',
+                    [vscode.SymbolKind.Namespace]: 'Namespace',
+                    [vscode.SymbolKind.Module]: 'Module',
+                };
+                return kindMap[kind] || 'Symbol';
+            };
+
+            const extractedSymbols: {
+                name: string;
+                kind: string;
+                detail: string;
+                startLine: number;
+                endLine: number;
+                children?: { name: string; kind: string; startLine: number; endLine: number }[];
+            }[] = [];
+
+            for (const symbol of symbols) {
+                const extracted = {
+                    name: symbol.name,
+                    kind: kindToString(symbol.kind),
+                    detail: symbol.detail || '',
+                    startLine: symbol.range.start.line + 1,
+                    endLine: symbol.range.end.line + 1,
+                    children: symbol.children?.map(child => ({
+                        name: child.name,
+                        kind: kindToString(child.kind),
+                        startLine: child.range.start.line + 1,
+                        endLine: child.range.end.line + 1,
+                    })),
+                };
+                extractedSymbols.push(extracted);
+            }
+
+            return extractedSymbols;
+        } catch (error) {
+            logger.error('DeepWiki', `Failed to extract symbols from ${fileUri.fsPath}`, error);
+            return [];
+        }
+    }
+
+    /**
+     * Generate L2 markdown skeleton with empty sections for AI to fill.
+     */
+    private generateL2Skeleton(
+        filePath: string,
+        symbols: {
+            name: string;
+            kind: string;
+            detail: string;
+            startLine: number;
+            endLine: number;
+            children?: { name: string; kind: string; startLine: number; endLine: number }[];
+        }[]
+    ): string {
+        const lines: string[] = [];
+        lines.push(`## ${filePath}\n`);
+
+        for (const symbol of symbols) {
+            const signature = symbol.detail ? `${symbol.name}${symbol.detail}` : symbol.name;
+            lines.push(`### \`${signature}\``);
+            lines.push(`**Kind**: ${symbol.kind}`);
+            lines.push(`**Lines**: ${symbol.startLine}-${symbol.endLine}`);
+            lines.push('');
+            lines.push('**Description**: ');
+            lines.push('');
+            lines.push('**Internal Logic**:');
+            lines.push('');
+            lines.push('**Calls**:');
+            lines.push('');
+            lines.push('**Called By**:');
+            lines.push('');
+
+            // Add children (methods of a class, etc.)
+            if (symbol.children && symbol.children.length > 0) {
+                for (const child of symbol.children) {
+                    lines.push(`#### \`${child.name}\``);
+                    lines.push(`**Kind**: ${child.kind}`);
+                    lines.push(`**Lines**: ${child.startLine}-${child.endLine}`);
+                    lines.push('');
+                    lines.push('**Description**: ');
+                    lines.push('');
+                    lines.push('**Internal Logic**:');
+                    lines.push('');
+                    lines.push('**Calls**:');
+                    lines.push('');
+                    lines.push('**Called By**:');
+                    lines.push('');
+                }
+            }
+
+            lines.push('---');
+            lines.push('');
+        }
+
+        return lines.join('\n');
     }
 
 
