@@ -137,14 +137,14 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 Analyze the project and create a context document for downstream agents.
 
 ## Workflow
-1. Detect Project Type, Languages, Build System → Use \`apply_patch\` to write "## Overview" section
-2. Identify Target Environments → Use \`apply_patch\` to write "## Target Environments" table
-3. Find Conditional Patterns → Use \`apply_patch\` to write "## Conditional Code Patterns" section
+1. Detect Project Type, Languages, Build System → Use \`applyPatch\` to write "## Overview" section
+2. Identify Target Environments → Use \`applyPatch\` to write "## Target Environments" table
+3. Find Conditional Patterns → Use \`applyPatch\` to write "## Conditional Code Patterns" section
    - C/C++: \`#ifdef\`, \`#if defined\`, \`#ifndef\`
    - Python: \`if TYPE_CHECKING\`, platform checks, \`sys.platform\`
    - JS/TS: \`process.env\` checks, feature flags
-4. Note Generated/Excluded Code → Use \`apply_patch\` to write "## Generated/Excluded Code" section
-5. Add important notes for downstream agents → Use \`apply_patch\` to write "## Notes for Analysis" section
+4. Note Generated/Excluded Code → Use \`applyPatch\` to write "## Generated/Excluded Code" section
+5. Add important notes for downstream agents → Use \`applyPatch\` to write "## Notes for Analysis" section
 
 ## Output
 Write to \`${intermediateDir}/L0/project_context.md\`
@@ -181,7 +181,7 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L0'),
                 token,
@@ -384,7 +384,7 @@ Create the FINAL component list.
 
 ## Workflow
 1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
-2. For each function/method/class: Analyze one → Use \`apply_patch\` to write → Repeat
+2. For each function/method/class: Analyze one → Use \`applyPatch\` to write → Repeat
 
 **What to extract**:
 - **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
@@ -430,7 +430,7 @@ Processes input data and returns transformed result
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L2'),
                     token,
@@ -541,8 +541,8 @@ Assigned Component: ${componentStr}
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 2. Read L2 extraction and source code files
-3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`apply_patch\` to write
-4. Create Mermaid diagram → Use \`apply_patch\` to write
+3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`applyPatch\` to write
+4. Create Mermaid diagram → Use \`applyPatch\` to write
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
@@ -552,7 +552,7 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L3'),
                         token,
@@ -645,10 +645,10 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 
 ## Workflow
 1. Read L3 analysis files → Understand component landscape
-2. Define High-Level Architecture → Use \`apply_patch\` to write \`overview.md\`
-3. Analyze Causal Impact (how changes propagate) → Use \`apply_patch\` to write
-4. Explain the 'Why' behind architectural decisions → Use \`apply_patch\` to write
-5. Create Mermaid diagrams → Use \`apply_patch\` to write \`relationships.md\`
+2. Define High-Level Architecture → Use \`applyPatch\` to write \`overview.md\`
+3. Analyze Causal Impact (how changes propagate) → Use \`applyPatch\` to write
+4. Explain the 'Why' behind architectural decisions → Use \`applyPatch\` to write
+5. Create Mermaid diagrams → Use \`applyPatch\` to write \`relationships.md\`
    - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
@@ -660,7 +660,7 @@ Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loop
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L4'),
                     token,
@@ -937,8 +937,8 @@ ${mdCodeBlock}
 ## Workflow
 1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
 2. Read L3 analysis for ALL components in that page's \`components\` array
-3. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`apply_patch\` to write immediately
-4. Generate an ASCII tree of ALL files from ALL components in this page → Use \`apply_patch\` to write
+3. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
+4. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -958,7 +958,7 @@ Write files to \`${outputPath}/pages/\`.
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 4. **Do NOT include raw source code or implementation details.**
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references.
 6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
@@ -1068,14 +1068,14 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Read all L3 analysis files in \`${intermediateDir}/L3/\`
 
 ## Workflow
-1. **Accuracy**: Verify content against ACTUAL SOURCE CODE → If errors found, use \`apply_patch\` to fix immediately
-2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders → Use \`apply_patch\` to fill if needed
-3. **Connectivity**: Verify that all links work and point to existing files → Use \`apply_patch\` to fix broken links
-4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors → Use \`apply_patch\` to write fixes
-5. **Numerical Consistency**: Check for inconsistent numerical values (e.g., "8h" vs "8 hours") → Use \`apply_patch\` to unify
+1. **Accuracy**: Verify content against ACTUAL SOURCE CODE → If errors found, use \`applyPatch\` to fix immediately
+2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders → Use \`applyPatch\` to fill if needed
+3. **Connectivity**: Verify that all links work and point to existing files → Use \`applyPatch\` to fix broken links
+4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors → Use \`applyPatch\` to write fixes
+5. **Numerical Consistency**: Check for inconsistent numerical values (e.g., "8h" vs "8 hours") → Use \`applyPatch\` to unify
 6. **Signature Accuracy**: Verify method/function signatures match actual source code
-   - If a signature is incorrect, read the actual source file and use \`apply_patch\` to fix
-7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.) → Use \`apply_patch\` to fix
+   - If a signature is incorrect, read the actual source file and use \`applyPatch\` to fix
+7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.) → Use \`applyPatch\` to fix
 8. ` + retryInstruction + `
 
 ## Output
@@ -1085,7 +1085,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`apply_patch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L6'),
                     token,
@@ -1193,7 +1193,7 @@ For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
 3. **Incremental Writing**: You have a limited token budget. Write incrementally.
    - Do NOT: Analyze all items then write all at end
    - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`apply_patch\` to write each section IMMEDIATELY after analyzing it.
+   - Create file with first section, then use \`applyPatch\` to write each section IMMEDIATELY after analyzing it.
 4. **Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
 5. **Synthesize, Don't Dump**: Do NOT just copy L4 Overview - synthesize it into the sections above.
 6. **Required Diagrams**: All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED.
