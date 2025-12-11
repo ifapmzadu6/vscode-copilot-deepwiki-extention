@@ -364,29 +364,63 @@ Create the FINAL component list.
                 throw new Error('L1 Discovery failed to produce valid components after retries. Pipeline stopped.');
             }
 
-            // Level 2: EXTRACTOR (Parallel - Runs once for all components)
+            // Level 2: EXTRACTOR (File-Level Parallel Extraction)
             // ---------------------------------------------------------
-            // Task generator function for L2 extraction (shared by initial and retry)
-            const createL2Task = (component: ComponentDef) => {
-                const componentStr = JSON.stringify(component);
-                const paddedIndex = String(componentList.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
+            // Each file is processed by a separate subagent (1 file = 1 subagent)
+            // Output goes to L2/{componentIndex}_{componentName}/ directory for L3 to read
+
+            // Build list of all file-level tasks across all components
+            interface L2FileTask {
+                component: ComponentDef;
+                componentIndex: number;
+                file: string;
+                fileIndex: number;
+            }
+
+            const allL2FileTasks: L2FileTask[] = [];
+            for (let i = 0; i < componentList.length; i++) {
+                const component = componentList[i];
+                for (let j = 0; j < component.files.length; j++) {
+                    allL2FileTasks.push({
+                        component,
+                        componentIndex: i,
+                        file: component.files[j],
+                        fileIndex: j
+                    });
+                }
+            }
+
+            logger.log('DeepWiki', `L2: Processing ${allL2FileTasks.length} file tasks across ${componentList.length} components`);
+
+            // Task generator for file-level L2 extraction
+            const createL2FileTask = (task: L2FileTask) => {
+                const { component, componentIndex, file, fileIndex } = task;
+                const paddedComponentIndex = String(componentIndex + 1).padStart(3, '0');
+                const paddedFileIndex = String(fileIndex + 1).padStart(3, '0');
+                const fileName = path.basename(file);
+                const componentDir = `${paddedComponentIndex}_${component.name}`;
+
                 return () => this.runPhase(
-                    `L2: Extractor (${component.name})`,
-                    `Extract entities`,
-                    `# Extractor Agent (L2)
+                    `L2-File: ${component.name} / ${fileName}`,
+                    `Extract from ${fileName}`,
+                    `# File Extractor Agent (L2-File)
 
 ## Role
-- **Your Stage**: L2 Extraction (runs in parallel batches)
-- **Core Responsibility**: Extract precise API signatures from source code - no interpretation
+- **Your Stage**: L2 File-Level Extraction (runs in parallel batches)
+- **Core Responsibility**: Extract precise API signatures from ONE source file - no interpretation
 - **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
 
 ## Input
-- Assigned Component: ${componentStr}
+- Component: **${component.name}**
+- File to process: \`${file}\`
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
 ## Workflow
-1. Create empty file \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
-2. For each function/method/class: Analyze one → Use \`applyPatch\` to write → Repeat
+1. Create file \`${intermediateDir}/L2/${componentDir}/${paddedFileIndex}_${fileName}.md\`
+2. Read the assigned file: \`${file}\`
+3. For each function/method/class: Analyze one → Use \`applyPatch\` to write → Repeat
+
+**Note (C/C++)**: If processing a .c/.cpp file, also check the corresponding .h/.hpp header for declarations. Vice versa for header files.
 
 **What to extract**:
 - **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
@@ -403,7 +437,7 @@ Create the FINAL component list.
 **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
 
 ## Output
-Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
+Write to \`${intermediateDir}/L2/${componentDir}/${paddedFileIndex}_${fileName}.md\`
 
 Use this format:
 \`\`\`markdown
@@ -452,40 +486,43 @@ Processes input data and returns transformed result
                 );
             };
 
-            // Initial L2 extraction
-            const l2Tasks = componentList.map(createL2Task);
-            await runWithConcurrencyLimit(l2Tasks, DEFAULT_MAX_CONCURRENCY, 'L2 Extraction', token);
+            // Execute all file-level L2 tasks in parallel batches
+            const l2FileTasks = allL2FileTasks.map(createL2FileTask);
+            await runWithConcurrencyLimit(l2FileTasks, DEFAULT_MAX_CONCURRENCY, 'L2 File Extraction', token);
 
             // ---------------------------------------------------------
-            // L2 Validator: Check for missing files and retry if needed
+            // L2 Validator: Check for missing component directories and retry if needed
             // ---------------------------------------------------------
-            const l2ExpectedFiles = componentList.map((c, i) => ({
+            const l2ExpectedDirs = componentList.map((c, i) => ({
                 name: c.name,
-                file: `${String(i + 1).padStart(3, '0')}_${c.name}.md`
+                dir: `${String(i + 1).padStart(3, '0')}_${c.name}`,
+                expectedFileCount: c.files.length
             }));
             await this.runPhase(
                 'L2-V: Validator',
-                'Validate L2 output files',
+                'Validate L2 output directories',
                 `# L2 Validator Agent
 
 ## Role
-Check that all expected L2 output files exist.
+Check that all expected L2 component directories exist and contain the correct number of files.
 
-## Expected Files
-Directory: \`${intermediateDir}/L2/\`
-Files to verify:
-${l2ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
+## Expected Directories
+Base: \`${intermediateDir}/L2/\`
+${l2ExpectedDirs.map(d => `- \`${d.dir}/\` → Expected ${d.expectedFileCount} .md files (Component: ${d.name})`).join('\n')}
 
 ## Workflow
-1. List files in \`${intermediateDir}/L2/\`
-2. Compare against expected files above
-3. If ALL files exist → Write empty array to \`${intermediateDir}/L2/validation_failures.json\`
-4. If ANY files are MISSING → Write JSON array of missing component names to \`${intermediateDir}/L2/validation_failures.json\`
+1. List directories in \`${intermediateDir}/L2/\`
+2. For each expected directory:
+   - Check if directory exists
+   - Count .md files in directory
+   - Compare count against expected file count above
+3. If ALL directories exist with correct file counts → Write empty array to \`${intermediateDir}/L2/validation_failures.json\`
+4. If ANY directory is MISSING or has FEWER files than expected → Write JSON array of those component names
 
 ## Output
 Write to \`${intermediateDir}/L2/validation_failures.json\`:
-- If all present: \`[]\`
-- If missing: \`["Component A", "Component B"]\`
+- If all correct: \`[]\`
+- If issues: \`["Component A", "Component B"]\`
 
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
@@ -494,7 +531,7 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
                 options.toolInvocationToken
             );
 
-            // Check validation result and retry failed components
+            // Check validation result and retry failed components (file-level retry)
             const l2FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'validation_failures.json'));
             let l2FailedComponents: string[] = [];
             try {
@@ -504,11 +541,11 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
             } catch { /* no failures file or invalid */ }
 
             if (l2FailedComponents.length > 0) {
-                logger.log('DeepWiki', `L2 Validator found ${l2FailedComponents.length} missing files, retrying: ${l2FailedComponents.join(', ')}`);
-                // Retry using the same task generator function
-                const failedL2Components = componentList.filter(c => l2FailedComponents.includes(c.name));
-                const l2RetryTasks = failedL2Components.map(createL2Task);
-                await runWithConcurrencyLimit(l2RetryTasks, DEFAULT_MAX_CONCURRENCY, 'L2 Retry', token);
+                logger.log('DeepWiki', `L2 Validator found ${l2FailedComponents.length} missing components, retrying: ${l2FailedComponents.join(', ')}`);
+                // Retry file-level extraction for failed components
+                const failedTasks = allL2FileTasks.filter(t => l2FailedComponents.includes(t.component.name));
+                const l2RetryFileTasks = failedTasks.map(createL2FileTask);
+                await runWithConcurrencyLimit(l2RetryFileTasks, DEFAULT_MAX_CONCURRENCY, 'L2 File Retry', token);
             }
 
             // ==================================================================================
@@ -550,11 +587,13 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
 ## Input
-Assigned Component: ${componentStr}
+- **Assigned Component**: ${componentStr}
+- **L2 Extraction Files**: \`${intermediateDir}/L2/${paddedIndex}_${component.name}/\`
+- **Source Code Files**: The original source files listed in the component
 
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-2. Read L2 extraction and source code files
+2. Read L2 extraction files from \`${intermediateDir}/L2/${paddedIndex}_${component.name}/\` and source code files
 3. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
