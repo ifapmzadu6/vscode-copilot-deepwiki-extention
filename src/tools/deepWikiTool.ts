@@ -593,11 +593,11 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
 
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-2. Read L2 extraction files from \`${intermediateDir}/L2/${paddedIndex}_${component.name}/\` and source code files
+2. Read L2 extraction files and source code files (L2 may contain errors - verify against source)
 3. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
-   - **Causal Analysis** (NEW - see below)
+   - **Causal Analysis** (see below)
 4. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
@@ -725,7 +725,7 @@ Create a system-level overview based on ALL available L3 analysis.
 Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
 
 ## Workflow
-1. Read L3 analysis files → Understand component landscape and causal relationships
+1. Read L3 analysis files and source code (L2/L3 may contain errors - verify against source)
 2. Define High-Level Architecture → Use \`applyPatch\` to write \`overview.md\`
 3. **Build System-Wide Causal Map** → Use \`applyPatch\` to write
    - Cross-component event flows: How events propagate between components
