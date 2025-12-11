@@ -460,7 +460,7 @@ Create the FINAL component list.
 ## Input
 - Component: **${component.name}**
 - File to process: \`${file}\`${lineRangeInfo}
-- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns${isChunked ? `\n\n**CHUNKED FILE**: This is part ${partNumber} of ${totalParts}. Process ONLY lines ${startLine}-${endLine}.` : ''}
+- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns${isChunked ? `\n\n**CHUNKED FILE**: This is part ${partNumber} of ${totalParts}. Process ONLY lines ${startLine}-${endLine}.\n**SHALLOW ANALYSIS**: For "Calls" and "Called By" sections, list function names only. Do NOT read or analyze the implementation of those functions.` : ''}
 
 ## Workflow
 1. Create file \`${intermediateDir}/L2/${componentDir}/${outputFileName}\`
