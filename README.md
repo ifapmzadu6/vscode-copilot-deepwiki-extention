@@ -8,7 +8,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust 7-level (L0-L6) process, where each agent builds upon the previous one's output.
 -   **Self-Correction Loop**: L1 Discoverer, L5-Pre Page Consolidator, and L6 Page Reviewer can request re-analysis for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L1 and L5-Pre loops.
--   **Parallel Processing**: Analyzes logical components in parallel for faster execution. Concurrency is limited to 2 parallel agents with staggered starts (5s delay) to prevent API rate limiting. Failed tasks are automatically retried once.
+-   **Parallel Processing**: Analyzes logical components in parallel for faster execution. Concurrency is limited to 3 parallel agents to prevent API rate limiting. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
@@ -32,7 +32,13 @@ The extension orchestrates a sophisticated **7-level agentic pipeline** with two
 [L2 Extractor]  (Parallel)
        |
        v
+[L2-V Validator] -----> [L2 Retry] (if files missing)
+       |
+       v
 [L3 Analyzer]   (Parallel) <-------+ (Request Re-analysis)
+       |                           |
+       v                           |
+[L3-V Validator] -----> [L3 Retry] |
        |                           |
        v                           |
 [L4 Architect]  (Single)           |
@@ -43,6 +49,9 @@ The extension orchestrates a sophisticated **7-level agentic pipeline** with two
        |                           |
        v                           |
 [L5 Writer]     (Parallel)         |
+       |                           |
+       v                           |
+[L5-V Validator] -----> [L5 Retry] |
        |                           |
        v                           |
     [L6 Reviewer] -----------------+ (Critical Failure Loop)
@@ -81,9 +90,13 @@ Extracts comprehensive API information from each component's files:
 
 Runs in parallel chunks and references L0 project context for conditional code awareness.
 
+**L2-V Validator**: After extraction completes, validates that all expected output files exist. If files are missing, triggers automatic retry for failed components using the same extraction logic.
+
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
 -   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`).
+
+**L3-V Validator**: After analysis completes, validates that all expected output files exist. If files are missing, triggers automatic retry for failed components using the same analysis logic.
 
 ### 4. Level 4: ARCHITECT
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
@@ -100,6 +113,8 @@ This phase consolidates similar components into single cohesive pages, reducing 
 
 ### 6. Level 5: WRITER (Parallel)
 Generates the final documentation pages based on `page_structure.json` (`pages/{PageName}.md`). When multiple components are consolidated into one page, weaves their descriptions together cohesively. Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
+
+**L5-V Validator**: After writing completes, validates that all expected page files exist. If files are missing, triggers automatic retry for failed pages using the same writing logic.
 
 ### 7. Level 6: PAGE REVIEWER & RETRY LOOP
 Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, connectivity, formatting).
@@ -148,18 +163,21 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     ├── L2/                 # Extraction phase outputs (1 component per file)
     │   ├── 001_AuthModule.md
     │   ├── 002_Utils.md
+    │   ├── validation_failures.json  # (temporary, lists failed components for retry)
     │   └── ...
     ├── L3/                 # Analysis phase outputs (1 component per file)
     │   ├── 001_AuthModule_analysis.md
     │   ├── 002_Utils_analysis.md
+    │   ├── validation_failures.json  # (temporary, lists failed components for retry)
     │   └── ...
     ├── L4/                 # Architecture phase outputs
     │   ├── overview.md
     │   └── relationships.md
     ├── L5/                 # Page consolidation phase outputs
-    │   ├── page_structure_draft.json  # Initial draft from L5-Pre-A
-    │   ├── page_structure_review.md   # Review from L5-Pre-B
-    │   └── page_structure.json        # Final page structure from L5-Pre-C
+    │   ├── page_structure_draft.json    # Initial draft from L5-Pre-A
+    │   ├── page_structure_review.md     # Review from L5-Pre-B
+    │   ├── page_structure.json          # Final page structure from L5-Pre-C
+    │   └── page_validation_failures.json  # (temporary, lists failed pages for retry)
     └── L6/                 # Review phase outputs
         └── retry_request.json      # (temporary, deleted after processing)
 ```
