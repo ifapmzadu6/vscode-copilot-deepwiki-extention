@@ -374,17 +374,29 @@ Create the FINAL component list.
                 componentIndex: number;
                 file: string;
                 fileIndex: number;
+                lineCount: number;
             }
 
+            const LARGE_FILE_THRESHOLD = 2000; // lines
             const allL2FileTasks: L2FileTask[] = [];
             for (let i = 0; i < componentList.length; i++) {
                 const component = componentList[i];
                 for (let j = 0; j < component.files.length; j++) {
+                    const file = component.files[j];
+                    // Get line count for the file
+                    let lineCount = 0;
+                    try {
+                        const fileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, file));
+                        const content = await vscode.workspace.fs.readFile(fileUri);
+                        lineCount = new TextDecoder().decode(content).split('\n').length;
+                    } catch { /* ignore read errors */ }
+
                     allL2FileTasks.push({
                         component,
                         componentIndex: i,
-                        file: component.files[j],
-                        fileIndex: j
+                        file,
+                        fileIndex: j,
+                        lineCount
                     });
                 }
             }
@@ -393,10 +405,18 @@ Create the FINAL component list.
 
             // Task generator for file-level L2 extraction
             const createL2FileTask = (task: L2FileTask) => {
-                const { component, componentIndex, file } = task;
+                const { component, componentIndex, file, lineCount } = task;
                 const paddedComponentIndex = String(componentIndex + 1).padStart(3, '0');
                 const fileName = path.basename(file);
                 const componentDir = `${paddedComponentIndex}_${component.name}`;
+
+                // Build large file note if needed
+                let largeFileNote = '';
+                if (lineCount > LARGE_FILE_THRESHOLD) {
+                    const baseName = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
+                    largeFileNote = `\n\n**LARGE FILE (${lineCount} lines)**: To avoid hitting output limits, split your output into multiple files:\n- \`${baseName}_part1.md\`, \`${baseName}_part2.md\`, etc.\n- Each part should cover a logical section of the file (e.g., by class or function group)`;
+                    logger.log('DeepWiki', `L2: Large file detected: ${file} (${lineCount} lines) - will use split output`);
+                }
 
                 return () => this.runPhase(
                     `L2-File: ${component.name} / ${fileName}`,
@@ -410,13 +430,13 @@ Create the FINAL component list.
 
 ## Input
 - Component: **${component.name}**
-- File to process: \`${file}\`
-- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
+- File to process: \`${file}\`${lineCount > 0 ? ` (${lineCount} lines)` : ''}
+- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns${largeFileNote}
 
 ## Workflow
 1. Create file \`${intermediateDir}/L2/${componentDir}/${fileName}.md\`
 2. Read the assigned file: \`${file}\`
-3. For each function/method/class: Analyze one → Use \`applyPatch\` to write → Repeat
+3. For each function/method/class: Extract signature and details, then write to output file
 
 **Note (C/C++)**: If processing a .c/.cpp file, also check the corresponding .h/.hpp header for declarations. Vice versa for header files.
 
@@ -476,7 +496,6 @@ Processes input data and returns transformed result
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L2'),
                     token,
@@ -493,32 +512,31 @@ Processes input data and returns transformed result
             // ---------------------------------------------------------
             const l2ExpectedDirs = componentList.map((c, i) => ({
                 name: c.name,
-                dir: `${String(i + 1).padStart(3, '0')}_${c.name}`,
-                expectedFileCount: c.files.length
+                dir: `${String(i + 1).padStart(3, '0')}_${c.name}`
             }));
 
             const MAX_L2_RETRIES = 3;
             for (let l2RetryCount = 0; l2RetryCount < MAX_L2_RETRIES; l2RetryCount++) {
                 await this.runPhase(
                     `L2-V: Validator (Attempt ${l2RetryCount + 1})`,
-                    'Validate L2 output directories',
+                    'Validate L2 output content',
                     `# L2 Validator Agent
 
 ## Role
-Check that all expected L2 component directories exist and contain the correct number of files.
+Check that L2 extraction was successful by verifying output directories exist and contain meaningful content.
 
 ## Expected Directories
 Base: \`${intermediateDir}/L2/\`
-${l2ExpectedDirs.map(d => `- \`${d.dir}/\` → Expected ${d.expectedFileCount} .md files (Component: ${d.name})`).join('\n')}
+${l2ExpectedDirs.map(d => `- \`${d.dir}/\` (Component: ${d.name})`).join('\n')}
 
 ## Workflow
 1. List directories in \`${intermediateDir}/L2/\`
 2. For each expected directory:
    - Check if directory exists
-   - Count .md files in directory
-   - Compare count against expected file count above
-3. If ALL directories exist with correct file counts → Write empty array to \`${intermediateDir}/L2/validation_failures.json\`
-4. If ANY directory is MISSING or has FEWER files than expected → Write JSON array of those component names
+   - Read each .md file and verify it contains API signatures (look for \`### \\\`functionName\` patterns)
+   - Empty or placeholder-only files indicate failed extraction
+3. If ALL directories exist with valid content → Write empty array to \`${intermediateDir}/L2/validation_failures.json\`
+4. If ANY directory is MISSING or has EMPTY/INVALID content → Write JSON array of those component names
 
 ## Output
 Write to \`${intermediateDir}/L2/validation_failures.json\`:
