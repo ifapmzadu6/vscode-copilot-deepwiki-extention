@@ -84,9 +84,11 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
    2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
       - Extracts API signatures, internal logic, side effects, and dependency relationships
       - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
+      - Extracts event emissions/subscriptions and state mutations for causality tracing
       - Notes conditional code patterns based on L0 context
    3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
-      - Deep component analysis with causality tracing and diagrams
+      - Deep component analysis with event/state causality tracing and diagrams
+      - Builds causal chains: "Event X triggers State Y change, which causes Event Z"
    4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
       - System-level overview, component relationships, and architecture maps
    5. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
@@ -390,7 +392,10 @@ Create the FINAL component list.
 - **Signature**: Full signature with EXACT parameter names and types (copy as-is from source)
 - **Brief description**: One-line summary of purpose
 - **Internal Logic**: Key internal logic steps (3-5 bullet points)
-- **Side Effects**: Side effects (file I/O, state mutations, API calls, events, etc.)
+- **Side Effects**: Side effects (file I/O, API calls, etc.)
+- **Events Emitted**: Events/signals this function emits (event name, payload, trigger condition)
+- **Events Subscribed**: Events this function listens to (event name, handler behavior)
+- **State Mutations**: State variables this function modifies (variable name, before→after, trigger condition)
 - **Called By**: Functions/methods that call this (Direct callers only, Depth=1)
 - **Calls**: Functions/methods/libraries this calls (Direct calls only, Depth=1)
 - **Conditional**: If within a conditional block (e.g., \`#ifdef\`), note the condition
@@ -412,10 +417,19 @@ Processes input data and returns transformed result
 - Applies transformation rules
 - Handles edge cases for null values
 
+**Events Emitted**:
+- \`data.processed\` → emitted after successful processing, payload: \`{result, timestamp}\`
+- \`data.error\` → emitted on validation failure, payload: \`{error, input}\`
+
+**Events Subscribed**:
+- \`config.changed\` → reloads transformation rules when config updates
+
+**State Mutations**:
+- \`this.cache\` → updated with new result (null → Result)
+- \`this.lastProcessedTime\` → updated to current timestamp
+
 **Side Effects**:
 - Writes to database via \`saveToDb()\`
-- Emits 'data.processed' event
-- Updates in-memory cache
 
 **Called By**:
 - \`HttpHandler.handlePost()\`
@@ -532,7 +546,7 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
 
 ## Role
 - **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
-- **Core Responsibility**: Deep analysis - understand HOW code works, trace causality, create diagrams
+- **Core Responsibility**: Deep analysis - understand HOW code works, trace event/state causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
 ## Input
@@ -541,10 +555,38 @@ Assigned Component: ${componentStr}
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 2. Read L2 extraction and source code files
-3. For each analysis section (Overview, Architecture, Key Logic, etc.): Analyze → Use \`applyPatch\` to write
-4. Create Mermaid diagram → Use \`applyPatch\` to write
-   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+3. For each analysis section: Analyze → Use \`applyPatch\` to write
+   - Overview and Architecture
+   - Key Logic
+   - **Causal Analysis** (NEW - see below)
+4. Create Mermaid diagrams → Use \`applyPatch\` to write
+   - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
+
+## Causal Analysis Requirements
+Based on L2's extracted events and state mutations, analyze and document:
+
+### Event Causality
+- **Event Chain**: Trace how events propagate (e.g., "User clicks button → \`click\` event → \`handleClick()\` → emits \`data.updated\` → \`onDataUpdated()\` triggers")
+- **Event Sources**: Where do events originate? (user actions, timers, external APIs)
+- **Event Consumers**: Who listens and what do they do?
+
+### State Causality
+- **State Dependencies**: Which states depend on other states? (e.g., "\`isLoading\` must be false before \`data\` can be set")
+- **Mutation Triggers**: What causes state changes? (events, function calls, lifecycle hooks)
+- **Downstream Effects**: What happens when state X changes? (UI re-renders, side effects, other state updates)
+
+### Causal Diagram
+Create a \`stateDiagram-v2\` showing state transitions with event triggers:
+\`\`\`mermaid
+stateDiagram-v2
+    [*] --> Idle
+    Idle --> Loading : user.submit
+    Loading --> Success : api.response
+    Loading --> Error : api.error
+    Success --> Idle : user.reset
+    Error --> Loading : user.retry
+\`\`\`
 
 ## Output
 Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
@@ -644,12 +686,16 @@ Create a system-level overview based on ALL available L3 analysis.
 Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
 
 ## Workflow
-1. Read L3 analysis files → Understand component landscape
+1. Read L3 analysis files → Understand component landscape and causal relationships
 2. Define High-Level Architecture → Use \`applyPatch\` to write \`overview.md\`
-3. Analyze Causal Impact (how changes propagate) → Use \`applyPatch\` to write
+3. **Build System-Wide Causal Map** → Use \`applyPatch\` to write
+   - Cross-component event flows: How events propagate between components
+   - Shared state dependencies: Which components share or depend on common state
+   - Cascade effects: "If Component A's state changes, Components B and C are affected"
 4. Explain the 'Why' behind architectural decisions → Use \`applyPatch\` to write
 5. Create Mermaid diagrams → Use \`applyPatch\` to write \`relationships.md\`
-   - **Recommended**: \`C4Context\`, \`stateDiagram-v2\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+   - **Required**: At least one \`stateDiagram-v2\` showing cross-component state/event flow
+   - **Recommended**: \`C4Context\`, \`sequenceDiagram\` (for event chains), \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
