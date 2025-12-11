@@ -180,11 +180,11 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   └── component_list.json     # Final component list from L1-C
     ├── L2/                 # Extraction phase outputs (1 file per source file)
     │   ├── 001_AuthModule/         # Component directory
-    │   │   ├── 001_auth.ts.md
-    │   │   ├── 002_session.ts.md
+    │   │   ├── auth.ts.md
+    │   │   ├── session.ts.md
     │   │   └── ...
     │   ├── 002_Utils/
-    │   │   └── 001_utils.ts.md
+    │   │   └── utils.ts.md
     │   ├── validation_failures.json  # (temporary, lists failed components for retry)
     │   └── ...
     ├── L3/                 # Analysis phase outputs (1 component per file)
