@@ -81,18 +81,16 @@ export async function runWithConcurrencyLimit<T>(
                 }
             };
 
-            // Start initial workers with staggered delay to avoid rate limits
+            // Start initial workers immediately
             for (let i = 0; i < limit; i++) {
-                setTimeout(() => {
-                    if (!cancelled) {
-                        runNext(i);
-                    } else {
-                        settledCount += (tasks.length - currentIndex);
-                        if (settledCount >= tasks.length) {
-                            resolve();
-                        }
+                if (!cancelled) {
+                    runNext(i);
+                } else {
+                    settledCount += (tasks.length - currentIndex);
+                    if (settledCount >= tasks.length) {
+                        resolve();
                     }
-                }, i * 5000); // 5 second delay between each worker
+                }
             }
         });
 
