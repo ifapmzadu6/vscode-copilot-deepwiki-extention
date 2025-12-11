@@ -496,10 +496,13 @@ Processes input data and returns transformed result
                 dir: `${String(i + 1).padStart(3, '0')}_${c.name}`,
                 expectedFileCount: c.files.length
             }));
-            await this.runPhase(
-                'L2-V: Validator',
-                'Validate L2 output directories',
-                `# L2 Validator Agent
+
+            const MAX_L2_RETRIES = 3;
+            for (let l2RetryCount = 0; l2RetryCount < MAX_L2_RETRIES; l2RetryCount++) {
+                await this.runPhase(
+                    `L2-V: Validator (Attempt ${l2RetryCount + 1})`,
+                    'Validate L2 output directories',
+                    `# L2 Validator Agent
 
 ## Role
 Check that all expected L2 component directories exist and contain the correct number of files.
@@ -525,25 +528,32 @@ Write to \`${intermediateDir}/L2/validation_failures.json\`:
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
 `,
-                token,
-                options.toolInvocationToken
-            );
+                    token,
+                    options.toolInvocationToken
+                );
 
-            // Check validation result and retry failed components (file-level retry)
-            const l2FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'validation_failures.json'));
-            let l2FailedComponents: string[] = [];
-            try {
-                const content = await vscode.workspace.fs.readFile(l2FailuresUri);
-                l2FailedComponents = this.parseJson<string[]>(new TextDecoder().decode(content));
-                await vscode.workspace.fs.delete(l2FailuresUri);
-            } catch { /* no failures file or invalid */ }
+                // Check validation result and retry failed components (file-level retry)
+                const l2FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'validation_failures.json'));
+                let l2FailedComponents: string[] = [];
+                try {
+                    const content = await vscode.workspace.fs.readFile(l2FailuresUri);
+                    l2FailedComponents = this.parseJson<string[]>(new TextDecoder().decode(content));
+                    await vscode.workspace.fs.delete(l2FailuresUri);
+                } catch { /* no failures file or invalid */ }
 
-            if (l2FailedComponents.length > 0) {
-                logger.log('DeepWiki', `L2 Validator found ${l2FailedComponents.length} missing components, retrying: ${l2FailedComponents.join(', ')}`);
-                // Retry file-level extraction for failed components
-                const failedTasks = allL2FileTasks.filter(t => l2FailedComponents.includes(t.component.name));
-                const l2RetryFileTasks = failedTasks.map(createL2FileTask);
-                await runWithConcurrencyLimit(l2RetryFileTasks, DEFAULT_MAX_CONCURRENCY, 'L2 File Retry', token);
+                if (l2FailedComponents.length === 0) {
+                    logger.log('DeepWiki', 'L2 Validator: All components validated successfully');
+                    break; // All good, exit retry loop
+                }
+
+                logger.log('DeepWiki', `L2 Validator (Attempt ${l2RetryCount + 1}/${MAX_L2_RETRIES}): Found ${l2FailedComponents.length} missing components, retrying: ${l2FailedComponents.join(', ')}`);
+
+                if (l2RetryCount < MAX_L2_RETRIES - 1) {
+                    // Retry file-level extraction for failed components
+                    const failedTasks = allL2FileTasks.filter(t => l2FailedComponents.includes(t.component.name));
+                    const l2RetryFileTasks = failedTasks.map(createL2FileTask);
+                    await runWithConcurrencyLimit(l2RetryFileTasks, DEFAULT_MAX_CONCURRENCY, `L2 File Retry ${l2RetryCount + 1}`, token);
+                }
             }
 
             // ==================================================================================
