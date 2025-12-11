@@ -227,6 +227,7 @@ Create an INITIAL draft of logical components based on **code functionality**, n
 1. Read the L0 project context to understand the project structure (exclude generated/vendor code).
 2. Scan the project source files and **read their contents** to understand what each file does.
 3. Group files into **components** - files that work together to implement a feature or module.
+4. **Verify each file exists** before adding it to the files array.
 
 ## Output
 Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
@@ -286,7 +287,8 @@ CRITIQUE the draft. Do NOT fix it yourself.
    - Are files that work together grouped together?
    - Are unrelated files incorrectly grouped just because they share a directory?
 2. **Verification**: Read sample files to verify they actually belong together.
-3. Check for missing core files or included noise.${retryContextL1}
+3. **File Existence Check**: Verify ALL file paths in the draft actually exist. Flag any non-existent files.
+4. Check for missing core files or included noise.${retryContextL1}
 
 ## Output
 Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
@@ -330,8 +332,9 @@ Create the FINAL component list.
 - Format must be valid JSON array.
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+1. **File Existence**: All file paths in the "files" array MUST exist. If a path doesn't exist, try to fix it (e.g., correct typos, adjust relative path). Remove only if unfixable.
+2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 
 ` + getPipelineOverview('L1-C'),
                     token,
