@@ -375,9 +375,15 @@ Create the FINAL component list.
                 file: string;
                 fileIndex: number;
                 lineCount: number;
+                // For large files, split into chunks
+                startLine?: number;
+                endLine?: number;
+                partNumber?: number;
+                totalParts?: number;
             }
 
             const LARGE_FILE_THRESHOLD = 2000; // lines
+            const CHUNK_SIZE = 1000; // lines per chunk
             const allL2FileTasks: L2FileTask[] = [];
             for (let i = 0; i < componentList.length; i++) {
                 const component = componentList[i];
@@ -391,13 +397,35 @@ Create the FINAL component list.
                         lineCount = new TextDecoder().decode(content).split('\n').length;
                     } catch { /* ignore read errors */ }
 
-                    allL2FileTasks.push({
-                        component,
-                        componentIndex: i,
-                        file,
-                        fileIndex: j,
-                        lineCount
-                    });
+                    if (lineCount > LARGE_FILE_THRESHOLD) {
+                        // Split large files into chunks
+                        const totalParts = Math.ceil(lineCount / CHUNK_SIZE);
+                        for (let part = 0; part < totalParts; part++) {
+                            const startLine = part * CHUNK_SIZE + 1;
+                            const endLine = Math.min((part + 1) * CHUNK_SIZE, lineCount);
+                            allL2FileTasks.push({
+                                component,
+                                componentIndex: i,
+                                file,
+                                fileIndex: j,
+                                lineCount,
+                                startLine,
+                                endLine,
+                                partNumber: part + 1,
+                                totalParts
+                            });
+                        }
+                        logger.log('DeepWiki', `L2: Large file ${file} (${lineCount} lines) split into ${totalParts} chunks`);
+                    } else {
+                        // Normal file - single task
+                        allL2FileTasks.push({
+                            component,
+                            componentIndex: i,
+                            file,
+                            fileIndex: j,
+                            lineCount
+                        });
+                    }
                 }
             }
 
@@ -405,37 +433,38 @@ Create the FINAL component list.
 
             // Task generator for file-level L2 extraction
             const createL2FileTask = (task: L2FileTask) => {
-                const { component, componentIndex, file, lineCount } = task;
+                const { component, componentIndex, file, lineCount, startLine, endLine, partNumber, totalParts } = task;
                 const paddedComponentIndex = String(componentIndex + 1).padStart(3, '0');
                 const fileName = path.basename(file);
                 const componentDir = `${paddedComponentIndex}_${component.name}`;
 
-                // Build large file note if needed
-                let largeFileNote = '';
-                if (lineCount > LARGE_FILE_THRESHOLD) {
-                    const baseName = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
-                    largeFileNote = `\n\n**LARGE FILE (${lineCount} lines)**: To avoid hitting output limits, split your output into multiple files:\n- \`${baseName}_part1.md\`, \`${baseName}_part2.md\`, etc.\n- Each part should cover a logical section of the file (e.g., by class or function group)`;
-                    logger.log('DeepWiki', `L2: Large file detected: ${file} (${lineCount} lines) - will use split output`);
-                }
+                // Determine if this is a chunked task
+                const isChunked = partNumber !== undefined && totalParts !== undefined;
+                const baseName = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
+                const outputFileName = isChunked ? `${baseName}_part${partNumber}.md` : `${fileName}.md`;
+                const lineRangeInfo = isChunked ? ` (lines ${startLine}-${endLine} of ${lineCount})` : (lineCount > 0 ? ` (${lineCount} lines)` : '');
+                const readInstruction = isChunked
+                    ? `Read ONLY lines ${startLine} to ${endLine} of the file: \`${file}\``
+                    : `Read the assigned file: \`${file}\``;
 
                 return () => this.runPhase(
-                    `L2-File: ${component.name} / ${fileName}`,
-                    `Extract from ${fileName}`,
+                    `L2-File: ${component.name} / ${fileName}${isChunked ? ` (Part ${partNumber}/${totalParts})` : ''}`,
+                    `Extract from ${fileName}${isChunked ? ` part ${partNumber}` : ''}`,
                     `# File Extractor Agent (L2-File)
 
 ## Role
 - **Your Stage**: L2 File-Level Extraction (runs in parallel batches)
-- **Core Responsibility**: Extract precise API signatures from ONE source file - no interpretation
+- **Core Responsibility**: Extract precise API signatures from ${isChunked ? 'a PORTION of' : 'ONE'} source file - no interpretation
 - **Critical Success Factor**: Copy signatures EXACTLY as written - your accuracy directly impacts L3's analysis quality
 
 ## Input
 - Component: **${component.name}**
-- File to process: \`${file}\`${lineCount > 0 ? ` (${lineCount} lines)` : ''}
-- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns${largeFileNote}
+- File to process: \`${file}\`${lineRangeInfo}
+- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns${isChunked ? `\n\n**CHUNKED FILE**: This is part ${partNumber} of ${totalParts}. Process ONLY lines ${startLine}-${endLine}.` : ''}
 
 ## Workflow
-1. Create file \`${intermediateDir}/L2/${componentDir}/${fileName}.md\`
-2. Read the assigned file: \`${file}\`
+1. Create file \`${intermediateDir}/L2/${componentDir}/${outputFileName}\`
+2. ${readInstruction}
 3. For each function/method/class: Extract signature and details, then write to output file
 
 **Note (C/C++)**: If processing a .c/.cpp file, also check the corresponding .h/.hpp header for declarations. Vice versa for header files.
