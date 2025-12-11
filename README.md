@@ -19,48 +19,66 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 The extension orchestrates a sophisticated **7-level agentic pipeline** with two 3-stage refinement loops to generate high-quality documentation:
 
-```text
-[L0 Project Context]  (Single)
-       |
-       v
-[L1 Discoverer] <----------+
- (Draft -> Review -> Refine)| (Self-Correction Loop)
-       |                   |
-       +-------------------+
-       |
-       v
-[L2 Extractor]  (Parallel)
-       |
-       v
-[L2-V Validator] -----> [L2 Retry] (if files missing)
-       |
-       v
-[L3 Analyzer]   (Parallel) <-------+ (Request Re-analysis)
-       |                           |
-       v                           |
-[L3-V Validator] -----> [L3 Retry] |
-       |                           |
-       v                           |
-[L4 Architect]  (Single)           |
-       |                           |
-       v                           |
-[L5-Pre Page Consolidator]         |
- (Draft -> Review -> Refine)       |
-       |                           |
-       v                           |
-[L5 Writer]     (Parallel)         |
-       |                           |
-       v                           |
-[L5-V Validator] -----> [L5 Retry] |
-       |                           |
-       v                           |
-    [L6 Reviewer] -----------------+ (Critical Failure Loop)
-       |
-       v
-    [ Indexer ]
-       |
-       v
-   Final Docs
+```mermaid
+stateDiagram-v2
+    [*] --> L0: Start
+
+    L0: L0 Project Context
+    L1: L1 Discoverer
+    L2: L2 Extractor (Parallel)
+    L2V: L2-V Validator
+    L3: L3 Analyzer (Parallel)
+    L3V: L3-V Validator
+    L4: L4 Architect
+    L5Pre: L5-Pre Page Consolidator
+    L5: L5 Writer (Parallel)
+    L5V: L5-V Validator
+    L6: L6 Reviewer
+    Indexer: Indexer
+    Done: Final Docs
+
+    L0 --> L1
+    
+    state L1 {
+        [*] --> Draft
+        Draft --> Review
+        Review --> Refine
+        Refine --> [*]: Valid JSON
+        Refine --> Draft: Invalid JSON
+    }
+    
+    L1 --> L2
+    L2 --> L2V
+    L2V --> L2: Files Missing
+    L2V --> L3: All Files Present
+    
+    L3 --> L3V
+    L3V --> L3: Files Missing
+    L3V --> L4: All Files Present
+    
+    L4 --> L5Pre
+    
+    state L5Pre {
+        [*] --> Draft5
+        Draft5: Draft
+        Review5: Review
+        Refine5: Refine
+        Draft5 --> Review5
+        Review5 --> Refine5
+        Refine5 --> [*]: Valid JSON
+        Refine5 --> Draft5: Invalid JSON
+    }
+    
+    L5Pre --> L5
+    L5 --> L5V
+    L5V --> L5: Files Missing
+    L5V --> L6: All Files Present
+    
+    L6 --> L3: Critical Issues Found
+    L6 --> Indexer: Quality OK
+    
+    Indexer --> Done
+    Done --> [*]
 ```
 
 ### 0. Level 0: PROJECT CONTEXT ANALYZER
