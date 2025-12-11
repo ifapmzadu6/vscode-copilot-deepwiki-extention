@@ -551,10 +551,11 @@ Write to \`${intermediateDir}/L2/${paddedIndex}_${component.name}.md\`
                 // Level 3: ANALYZER (Process current components - 1 component per task)
                 // ---------------------------------------------------------
                 // Create tasks for L3 analysis (1 component per task, like L2)
-                const l3Tasks = componentsToAnalyze.map((component, index) => {
+                const l3Tasks = componentsToAnalyze.map((component) => {
                     const componentStr = JSON.stringify(component);
-                    // Keep number prefix for ordering
-                    const paddedIndex = String(index + 1).padStart(3, '0');
+                    // Keep number prefix for ordering - use componentList index for consistency across loops
+                    const originalIndex = componentList.findIndex(c => c.name === component.name);
+                    const paddedIndex = String(originalIndex + 1).padStart(3, '0');
                     return () => this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
                         `Analyze component`,
@@ -594,10 +595,13 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
                 // ---------------------------------------------------------
                 // L3 Validator: Check for missing files and retry if needed
                 // ---------------------------------------------------------
-                const l3ExpectedFiles = componentsToAnalyze.map((c, i) => ({
-                    name: c.name,
-                    file: `${String(i + 1).padStart(3, '0')}_${c.name}_analysis.md`
-                }));
+                const l3ExpectedFiles = componentsToAnalyze.map((c) => {
+                    const originalIndex = componentList.findIndex(comp => comp.name === c.name);
+                    return {
+                        name: c.name,
+                        file: `${String(originalIndex + 1).padStart(3, '0')}_${c.name}_analysis.md`
+                    };
+                });
                 await this.runPhase(
                     `L3-V: Validator (Loop ${loopCount + 1})`,
                     'Validate L3 output files',
@@ -644,7 +648,7 @@ Write to \`${intermediateDir}/L3/validation_failures.json\`:
                         .filter(c => l3FailedComponents.includes(c.name))
                         .map((component) => {
                             const componentStr = JSON.stringify(component);
-                            const paddedIndex = String(componentsToAnalyze.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
+                            const paddedIndex = String(componentList.findIndex(c => c.name === component.name) + 1).padStart(3, '0');
                             return () => this.runPhase(
                                 `L3: Analyzer Retry (${component.name})`,
                                 `Analyze component (retry)`,
