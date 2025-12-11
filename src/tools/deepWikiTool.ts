@@ -393,9 +393,8 @@ Create the FINAL component list.
 
             // Task generator for file-level L2 extraction
             const createL2FileTask = (task: L2FileTask) => {
-                const { component, componentIndex, file, fileIndex } = task;
+                const { component, componentIndex, file } = task;
                 const paddedComponentIndex = String(componentIndex + 1).padStart(3, '0');
-                const paddedFileIndex = String(fileIndex + 1).padStart(3, '0');
                 const fileName = path.basename(file);
                 const componentDir = `${paddedComponentIndex}_${component.name}`;
 
@@ -415,7 +414,7 @@ Create the FINAL component list.
 - **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for conditional code patterns
 
 ## Workflow
-1. Create file \`${intermediateDir}/L2/${componentDir}/${paddedFileIndex}_${fileName}.md\`
+1. Create file \`${intermediateDir}/L2/${componentDir}/${fileName}.md\`
 2. Read the assigned file: \`${file}\`
 3. For each function/method/class: Analyze one → Use \`applyPatch\` to write → Repeat
 
@@ -436,7 +435,7 @@ Create the FINAL component list.
 **CRITICAL**: Copy signatures EXACTLY as they appear in the code. Do NOT paraphrase.
 
 ## Output
-Write to \`${intermediateDir}/L2/${componentDir}/${paddedFileIndex}_${fileName}.md\`
+Write to \`${intermediateDir}/L2/${componentDir}/${fileName}.md\`
 
 Use this format:
 \`\`\`markdown
