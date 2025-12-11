@@ -970,7 +970,7 @@ Write files to \`${outputPath}/pages/\`.
                 };
 
                 // Create page chunks for L5 writing
-                const pageChunkSize = 3;
+                const pageChunkSize = 1;
                 const pageChunks: PageGroup[][] = [];
                 for (let i = 0; i < pageStructure.length; i += pageChunkSize) {
                     pageChunks.push(pageStructure.slice(i, i + pageChunkSize));
