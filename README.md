@@ -98,17 +98,17 @@ Identifies and groups files into logical components, and determines their import
 -   **L1-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L1-B and L1-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
-### 2. Level 2: EXTRACTOR (Parallel)
-Extracts comprehensive API information from each component's files:
+### 2. Level 2: EXTRACTOR (File-Level Parallel)
+Extracts comprehensive API information from each source file individually (1 file = 1 subagent):
 -   **API Signatures**: Exact function/method signatures with parameter types
 -   **Internal Logic**: Key internal logic steps (3-5 bullet points per function)
 -   **Side Effects**: Side effects (file I/O, state mutations, events, etc.)
 -   **Caller/Callee**: Caller and callee relationships for dependency mapping
 -   **Conditional Code**: Notes when code is conditionally compiled (e.g., `#ifdef DEBUG`)
 
-Runs in parallel chunks and references L0 project context for conditional code awareness.
+Each file is processed by a separate subagent to reduce output volume and prevent token limit errors. For C/C++ files, the agent is instructed to also check corresponding header files. Output is organized into component directories: `L2/{componentIndex}_{componentName}/`.
 
-**L2-V Validator**: After extraction completes, validates that all expected output files exist. If files are missing, triggers automatic retry for failed components using the same extraction logic.
+**L2-V Validator**: After extraction completes, validates that all expected output files exist (checking file count per component). If files are missing, triggers automatic retry for failed components.
 
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
@@ -178,9 +178,13 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── component_draft.json    # Initial draft from L1-A
     │   ├── review_report.md        # Review from L1-B
     │   └── component_list.json     # Final component list from L1-C
-    ├── L2/                 # Extraction phase outputs (1 component per file)
-    │   ├── 001_AuthModule.md
-    │   ├── 002_Utils.md
+    ├── L2/                 # Extraction phase outputs (1 file per source file)
+    │   ├── 001_AuthModule/         # Component directory
+    │   │   ├── 001_auth.ts.md
+    │   │   ├── 002_session.ts.md
+    │   │   └── ...
+    │   ├── 002_Utils/
+    │   │   └── 001_utils.ts.md
     │   ├── validation_failures.json  # (temporary, lists failed components for retry)
     │   └── ...
     ├── L3/                 # Analysis phase outputs (1 component per file)
