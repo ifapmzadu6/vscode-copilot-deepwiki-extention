@@ -69,38 +69,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         await this.cleanOutputDirectory(workspaceFolder, outputPath);
 
 
-        // Function to generate pipeline overview with current stage highlighted
-        const getPipelineOverview = (currentStage: string) => `
-## Pipeline Overview
-- **Complete Pipeline Flow:**
-   0. **L1 Project Context**${currentStage === 'L1' ? ' **← YOU ARE HERE**' : ''}:
-      - Analyzes project structure, build system, and conditional code patterns
-      - Outputs \`project_context.md\` for downstream agents to reference
-   1. **L2 Discovery (L2-A → L2-B → L2-C)**${currentStage.startsWith('L2') ? ' **← YOU ARE HERE**' : ''}:
-      - L2-A Drafter: Creates initial component grouping${currentStage === 'L2-A' ? ' **← YOU**' : ''}
-      - L2-B Reviewer: Critiques the draft${currentStage === 'L2-B' ? ' **← YOU**' : ''}
-      - L2-C Refiner: Produces final validated component list${currentStage === 'L2-C' ? ' **← YOU**' : ''}
-      - Uses L1 context to understand project structure
-   2. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
-      - Deep component analysis with event/state causality tracing and diagrams
-      - Builds causal chains: "Event X triggers State Y change, which causes Event Z"
-   3. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
-      - System-level overview, component relationships, and architecture maps
-   4. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
-      - **L5-Pre Consolidator** (Pre-A → Pre-B → Pre-C): Groups components into pages${currentStage.startsWith('L5-Pre') ? ' **← YOU**' : ''}
-      - **L5 Writer**: Transforms analysis into final documentation pages based on page_structure.json${currentStage === 'L5' ? ' **← YOU**' : ''}
-   5. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
-      - Quality gate - fixes minor issues, requests retry for major problems
-   6. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
-      - Creates final README with table of contents
-      - Links all generated pages together
-      - Sanitizes any intermediate references
-- **Strategic Context:**
-   - **Project Context**: L1 provides build system and conditional code awareness to all downstream agents
-   - **Parallel Execution**: L3 and L5 run in parallel batches to handle multiple components efficiently
-   - **Quality Gates**: L2-B and L6 serve as quality checkpoints to ensure accuracy
-   - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
- `;
+	        // Function to generate pipeline overview with current stage highlighted
+	        const getPipelineOverview = (currentStage: string) => `
+	## Pipeline Overview (short)
+	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5-Pre Group Pages${currentStage.startsWith('L5-Pre') ? ' ← YOU' : ''} → L5 Write Pages${currentStage === 'L5' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → Indexer${currentStage === 'Indexer' ? ' ← YOU' : ''}
+	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
+	`;
 
 
         const bq = '`';
@@ -205,39 +179,40 @@ ${mdCodeBlock}
             await this.runPhase(
                 'L2-A: Drafter',
                 'Draft initial component grouping',
-                `# Component Drafter Agent (L2-A)
+	                `# Component Drafter Agent (L2-A)
 
 ## Role
 - **Your Stage**: L2-A Drafter (Discovery Phase - First Pass)
-- **Core Responsibility**: Create initial component grouping based on code functionality
-- **Critical Success Factor**: Group files that work together as a functional unit
+- **Core Responsibility**: Propose an initial logical component grouping based on functionality
+- **Critical Success Factor**: Group files that truly work together as one unit
 
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for project structure and build system info
 
 ## Goal
-Create an INITIAL draft of logical components based on **code functionality**, not just directory structure.
+Create an INITIAL draft of logical components based on **what the code does**, not just folders.
 
 ## Workflow
 1. Read the L1 project context to understand the project structure (exclude generated/vendor code).
 2. Scan the project source files and **read their contents** to understand what each file does.
 3. Group files into **components** - files that work together to implement a feature or module.
 4. **Verify each file exists** before adding it to the files array.
+5. Before writing, quickly sanity-check that your JSON is valid and non-empty.
 
 ## Output
-Write the draft JSON to \`${intermediateDir}/L2/component_draft.json\`.
+Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_draft.json\`.
 
 **Format**:
 ${mdCodeBlock}json
 ${jsonExample}
 ${mdCodeBlock}
 
-> **IMPORTANT**: Write RAW JSON only.
+> IMPORTANT: the file content must be raw JSON only. Your chat reply: one short confirmation line.
 
 ## Constraints
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
 
 ` + getPipelineOverview('L2-A'),
                 token,
@@ -263,12 +238,12 @@ ${mdCodeBlock}
                 await this.runPhase(
                     `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
                     'Critique component grouping',
-                    `# Component Reviewer Agent (L2-B)
+	                    `# Component Reviewer Agent (L2-B)
 
 ## Role
 - **Your Stage**: L2-B Reviewer (Discovery Phase - Quality Gate)
-- **Core Responsibility**: Critique L2-A's draft - identify issues but do NOT fix them
-- **Critical Success Factor**: Verify files actually exist and are grouped logically
+- **Core Responsibility**: Critique L2-A's draft; identify issues but do NOT edit the draft JSON
+- **Critical Success Factor**: Verify files exist and groupings make functional sense
 
 ## Goal
 CRITIQUE the draft. Do NOT fix it yourself.
@@ -286,7 +261,7 @@ CRITIQUE the draft. Do NOT fix it yourself.
 4. Check for missing core files or included noise.${retryContextL2}
 
 ## Output
-Write a critique report to \`${intermediateDir}/L2/review_report.md\`.
+Write a critique report to \`${intermediateDir}/L2/review_report.md\` (point out what to change and why).
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
@@ -303,7 +278,7 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`.
                 await this.runPhase(
                     `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
                     'Refine component list based on review',
-                    `# Component Refiner Agent (L2-C)
+	                    `# Component Refiner Agent (L2-C)
 
 ## Role
 - **Your Stage**: L2-C Refiner (Discovery Phase - Final Output)
@@ -320,16 +295,17 @@ Create the FINAL component list.
 ## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
-3. Produce the valid JSON.${retryContextL2}
+3. Ensure: (a) no missing core files, (b) no duplicates, (c) each component has a clear purpose.
+4. Produce valid JSON.${retryContextL2}
 
 ## Output
-- Write the FINAL JSON to \`${intermediateDir}/L2/component_list.json\`.
-- Format must be valid JSON array.
+- Write the FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L2/component_list.json\`.
+- Format must be a valid non-empty JSON array.
 
 ## Constraints
-1. **File Existence**: All file paths in the "files" array MUST exist. If a path doesn't exist, try to fix it (e.g., correct typos, adjust relative path). Remove only if unfixable.
+1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "List finalized."). Do not include JSON or file contents.
 
 ` + getPipelineOverview('L2-C'),
                     token,
@@ -657,12 +633,12 @@ ${mdCodeBlock}
                     await this.runPhase(
                         `L5-Pre-B: Reviewer (Loop ${loopCount + 1}, Attempt ${l5PreRetryCount + 1})`,
                         'Review page structure draft',
-                        `# Page Structure Reviewer Agent (L5-Pre-B)
+	                        `# Page Structure Reviewer Agent (L5-Pre-B)
 
 ## Role
 - **Your Stage**: L5-Pre-B Reviewer (Page Consolidation Phase - Quality Gate)
-- **Core Responsibility**: Critique L5-Pre-A's draft - identify issues but do NOT fix them
-- **Critical Success Factor**: Ensure page groupings make sense from a documentation user's perspective
+- **Core Responsibility**: Critique L5-Pre-A's draft; identify issues but do NOT edit the draft JSON
+- **Critical Success Factor**: Ensure groupings and page names feel right for readers
 
 ## Goal
 CRITIQUE the draft page structure. Do NOT fix it yourself.
@@ -686,7 +662,7 @@ CRITIQUE the draft page structure. Do NOT fix it yourself.
    - Do the rationales actually justify the groupings?
 
 ## Output
-Write critique report to \`${intermediateDir}/L5/page_structure_review.md\`.
+Write critique report to \`${intermediateDir}/L5/page_structure_review.md\` (what to change and why).
 
 Include:
 - Issues found (if any)
@@ -706,7 +682,7 @@ Include:
                     await this.runPhase(
                         `L5-Pre-C: Refiner (Loop ${loopCount + 1}, Attempt ${l5PreRetryCount + 1})`,
                         'Finalize page structure',
-                        `# Page Structure Refiner Agent (L5-Pre-C)
+	                        `# Page Structure Refiner Agent (L5-Pre-C)
 
 ## Role
 - **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
@@ -723,12 +699,13 @@ Create the FINAL page structure by applying review feedback.
 ## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
-3. Produce the final valid JSON.${retryContextL5Pre}
+3. Self-check: all components included exactly once; no empty groups.
+4. Produce the final valid JSON.${retryContextL5Pre}
 
 ## Output
-Write FINAL JSON to \`${intermediateDir}/L5/page_structure.json\`.
+Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_structure.json\`.
 
-**Format**:
+**Format example (do not include fences in the file)**:
 ${mdCodeBlock}json
 ${pageStructureExample}
 ${mdCodeBlock}
@@ -741,7 +718,7 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+2. **Chat Final Response**: Keep your chat reply brief (e.g., "Page structure finalized."). Do not include JSON or file contents.
 
 ` + getPipelineOverview('L5-Pre'),
                         token,
@@ -819,7 +796,7 @@ ${mdCodeBlock}
                     return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1})`,
                         `Write ${pageChunk.length} documentation pages`,
-                        `# Writer Agent (L5)
+	                        `# Writer Agent (L5)
 
 ## Role
 - **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
@@ -828,13 +805,14 @@ ${mdCodeBlock}
 
 ## Input
 - Assigned Pages: ${JSON.stringify(pageChunk)}
-- For each page, find and read L3 analysis files for the components listed in \`${intermediateDir}/L3/\` (files are named with component names)
+- For each page, read the matching L3 analysis files in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
 
 ## Workflow
 1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
 2. Read L3 analysis for ALL components in that page's \`components\` array
-3. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
-4. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
+3. Do NOT re-analyze source code; synthesize and consolidate L3 content into a reader-friendly page.
+4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
+5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -856,7 +834,7 @@ Write files to \`${outputPath}/pages/\`.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 4. **Do NOT include raw source code or implementation details.**
-5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references.
+5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references. If you include signatures, keep them short (no bodies).
 6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
 
 ` + getPipelineOverview('L5'),
@@ -946,10 +924,10 @@ Write to \`${intermediateDir}/L5/page_validation_failures.json\`:
                        Format: ["Auth Module", "Utils"].
                        For minor issues (typos, formatting, broken links), fix the page directly.`;
 
-                await this.runPhase(
-                    `L6: Page Reviewer (Loop ${loopCount + 1})`,
-                    'Review pages and decide on retries',
-                    `# Page Reviewer Agent (L6)
+	                await this.runPhase(
+	                    `L6: Page Reviewer (Loop ${loopCount + 1})`,
+	                    'Review pages and decide on retries',
+	                    `# Page Reviewer Agent (L6)
 
 ## Role
 - **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
@@ -970,13 +948,15 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors → Use \`applyPatch\` to write fixes
 5. **Numerical Consistency**: Check for inconsistent numerical values (e.g., "8h" vs "8 hours") → Use \`applyPatch\` to unify
 6. **Signature Accuracy**: Verify method/function signatures match actual source code
-   - If a signature is incorrect, read the actual source file and use \`applyPatch\` to fix
+	   - If a signature is incorrect, read the actual source file and use \`applyPatch\` to fix
+	   - Include only brief signatures; never paste implementation bodies
 7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.) → Use \`applyPatch\` to fix
 8. ` + retryInstruction + `
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
 - Write \`${intermediateDir}/L6/retry_request.json\` ONLY if requesting retries.
+  - The file must be a raw JSON array of component names, e.g. \`["Auth Module"]\` (no extra fields, no fences).
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
