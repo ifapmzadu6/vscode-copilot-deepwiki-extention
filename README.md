@@ -6,8 +6,8 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
--   **Multi-Stage Pipeline**: Follows a robust 7-level (L0-L6) process, where each agent builds upon the previous one's output.
--   **Self-Correction Loop**: L1 Discoverer, L5-Pre Page Consolidator, and L6 Page Reviewer can request re-analysis for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L1 and L5-Pre loops.
+-   **Multi-Stage Pipeline**: Follows a robust 7-level (L1-L6) process, where each agent builds upon the previous one's output.
+-   **Self-Correction Loop**: L2 Discoverer, L5-Pre Page Consolidator, and L6 Page Reviewer can request re-analysis for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L2 and L5-Pre loops.
 -   **Parallel Processing**: Analyzes logical components in parallel for faster execution. Concurrency is limited to 3 parallel agents to prevent API rate limiting. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
@@ -21,11 +21,10 @@ The extension orchestrates a sophisticated **7-level agentic pipeline** with two
 
 ```mermaid
 stateDiagram-v2
-    [*] --> L0: Start
+    [*] --> L1: Start
 
-    L0: L0 Project Context
-    L1: L1 Discoverer
-    L2: L2 Symbol Extractor (Programmatic)
+    L1: L1 Project Context
+    L2: L2 Discoverer
     L3: L3 Analyzer (Parallel)
     L3V: L3-V Validator
     L4: L4 Architect
@@ -36,9 +35,9 @@ stateDiagram-v2
     Indexer: Indexer
     Done: Final Docs
 
-    L0 --> L1
+    L1 --> L2
     
-    state L1 {
+    state L2 {
         [*] --> Draft
         Draft --> Review
         Review --> Refine
@@ -46,7 +45,6 @@ stateDiagram-v2
         Refine --> Draft: Invalid JSON
     }
     
-    L1 --> L2
     L2 --> L3
     
     L3 --> L3V
@@ -78,7 +76,7 @@ stateDiagram-v2
     Done --> [*]
 ```
 
-### 0. Level 0: PROJECT CONTEXT ANALYZER
+### 1. Level 1: PROJECT CONTEXT ANALYZER
 Analyzes the project structure, build system, and conditional code patterns before component discovery:
 -   **Project Type**: Identifies languages, frameworks, and project structure
 -   **Build System**: Detects Makefile, CMake, npm, Cargo, Gradle, etc.
@@ -88,22 +86,12 @@ Analyzes the project structure, build system, and conditional code patterns befo
 
 This phase enables DeepWiki to be aware of build configurations and feature flags.
 
-### 1. Level 1: DISCOVERER (Component Grouping & Refinement)
-Identifies and groups files into logical components, and determines their importance (High/Medium/Low). Uses L0 context to understand project structure. This stage uses a 3-step internal process:
--   **L1-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L0 project context.
--   **L1-B Reviewer**: Critiques the draft and writes a review report (`L1_review_report.md`). **Verifies against the ACTUAL file system structure.**
--   **L1-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
-    -   *Self-Correction Loop*: L1-B and L1-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
-
-### 2. Level 2: SYMBOL EXTRACTOR (Programmatic)
-Extracts API information from each source file **programmatically** using VS Code's Language Server APIs:
--   **Symbol Extraction**: Uses `vscode.executeDocumentSymbolProvider` to extract all symbols (functions, classes, methods, etc.)
--   **Call Hierarchy**: Uses `vscode.CallHierarchyProvider` to extract Calls/Called By relationships (2 levels deep)
--   **Type Information**: Captures symbol details (type signatures, return types) when available
-
-This phase is **100% programmatic** with no AI subagents, ensuring fast and accurate extraction. Output is organized into component directories: `L2/{componentIndex}_{componentName}/`.
-
-**Note**: CallHierarchyProvider availability depends on the Language Server for each file type (TypeScript, Python, C++, etc.).
+### 2. Level 2: DISCOVERER (Component Grouping & Refinement)
+Identifies and groups files into logical components, and determines their importance (High/Medium/Low). Uses L1 context to understand project structure. This stage uses a 3-step internal process:
+-   **L2-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L1 project context.
+-   **L2-B Reviewer**: Critiques the draft and writes a review report (`review_report.md`). **Verifies against the ACTUAL file system structure.**
+-   **L2-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
+    -   *Self-Correction Loop*: L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
 ### 3. Level 3: ANALYZER (Parallel)
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
@@ -116,7 +104,7 @@ Synthesizes a high-level system overview and maps relationships between componen
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
 ### 5. Level 5-Pre: PAGE CONSOLIDATOR
-Determines the optimal page structure by analyzing L3 outputs. Uses a 3-stage process similar to L1:
+Determines the optimal page structure by analyzing L3 outputs. Uses a 3-stage process similar to L2:
 -   **L5-Pre-A Drafter**: Proposes initial page groupings based on component analysis (`page_structure_draft.json`).
 -   **L5-Pre-B Reviewer**: Critiques the groupings for logical coherence and user experience (`page_structure_review.md`).
 -   **L5-Pre-C Refiner**: Produces the final page structure (`page_structure.json`).
@@ -167,12 +155,12 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
 │   ├── Utils.md
 │   └── ...
 └── intermediate/           # Intermediate artifacts (for debugging/context)
-    ├── L0/                 # Project context phase outputs
+    ├── L1/                 # Project context phase outputs
     │   └── project_context.md      # Project structure, build system, conditional patterns
-    ├── L1/                 # Discovery phase outputs
-    │   ├── component_draft.json    # Initial draft from L1-A
-    │   ├── review_report.md        # Review from L1-B
-    │   └── component_list.json     # Final component list from L1-C
+    ├── L2/                 # Discovery phase outputs
+    │   ├── component_draft.json    # Initial draft from L2-A
+    │   ├── review_report.md        # Review from L2-B
+    │   └── component_list.json     # Final component list from L2-C
     ├── L2/                 # Extraction phase outputs (1 file per source file)
     │   ├── 001_AuthModule/         # Component directory
     │   │   ├── auth.ts.md
