@@ -3,12 +3,6 @@ import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
 import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
-import {
-    extractSymbolsFromFile,
-    enrichSymbolsWithCalls,
-    generateL2Skeleton,
-    ExtractedSymbol
-} from '../utils/symbolExtractor';
 
 /**
  * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
@@ -79,37 +73,32 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         const getPipelineOverview = (currentStage: string) => `
 ## Pipeline Overview
 - **Complete Pipeline Flow:**
-   0. **L0 Project Context**${currentStage === 'L0' ? ' **← YOU ARE HERE**' : ''}:
+   0. **L1 Project Context**${currentStage === 'L1' ? ' **← YOU ARE HERE**' : ''}:
       - Analyzes project structure, build system, and conditional code patterns
       - Outputs \`project_context.md\` for downstream agents to reference
-   1. **L1 Discovery (L1-A → L1-B → L1-C)**${currentStage.startsWith('L1') ? ' **← YOU ARE HERE**' : ''}:
-      - L1-A Drafter: Creates initial component grouping${currentStage === 'L1-A' ? ' **← YOU**' : ''}
-      - L1-B Reviewer: Critiques the draft${currentStage === 'L1-B' ? ' **← YOU**' : ''}
-      - L1-C Refiner: Produces final validated component list${currentStage === 'L1-C' ? ' **← YOU**' : ''}
-      - Uses L0 context to understand project structure
-   2. **L2 Extraction**${currentStage === 'L2' ? ' **← YOU ARE HERE**' : ''}:
-      - Extracts API signatures, internal logic, side effects, and dependency relationships
-      - Provides structured insights (Internal Logic, Side Effects, Called By/Calls) for L3's causal analysis
-      - Extracts event emissions/subscriptions and state mutations for causality tracing
-      - Notes conditional code patterns based on L0 context
-   3. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
+   1. **L2 Discovery (L2-A → L2-B → L2-C)**${currentStage.startsWith('L2') ? ' **← YOU ARE HERE**' : ''}:
+      - L2-A Drafter: Creates initial component grouping${currentStage === 'L2-A' ? ' **← YOU**' : ''}
+      - L2-B Reviewer: Critiques the draft${currentStage === 'L2-B' ? ' **← YOU**' : ''}
+      - L2-C Refiner: Produces final validated component list${currentStage === 'L2-C' ? ' **← YOU**' : ''}
+      - Uses L1 context to understand project structure
+   2. **L3 Analyzer**${currentStage === 'L3' ? ' **← YOU ARE HERE**' : ''}:
       - Deep component analysis with event/state causality tracing and diagrams
       - Builds causal chains: "Event X triggers State Y change, which causes Event Z"
-   4. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
+   3. **L4 Architect**${currentStage === 'L4' ? ' **← YOU ARE HERE**' : ''}:
       - System-level overview, component relationships, and architecture maps
-   5. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
+   4. **L5 Documentation Generation**${currentStage.startsWith('L5') ? ' **← YOU ARE HERE**' : ''}:
       - **L5-Pre Consolidator** (Pre-A → Pre-B → Pre-C): Groups components into pages${currentStage.startsWith('L5-Pre') ? ' **← YOU**' : ''}
       - **L5 Writer**: Transforms analysis into final documentation pages based on page_structure.json${currentStage === 'L5' ? ' **← YOU**' : ''}
-   6. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
+   5. **L6 Reviewer**${currentStage === 'L6' ? ' **← YOU ARE HERE**' : ''}:
       - Quality gate - fixes minor issues, requests retry for major problems
-   7. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
+   6. **Indexer**${currentStage === 'Indexer' ? ' **← YOU ARE HERE**' : ''}:
       - Creates final README with table of contents
       - Links all generated pages together
       - Sanitizes any intermediate references
 - **Strategic Context:**
-   - **Project Context**: L0 provides build system and conditional code awareness to all downstream agents
-   - **Parallel Execution**: L2, L3, and L5 run in parallel batches to handle multiple components efficiently
-   - **Quality Gates**: L1-B and L6 serve as quality checkpoints to ensure accuracy
+   - **Project Context**: L1 provides build system and conditional code awareness to all downstream agents
+   - **Parallel Execution**: L3 and L5 run in parallel batches to handle multiple components efficiently
+   - **Quality Gates**: L2-B and L6 serve as quality checkpoints to ensure accuracy
    - **Page Consolidation**: L5-Pre analyzes L3 outputs and groups similar components into single pages for better documentation structure
  `;
 
@@ -130,14 +119,14 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             // Level 0: PROJECT CONTEXT ANALYZER
             // ---------------------------------------------------------
             checkCancellation();
-            logger.log('DeepWiki', 'Starting L0: Project Context Analysis...');
+            logger.log('DeepWiki', 'Starting L1: Project Context Analysis...');
             await this.runPhase(
-                'L0: Project Context Analyzer',
+                'L1: Project Context Analyzer',
                 'Analyze project environment and context',
-                `# Project Context Analyzer Agent (L0)
+                `# Project Context Analyzer Agent (L1)
 
 ## Role
-- **Your Stage**: L0 Analyzer (Pre-Discovery Phase)
+- **Your Stage**: L1 Analyzer (Pre-Discovery Phase)
 - **Core Responsibility**: Understand project structure, build system, and conditional code patterns
 - **Critical Success Factor**: Provide context that helps subsequent agents understand which code is active/conditional
 
@@ -155,7 +144,7 @@ Analyze the project and create a context document for downstream agents.
 5. Add important notes for downstream agents → Use \`applyPatch\` to write "## Notes for Analysis" section
 
 ## Output
-Write to \`${intermediateDir}/L0/project_context.md\`
+Write to \`${intermediateDir}/L1/project_context.md\`
 
 Use this format:
 ${mdCodeBlock}markdown
@@ -191,7 +180,7 @@ ${mdCodeBlock}
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
-` + getPipelineOverview('L0'),
+` + getPipelineOverview('L1'),
                 token,
                 options.toolInvocationToken
             );
@@ -214,29 +203,29 @@ ${mdCodeBlock}
 ]
 `;
             await this.runPhase(
-                'L1-A: Drafter',
+                'L2-A: Drafter',
                 'Draft initial component grouping',
-                `# Component Drafter Agent (L1-A)
+                `# Component Drafter Agent (L2-A)
 
 ## Role
-- **Your Stage**: L1-A Drafter (Discovery Phase - First Pass)
+- **Your Stage**: L2-A Drafter (Discovery Phase - First Pass)
 - **Core Responsibility**: Create initial component grouping based on code functionality
 - **Critical Success Factor**: Group files that work together as a functional unit
 
 ## Input
-- **Project Context**: Read \`${intermediateDir}/L0/project_context.md\` for project structure and build system info
+- **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for project structure and build system info
 
 ## Goal
 Create an INITIAL draft of logical components based on **code functionality**, not just directory structure.
 
 ## Workflow
-1. Read the L0 project context to understand the project structure (exclude generated/vendor code).
+1. Read the L1 project context to understand the project structure (exclude generated/vendor code).
 2. Scan the project source files and **read their contents** to understand what each file does.
 3. Group files into **components** - files that work together to implement a feature or module.
 4. **Verify each file exists** before adding it to the files array.
 
 ## Output
-Write the draft JSON to \`${intermediateDir}/L1/component_draft.json\`.
+Write the draft JSON to \`${intermediateDir}/L2/component_draft.json\`.
 
 **Format**:
 ${mdCodeBlock}json
@@ -250,7 +239,7 @@ ${mdCodeBlock}
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 
-` + getPipelineOverview('L1-A'),
+` + getPipelineOverview('L2-A'),
                 token,
                 options.toolInvocationToken
             );
@@ -258,13 +247,13 @@ ${mdCodeBlock}
             // Loop for Review & Refine
             let componentList: ComponentDef[] = [];
             let l1RetryCount = 0;
-            const maxL1Retries = 6;
-            let isL1Success = false;
+            const maxL2Retries = 6;
+            let isL2Success = false;
 
-            while (l1RetryCount < maxL1Retries) {
-                logger.log('DeepWiki', `L1 Review/Refine Loop: ${l1RetryCount + 1}/${maxL1Retries}`);
+            while (l1RetryCount < maxL2Retries) {
+                logger.log('DeepWiki', `L2 Review/Refine Loop: ${l1RetryCount + 1}/${maxL2Retries}`);
 
-                const retryContextL1 = l1RetryCount > 0
+                const retryContextL2 = l1RetryCount > 0
                     ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
                     : '';
 
@@ -272,20 +261,20 @@ ${mdCodeBlock}
                 // Level 1-B: COMPONENT REVIEWER (Critique Only)
                 // ---------------------------------------------------------
                 await this.runPhase(
-                    `L1-B: Reviewer (Attempt ${l1RetryCount + 1})`,
+                    `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
                     'Critique component grouping',
-                    `# Component Reviewer Agent (L1-B)
+                    `# Component Reviewer Agent (L2-B)
 
 ## Role
-- **Your Stage**: L1-B Reviewer (Discovery Phase - Quality Gate)
-- **Core Responsibility**: Critique L1-A's draft - identify issues but do NOT fix them
+- **Your Stage**: L2-B Reviewer (Discovery Phase - Quality Gate)
+- **Core Responsibility**: Critique L2-A's draft - identify issues but do NOT fix them
 - **Critical Success Factor**: Verify files actually exist and are grouped logically
 
 ## Goal
 CRITIQUE the draft. Do NOT fix it yourself.
 
 ## Input
-- Read \`${intermediateDir}/L1/component_draft.json\`
+- Read \`${intermediateDir}/L2/component_draft.json\`
 - **Reference**: Use file listing tools and **read file contents** to verify groupings.
 
 ## Workflow
@@ -294,16 +283,16 @@ CRITIQUE the draft. Do NOT fix it yourself.
    - Are unrelated files incorrectly grouped just because they share a directory?
 2. **Verification**: Read sample files to verify they actually belong together.
 3. **File Existence Check**: Verify ALL file paths in the draft actually exist. Flag any non-existent files.
-4. Check for missing core files or included noise.${retryContextL1}
+4. Check for missing core files or included noise.${retryContextL2}
 
 ## Output
-Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
+Write a critique report to \`${intermediateDir}/L2/review_report.md\`.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 
-` + getPipelineOverview('L1-B'),
+` + getPipelineOverview('L2-B'),
                     token,
                     options.toolInvocationToken
                 );
@@ -312,29 +301,29 @@ Write a critique report to \`${intermediateDir}/L1/review_report.md\`.
                 // Level 1-C: COMPONENT REFINER (Fix & Finalize)
                 // ---------------------------------------------------------
                 await this.runPhase(
-                    `L1-C: Refiner (Attempt ${l1RetryCount + 1})`,
+                    `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
                     'Refine component list based on review',
-                    `# Component Refiner Agent (L1-C)
+                    `# Component Refiner Agent (L2-C)
 
 ## Role
-- **Your Stage**: L1-C Refiner (Discovery Phase - Final Output)
-- **Core Responsibility**: Merge L1-A draft with L1-B feedback into validated JSON
+- **Your Stage**: L2-C Refiner (Discovery Phase - Final Output)
+- **Core Responsibility**: Merge L2-A draft with L2-B feedback into validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
 
 ## Goal
 Create the FINAL component list.
 
 ## Input
-- Draft: \`${intermediateDir}/L1/component_draft.json\`
-- Review: \`${intermediateDir}/L1/review_report.md\`
+- Draft: \`${intermediateDir}/L2/component_draft.json\`
+- Review: \`${intermediateDir}/L2/review_report.md\`
 
 ## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
-3. Produce the valid JSON.${retryContextL1}
+3. Produce the valid JSON.${retryContextL2}
 
 ## Output
-- Write the FINAL JSON to \`${intermediateDir}/L1/component_list.json\`.
+- Write the FINAL JSON to \`${intermediateDir}/L2/component_list.json\`.
 - Format must be valid JSON array.
 
 ## Constraints
@@ -342,7 +331,7 @@ Create the FINAL component list.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 
-` + getPipelineOverview('L1-C'),
+` + getPipelineOverview('L2-C'),
                     token,
                     options.toolInvocationToken
                 );
@@ -350,7 +339,7 @@ Create the FINAL component list.
                 // ---------------------------------------------------------
                 // Check JSON validity
                 // ---------------------------------------------------------
-                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'component_list.json'));
+                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
                 try {
                     const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
                     const contentStr = new TextDecoder().decode(fileListContent);
@@ -360,93 +349,23 @@ Create the FINAL component list.
                         throw new Error('Parsed JSON is not a valid array or is empty.');
                     }
 
-                    logger.log('DeepWiki', `L1 Success: Identified ${componentList.length} logical components.`);
-                    isL1Success = true;
+                    logger.log('DeepWiki', `L2 Success: Identified ${componentList.length} logical components.`);
+                    isL2Success = true;
                     break; // Exit loop on success
                 } catch (e) {
-                    logger.error('DeepWiki', `L1 Attempt ${l1RetryCount + 1} Failed: ${e}`);
+                    logger.error('DeepWiki', `L2 Attempt ${l1RetryCount + 1} Failed: ${e}`);
                     l1RetryCount++;
                 }
             }
 
-            if (!isL1Success) {
-                throw new Error('L1 Discovery failed to produce valid components after retries. Pipeline stopped.');
+            if (!isL2Success) {
+                throw new Error('L2 Discovery failed to produce valid components after retries. Pipeline stopped.');
             }
 
             // Level 2: EXTRACTOR (Symbol-Level Parallel Extraction)
             // ---------------------------------------------------------
             // Each symbol (function/class/method) is processed by a separate subagent
             // Step 1: Extract symbols and generate skeleton files
-            // Step 2: Create a task for each symbol to fill in details
-
-            // Recursive symbol type for caching (children can have children)
-            interface CallInfo {
-                name: string;
-                file: string;
-                children?: CallInfo[];
-            }
-            interface ExtractedSymbol {
-                name: string;
-                kind: string;
-                detail: string;
-                startLine: number;
-                endLine: number;
-                children?: ExtractedSymbol[];
-                calls?: CallInfo[];
-                calledBy?: CallInfo[];
-            }
-
-            // Step 1: Extract symbols from all files and generate skeletons
-            interface L2FileData {
-                component: ComponentDef;
-                componentIndex: number;
-                file: string;
-                fileIndex: number;
-                skeletonPath: string;
-                symbols: ExtractedSymbol[]; // Cached symbols
-            }
-
-            const allL2FileData: L2FileData[] = [];
-            for (let i = 0; i < componentList.length; i++) {
-                const component = componentList[i];
-                for (let j = 0; j < component.files.length; j++) {
-                    const file = component.files[j];
-                    const fileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, file));
-
-                    const paddedComponentIndex = String(i + 1).padStart(3, '0');
-                    const componentDir = `${paddedComponentIndex}_${component.name}`;
-                    const fileName = path.basename(file);
-                    const skeletonPath = `${intermediateDir}/L2/${componentDir}/${fileName}.md`;
-
-                    // Extract symbols and enrich with call hierarchy (using utils)
-                    const symbols = await extractSymbolsFromFile(fileUri);
-                    const symbolsWithCalls = await enrichSymbolsWithCalls(fileUri, symbols);
-
-                    // Generate skeleton and write to file
-                    const skeleton = generateL2Skeleton(file, symbolsWithCalls);
-                    const skeletonUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, skeletonPath));
-                    await vscode.workspace.fs.createDirectory(vscode.Uri.file(path.dirname(skeletonUri.fsPath)));
-                    await vscode.workspace.fs.writeFile(skeletonUri, new TextEncoder().encode(skeleton));
-
-                    allL2FileData.push({
-                        component,
-                        componentIndex: i,
-                        file,
-                        fileIndex: j,
-                        skeletonPath,
-                        symbols: symbolsWithCalls // Cache symbols with call hierarchy
-                    });
-
-                    if (symbols.length > 0) {
-                        logger.log('DeepWiki', `L2: ${file} - skeleton generated with ${symbols.length} symbols`);
-                    } else {
-                        logger.log('DeepWiki', `L2: ${file} - no symbols found (Language Server may not be available)`);
-                    }
-                }
-            }
-
-            logger.log('DeepWiki', `L2: Generated skeletons for ${allL2FileData.length} files across ${componentList.length} components`);
-
 
             // ==================================================================================
             // PHASE 2: ANALYSIS & WRITING LOOP (Critical Failure Loop)
@@ -488,12 +407,11 @@ Create the FINAL component list.
 
 ## Input
 - **Assigned Component**: ${componentStr}
-- **L2 Extraction Files**: \`${intermediateDir}/L2/${paddedIndex}_${component.name}/\`
 - **Source Code Files**: The original source files listed in the component
 
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-2. Read L2 extraction files (programmatically generated, contains accurate symbol metadata: Kind, Lines, Detail, Calls, Called By) and source code files
+2. Read source code files for this component
 3. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
@@ -503,7 +421,7 @@ Create the FINAL component list.
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Causal Analysis Requirements
-Based on L2's extracted **Calls/Called By relationships**, analyze and document:
+Analyze the source code and document:
 
 ### Event Causality
 - **Event Chain**: Trace how events propagate (e.g., "User clicks button → \`click\` event → \`handleClick()\` → emits \`data.updated\` → \`onDataUpdated()\` triggers")
@@ -625,7 +543,7 @@ Create a system-level overview based on ALL available L3 analysis.
 Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
 
 ## Workflow
-1. Read L3 analysis files and source code (L2/L3 may contain errors - verify against source)
+1. Read L3 analysis files and source code
 2. Define High-Level Architecture → Use \`applyPatch\` to write \`overview.md\`
 3. **Build System-Wide Causal Map** → Use \`applyPatch\` to write
    - Cross-component event flows: How events propagate between components
