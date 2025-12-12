@@ -197,10 +197,9 @@ Create an INITIAL draft of logical components based on **what the code does**, n
 ## Output
 Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_draft.json\`.
 
-**Format**:
-${mdCodeBlock}json
+**Format (raw JSON; no backticks, no fences)**:
+Example:
 ${jsonExample}
-${mdCodeBlock}
 
 > IMPORTANT: the file content must be raw JSON only. Your chat reply: one short confirmation line.
 
@@ -208,6 +207,8 @@ ${mdCodeBlock}
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
+4. **Naming**: \`name\` must be filename-safe across platforms (avoid \`<>:"/\\\\|?*\`; no leading/trailing spaces).
+5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
 ` + getPipelineOverview('L2-A'),
                 token,
@@ -598,10 +599,9 @@ Create an INITIAL draft of page structure by analyzing L3 outputs.
 ## Output
 Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
 
-**Format**:
-${mdCodeBlock}json
+**Format (raw JSON; no backticks, no fences)**:
+Example:
 ${pageStructureExample}
-${mdCodeBlock}
 
 **Rules**:
 - Every component from the input list MUST appear in exactly one page group
@@ -611,6 +611,8 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Naming**: \`pageName\` must be a filename-safe page slug across platforms (avoid \`<>:"/\\\\|?*\`; no leading/trailing spaces).
+4. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
 ` + getPipelineOverview('L5-Pre'),
                     token,
@@ -831,7 +833,7 @@ Write files to \`${outputPath}/pages/\`.
 3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
 4. **Do NOT include raw source code or implementation details.**
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references. If you include signatures, keep them short (no bodies).
-6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory: [Page Name](PageName.md)
+6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory. If filenames contain spaces, wrap link targets in angle brackets, e.g. \`[Page Name](<Page Name.md>)\`.
 
 ` + getPipelineOverview('L5'),
                         token,
@@ -1039,7 +1041,7 @@ Insert exactly:
 
 ### 2. Components
 For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
-- Link: [PageName](pages/PageName.md)
+- Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
 - One-line description using the rationale.
 
 ### 3. Quick self-check
