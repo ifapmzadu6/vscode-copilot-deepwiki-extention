@@ -97,62 +97,57 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             await this.runPhase(
                 'L1: Project Context Analyzer',
                 'Analyze project environment and context',
-                `# Project Context Analyzer Agent (L1)
+	                `# Project Context Analyzer Agent (L1)
 
 ## Role
-- **Your Stage**: L1 Analyzer (Pre-Discovery Phase)
-- **Core Responsibility**: Understand project structure, build system, and conditional code patterns
-- **Critical Success Factor**: Provide context that helps subsequent agents understand which code is active/conditional
+- **Your Stage**: L1 Analyzer (Pre-Discovery)
+- **Core Responsibility**: Capture project type, build system, and conditional/active code patterns
+- **Critical Success Factor**: Downstream agents must rely on this to avoid documenting inactive/generated code
 
 ## Goal
-Analyze the project and create a context document for downstream agents.
+Create a concise but accurate project context document for later stages.
 
 ## Workflow
-1. Detect Project Type, Languages, Build System → Use \`applyPatch\` to write "## Overview" section
-2. Identify Target Environments → Use \`applyPatch\` to write "## Target Environments" table
-3. Find Conditional Patterns → Use \`applyPatch\` to write "## Conditional Code Patterns" section
-   - C/C++: \`#ifdef\`, \`#if defined\`, \`#ifndef\`
-   - Python: \`if TYPE_CHECKING\`, platform checks, \`sys.platform\`
-   - JS/TS: \`process.env\` checks, feature flags
-4. Note Generated/Excluded Code → Use \`applyPatch\` to write "## Generated/Excluded Code" section
-5. Add important notes for downstream agents → Use \`applyPatch\` to write "## Notes for Analysis" section
+1. Detect project type, languages, build/entry points → write "## Overview"
+2. Identify target environments (runtime/platforms) → write "## Target Environments"
+3. Find conditional patterns/feature flags (e.g., \`#ifdef\`, \`process.env\`) → write "## Conditional Code Patterns"
+4. List generated/vendor/test/excluded code paths → write "## Generated/Excluded Code"
+5. Add any analysis notes that affect interpretation → write "## Notes for Analysis"
+6. Quick self-check: sections are filled and grounded in actual files.
 
 ## Output
-Write to \`${intermediateDir}/L1/project_context.md\`
-
-Use this format:
+Write Markdown to \`${intermediateDir}/L1/project_context.md\` using this structure (example only; do not wrap the whole file in fences):
 ${mdCodeBlock}markdown
 # Project Context
 
 ## Overview
-- **Project Type**: [e.g., Web Application, Embedded Firmware, CLI Tool, VS Code Extension]
-- **Languages**: [e.g., TypeScript (80%), Python (20%)]
-- **Build System**: [e.g., npm, Makefile, CMake] (entry point file if applicable)
+- **Project Type**: ...
+- **Languages**: ...
+- **Build System**: ...
 
 ## Target Environments
 | Environment | Description |
 |------------|-------------|
-| [env name] | [description] |
+| ... | ... |
 
 ## Conditional Code Patterns
-[Describe patterns found in the codebase]
-- Pattern: [e.g., #ifdef FEATURE_X]
-- Examples: [list of flags/conditions found]
-- Affected files: [files where this pattern appears]
+- Pattern: ...
+- Examples: ...
+- Affected files: ...
 
 ## Generated/Excluded Code
-- **Generated**: [paths to auto-generated code]
-- **Vendor/External**: [paths to external dependencies]
-- **Test Code**: [paths to test files]
+- **Generated**: ...
+- **Vendor/External**: ...
+- **Test Code**: ...
 
 ## Notes for Analysis
-[Any important context for downstream agents, e.g., "Feature flags are defined in config.h"]
+...
 ${mdCodeBlock}
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
+2. **Chat Final Response**: One short confirmation line. Do not include file contents.
+3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
 
 ` + getPipelineOverview('L1'),
                 token,
@@ -505,41 +500,42 @@ Write to \`${intermediateDir}/L3/validation_failures.json\`:
                 await this.runPhase(
                     `L4: Architect (Loop ${loopCount + 1})`,
                     'Update system overview and maps',
-                    `# Architect Agent (L4)
+	                    `# Architect Agent (L4)
 
 ## Role
-- **Your Stage**: L4 Architect (Analysis Loop - System Overview)
-- **Core Responsibility**: See the big picture - map component relationships and architectural decisions
-- **Critical Success Factor**: Indexer uses your overview for the final README - explain the "why" behind the architecture
+- **Your Stage**: L4 Architect (Analysis Loop)
+- **Core Responsibility**: Synthesize system-level architecture and cross-component causality
+- **Critical Success Factor**: Indexer depends on your clarity and correctness
 
 ## Goal
-Create a system-level overview based on ALL available L3 analysis.
+Produce a coherent system overview from ALL L3 analyses.
 
 ## Input
-Read ALL files in \`${intermediateDir}/L3/\` (including those from previous loops).
+Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any necessary source files.
 
 ## Workflow
-1. Read L3 analysis files and source code
-2. Define High-Level Architecture → Use \`applyPatch\` to write \`overview.md\`
-3. **Build System-Wide Causal Map** → Use \`applyPatch\` to write
-   - Cross-component event flows: How events propagate between components
-   - Shared state dependencies: Which components share or depend on common state
-   - Cascade effects: "If Component A's state changes, Components B and C are affected"
-4. Explain the 'Why' behind architectural decisions → Use \`applyPatch\` to write
-5. Create Mermaid diagrams → Use \`applyPatch\` to write \`relationships.md\`
-   - **Required**: At least one \`stateDiagram-v2\` showing cross-component state/event flow
-   - **Recommended**: \`C4Context\`, \`sequenceDiagram\` (for event chains), \`classDiagram\`, \`block\`
-   - **Forbidden**: \`flowchart\`, \`graph TD\`
+1. Read L3 analysis and confirm key responsibilities/links.
+2. Write \`${intermediateDir}/L4/overview.md\`:
+   - high-level architecture, major components, rationale ("why this shape?")
+3. Write \`${intermediateDir}/L4/relationships.md\`:
+   - cross-component event/state causality map
+   - include diagrams (see below)
+4. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
+
+## Diagrams
+- **Required**: at least one \`stateDiagram-v2\` for cross-component state/event flow
+- **Recommended**: \`C4Context\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
+- **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
-- Write to \`${intermediateDir}/L4/overview.md\`
-- Write to \`${intermediateDir}/L4/relationships.md\`
-- Include at least TWO diagrams
+- \`${intermediateDir}/L4/overview.md\`
+- \`${intermediateDir}/L4/relationships.md\`
+- Include at least TWO diagrams total.
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
+2. **Chat Final Response**: One short confirmation line. Do not include file contents.
+3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
 
 ` + getPipelineOverview('L4'),
                     token,
@@ -1005,74 +1001,61 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             await this.runPhase(
                 'Indexer',
                 'Create README and Sidebar',
-                `# Indexer Agent
+	                `# Indexer Agent
 
 ## Role
-- **Your Stage**: Indexer (Final Stage)
-- **Core Responsibility**: Create a high-quality README that serves as the definitive entry point for understanding this codebase
-- **Critical Success Factor**: The README should answer "What is this? How is it organized? Where do I start?" within the first screen
+- **Your Stage**: Indexer (Final)
+- **Core Responsibility**: Synthesize L4/L5 outputs into a high‑quality landing README
+- **Critical Success Factor**: First screen should answer "What is this? How is it organized? Where do I start?"
 
 ## Input
-- Read \`${intermediateDir}/L4/overview.md\`
-- Read \`${intermediateDir}/L4/relationships.md\`
-- **Read \`${intermediateDir}/L5/page_structure.json\`** - This defines the EXACT pages and their components
-- Scan \`${outputPath}/pages/\`
+- \`${intermediateDir}/L4/overview.md\`
+- \`${intermediateDir}/L4/relationships.md\`
+- \`${intermediateDir}/L5/page_structure.json\` (source of truth for pages)
+- All files under \`${outputPath}/pages/\`
 
 ## Workflow
-Create \`${outputPath}/README.md\` with the following CONTENT sections (in order):
+Create \`${outputPath}/README.md\` with these sections in order:
 
-### 0. Disclaimer (at the very top)
-Add this exact text at the very beginning of the README:
+### 0. Disclaimer (top)
+Insert exactly:
 > **Note**: This documentation was auto-generated by an LLM. While we strive for accuracy, please refer to the source code for authoritative information.
 
 ### 1. Architecture Overview
+**A. One-Line Summary** — one sentence for the whole system.
 
-**A. One-Line Summary**
-Summarize the ENTIRE system in ONE sentence.
+**B. System Context (C4Context) — REQUIRED**
+- 2–3 sentence preface, then diagram.
+- High-level only (5–7 nodes).
 
-**B. System Context (C4Context diagram) - REQUIRED**
-Show how this system fits in the bigger picture:
-- Write 2-3 sentences explaining the system context BEFORE the diagram
-- Use \`C4Context\` Mermaid diagram
-- Show: external systems/users, system boundaries
-- Keep it high-level (5-7 nodes max)
+**C. Core State Transitions (stateDiagram-v2) — REQUIRED**
+- 2–3 sentence preface, then diagram.
+- Show main states and triggers only.
 
-**C. Core State Transitions (stateDiagram-v2) - REQUIRED**
-Show the fundamental state machine of the system:
-- Write 2-3 sentences explaining the state flow BEFORE the diagram
-- Use \`stateDiagram-v2\` Mermaid diagram
-- Show: main states, what triggers transitions
-- Focus on the CORE flow, not edge cases
-
-**D. Component Overview (block) - REQUIRED**
-**CRITICAL: Use page_structure.json as the source of truth.**
-- The block diagram MUST match EXACTLY the pages listed in \`${intermediateDir}/L5/page_structure.json\`
-- Each block in the diagram = one page from page_structure.json
-- Write 2-3 sentences explaining the component structure BEFORE the diagram
-- Use \`block\` Mermaid diagram
-- **Nesting rules**: One level of nesting is OK (box inside box for grouping). Deeper nesting (box inside box inside box) is FORBIDDEN.
-- **Arrows (-->) are forbidden** in block diagrams
-- This should serve as a VISUAL TABLE OF CONTENTS that matches the Components section
+**D. Component Overview (block) — REQUIRED**
+- Must match pages in \`${intermediateDir}/L5/page_structure.json\` exactly.
+- Each block = one page; no arrows; max one nesting level.
+- 2–3 sentence preface, then diagram.
 
 ### 2. Components
-**CRITICAL: Use page_structure.json as the source of truth.**
 For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
-- **Name** with link to its page: [PageName](pages/PageName.md)
-- **One-line description** of what it covers (use the rationale from page_structure.json)
+- Link: [PageName](pages/PageName.md)
+- One-line description using the rationale.
+
+### 3. Quick self-check
+- All three diagrams present and render.
+- Components list matches page_structure exactly.
+- No links to intermediate files.
 
 ## Output
-- Write README.md to \`${outputPath}/README.md\`
+Write Markdown to \`${outputPath}/README.md\` (no fences around the whole file).
 
 ## Constraints
-1. **Scope**: Do NOT Modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: You have a limited token budget. Write incrementally.
-   - Do NOT: Analyze all items then write all at end
-   - DO: Analyze one item, write immediately, then move to next
-   - Create file with first section, then use \`applyPatch\` to write each section IMMEDIATELY after analyzing it.
-4. **Sanitize Intermediate Links**: REMOVE or REWRITE any references to intermediate directory files (e.g., intermediate/, ../L3/, ../L4/). Only include links to final pages in the \`pages/\` directory.
-5. **Synthesize, Don't Dump**: Do NOT just copy L4 Overview - synthesize it into the sections above.
-6. **Required Diagrams**: All 3 diagrams (C4Context, stateDiagram, block) are REQUIRED.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
+2. **Chat Final Response**: One short confirmation line. Do not include file contents.
+3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
+4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
+5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
 
 ` + getPipelineOverview('Indexer'),
                 token,
