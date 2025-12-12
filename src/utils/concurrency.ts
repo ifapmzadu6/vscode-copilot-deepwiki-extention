@@ -144,4 +144,4 @@ export async function runWithConcurrencyLimit<T>(
  * Default maximum concurrency for subagent execution.
  * This value balances throughput with API rate limits.
  */
-export const DEFAULT_MAX_CONCURRENCY = 2;
+export const DEFAULT_MAX_CONCURRENCY = 1;
