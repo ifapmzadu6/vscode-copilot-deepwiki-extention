@@ -406,26 +406,44 @@ Create the FINAL component list.
 3. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
-   - **Causal Analysis** (see below)
+   - **Causal Analysis** (use the template below; do not rename headings)
 4. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
-## Causal Analysis Requirements
-Analyze the source code and document:
+## Causal Analysis Template (MANDATORY)
+Write a \`## Causal Analysis\` section and include the following headings EXACTLY (fill all that apply; if truly not applicable, write "N/A" and explain why).
 
-### Event Causality
-- **Event Chain**: Trace how events propagate (e.g., "User clicks button → \`click\` event → \`handleClick()\` → emits \`data.updated\` → \`onDataUpdated()\` triggers")
-- **Event Sources**: Where do events originate? (user actions, timers, external APIs)
-- **Event Consumers**: Who listens and what do they do?
+### Trigger(s)
+- What initiates behavior? (API calls, commands, UI events, timers, background jobs, extension activation, etc.)
 
-### State Causality
-- **State Dependencies**: Which states depend on other states? (e.g., "\`isLoading\` must be false before \`data\` can be set")
-- **Mutation Triggers**: What causes state changes? (events, function calls, lifecycle hooks)
-- **Downstream Effects**: What happens when state X changes? (UI re-renders, side effects, other state updates)
+### Preconditions & Guards
+- Feature flags, environment checks, permission checks, validation, early returns.
 
-### Causal Diagram
-Create a \`stateDiagram-v2\` showing state transitions with event triggers:
+### Step-by-Step Causal Chain
+- A → B → C in the order it happens (name key functions/classes; mention where control transfers).
+
+### State & Data (Read/Write)
+- What data/state is read or written? (in-memory, files, DB, caches). Include the "source of truth".
+
+### Boundaries (Async/Thread/Transaction)
+- Where async boundaries occur (await/promise/event emitter), transaction boundaries, queues/RPC boundaries.
+
+### Side Effects & External I/O
+- File system writes, network calls, VS Code APIs that mutate workspace/editor state, logging/telemetry.
+
+### Error Paths & Retries
+- Failure modes and propagation (throws, error returns), retry loops/backoff, user-facing errors.
+
+### Invariants (Postconditions)
+- Conditions that must hold after success (and after failure, if relevant).
+
+### Causal Diagram(s)
+- Include at least ONE diagram that matches the dominant causality:
+  - \`stateDiagram-v2\` for state transitions (include event triggers on edges)
+  - \`sequenceDiagram\` for request/event flow (show caller/callee and async hops)
+
+Example \`stateDiagram-v2\` (event triggers on edges):
 \`\`\`mermaid
 stateDiagram-v2
     [*] --> Idle
