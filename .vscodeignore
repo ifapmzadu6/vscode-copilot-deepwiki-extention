@@ -1,8 +1,12 @@
 .vscode/**
 .vscode-test/**
 src/**
+.deepwiki/**
+docs/**
 .gitignore
 .yarnrc
+.eslintignore
+.eslintrc.cjs
 vsc-extension-quickstart.md
 **/tsconfig.json
 **/.eslintrc.json
