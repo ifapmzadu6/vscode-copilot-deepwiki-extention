@@ -6,7 +6,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
--   **Multi-Stage Pipeline**: Follows a robust 7-level (L1-L6) process, where each agent builds upon the previous one's output.
+-   **Multi-Stage Pipeline**: Follows a robust multi-level (L1-L6) process plus Indexer and Final QA, where each agent builds upon the previous one's output.
 -   **Self-Correction Loop**: L2 Discoverer, L5-Pre Page Consolidator, and L6 Page Reviewer can request re-analysis for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L2 and L5-Pre loops.
 -   **Parallel Processing**: Analyzes logical components in parallel for faster execution. Concurrency is limited to 3 parallel agents to prevent API rate limiting. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
@@ -17,7 +17,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 ## Generation Pipeline
 
-The extension orchestrates a sophisticated **7-level agentic pipeline** with two 3-stage refinement loops to generate high-quality documentation:
+The extension orchestrates a sophisticated multi-stage agentic pipeline with two 3-stage refinement loops to generate high-quality documentation:
 
 ```mermaid
 stateDiagram-v2
@@ -27,12 +27,15 @@ stateDiagram-v2
     L2: L2 Discoverer
     L3: L3 Analyzer (Parallel)
     L3V: L3-V Validator
+    L3R: L3-R Reviewer
     L4: L4 Architect
     L5Pre: L5-Pre Page Consolidator
     L5: L5 Writer (Parallel)
     L5V: L5-V Validator
     L6: L6 Reviewer
-    Indexer: Indexer
+    L7: L7 Indexer
+    L8: L8 Final QA (README)
+    L9: L9 Final QA (Release Gate)
     Done: Final Docs
 
     L1 --> L2
@@ -49,7 +52,9 @@ stateDiagram-v2
     
     L3 --> L3V
     L3V --> L3: Files Missing
-    L3V --> L4: All Files Present
+    L3V --> L3R: Outputs OK
+    L3R --> L3: Needs Re-analysis
+    L3R --> L4: Quality OK
     
     L4 --> L5Pre
     
@@ -70,9 +75,11 @@ stateDiagram-v2
     L5V --> L6: All Files Present
     
     L6 --> L3: Critical Issues Found
-    L6 --> Indexer: Quality OK
+    L6 --> L7: Quality OK
     
-    Indexer --> Done
+    L7 --> L8
+    L8 --> L9
+    L9 --> Done
     Done --> [*]
 ```
 
@@ -114,6 +121,7 @@ This phase consolidates similar components into single cohesive pages, reducing 
 
 ### 6. Level 5: WRITER (Parallel)
 Generates the final documentation pages based on `page_structure.json` (`pages/{PageName}.md`). When multiple components are consolidated into one page, weaves their descriptions together cohesively. Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
+-   **Grounding via Sources**: Each page includes a `## Sources` section listing the source files used to justify claims.
 
 **L5-V Validator**: After writing completes, validates that all expected page files exist. If files are missing, triggers automatic retry for failed pages using the same writing logic.
 
@@ -123,7 +131,7 @@ Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, c
 -   **Self-Correction**: Directly fixes minor issues in the pages.
 -   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5-Pre, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
 
-### 8. Indexer
+### 8. Level 7: Indexer
 Compiles the landing page (`README.md`) with:
 -   **One-Line Summary**: Single sentence describing the entire system
 -   **System Context**: C4Context diagram showing external interactions
@@ -131,12 +139,23 @@ Compiles the landing page (`README.md`) with:
 -   **Component Overview**: block diagram serving as a visual table of contents
 -   **Component List**: Links to all generated pages with descriptions
 
+### 9. Level 8: Final QA (README Verifier)
+Re-checks `.deepwiki/README.md` claims/diagrams against generated pages (and source code as needed).
+
+### 10. Level 9: Final QA (Release Gate)
+Final integrity pass over generated docs: removes intermediate references/placeholders and fixes any broken final links.
+
 ## Usage
 
 1.  Open a workspace in VS Code
 2.  Open Copilot Chat (Ctrl+Shift-I or Cmd-Shift-I)
 3.  Type: `@workspace #createDeepWiki`
 4.  The tool will orchestrate agents to generate documentation in the `.deepwiki` folder.
+
+## Hallucination Mitigation (Fact Check)
+
+During generation, the extension runs AI review passes that verify claims against actual source code, removing anything unverifiable, and finishes with an AI-only cleanup pass that removes intermediate links and placeholders.
+- Writes reports under `.deepwiki/intermediate/L8/` and `.deepwiki/intermediate/L9/`
 
 ## Logging & Troubleshooting
 
@@ -161,20 +180,16 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── component_draft.json    # Initial draft from L2-A
     │   ├── review_report.md        # Review from L2-B
     │   └── component_list.json     # Final component list from L2-C
-    ├── L2/                 # Extraction phase outputs (1 file per source file)
-    │   ├── 001_AuthModule/         # Component directory
-    │   │   ├── auth.ts.md
-    │   │   ├── session.ts.md
-    │   │   └── ...
-    │   ├── 002_Utils/
-    │   │   └── utils.ts.md
-    │   ├── validation_failures.json  # (temporary, lists failed components for retry)
-    │   └── ...
     ├── L3/                 # Analysis phase outputs (1 component per file)
     │   ├── 001_AuthModule_analysis.md
     │   ├── 002_Utils_analysis.md
-    │   ├── validation_failures.json  # (temporary, lists failed components for retry)
     │   └── ...
+    ├── L3V/                # L3 validator outputs
+    │   └── validation_failures.json  # (temporary, lists failed components for retry)
+    ├── L3R/                # L3 review gate outputs
+    │   ├── 001_Component_review.md
+    │   ├── 002_Component_review.md
+    │   └── 001_Component_retry.json      # (temporary, deleted after processing)
     ├── L4/                 # Architecture phase outputs
     │   ├── overview.md
     │   └── relationships.md
@@ -182,9 +197,17 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── page_structure_draft.json    # Initial draft from L5-Pre-A
     │   ├── page_structure_review.md     # Review from L5-Pre-B
     │   ├── page_structure.json          # Final page structure from L5-Pre-C
+    │   └── ...
+    ├── L5V/                # L5 validator outputs
     │   └── page_validation_failures.json  # (temporary, lists failed pages for retry)
     └── L6/                 # Review phase outputs
         └── retry_request.json      # (temporary, deleted after processing)
+    ├── L7/                 # Indexer artifacts
+    │   └── indexer_report.md        # Indexer summary
+    ├── L8/                 # Final QA (README verifier)
+    │   └── factcheck_report.md      # Fact-check summary
+    └── L9/                 # Final QA (Release gate)
+        └── release_gate_report.md   # Final integrity pass summary
 ```
 
 ## Requirements
