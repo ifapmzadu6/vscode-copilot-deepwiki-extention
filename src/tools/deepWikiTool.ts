@@ -414,7 +414,7 @@ Create the FINAL component list.
 ## Grounding (MANDATORY)
 - Be objective and grounded in the assigned source files.
 - For each bullet you write, include at least one concrete anchor: a file path and/or a real identifier (function/class/command/event name) that exists in the code.
-- If something cannot be verified from the source files, write "Unknown" and explain what would be needed to confirm it.
+- Do NOT write "Unknown" inside the main analysis sections. If something cannot be verified from the source files, record it under "## Open Questions (Need Verification)" at the end, and explain what would be needed to confirm it.
 
 ## Causal Analysis Template (MANDATORY)
 Write a \`## Causal Analysis\` section and include the following headings EXACTLY (fill all that apply; if truly not applicable, write "N/A" and explain why).
@@ -464,6 +464,12 @@ stateDiagram-v2
 
 ## Output
 Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+
+## Open Questions (Need Verification)
+If any critical detail cannot be verified from the assigned source files, add this final section (otherwise omit it):
+- Question/uncertainty
+- Why it is uncertain (what evidence is missing)
+- What file/config/runtime evidence would confirm it
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
@@ -522,6 +528,7 @@ ${l3ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
      - \`### Invariants (Postconditions)\`
      - \`### Causal Diagram(s)\`
    - Includes at least one Mermaid diagram block (\`\`\`mermaid ... \`\`\`) under \`### Causal Diagram(s)\`
+   - If the string "Unknown" appears, it must ONLY appear under a final section titled exactly \`## Open Questions (Need Verification)\` (otherwise fail)
 4. Always write a short report to \`${intermediateDir}/L3V/validation_report.md\`:
    - Missing components
    - Components that failed sanity checks (brief reason)
