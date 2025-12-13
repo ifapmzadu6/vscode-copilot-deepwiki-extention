@@ -411,6 +411,11 @@ Create the FINAL component list.
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
+## Grounding (MANDATORY)
+- Be objective and grounded in the assigned source files.
+- For each bullet you write, include at least one concrete anchor: a file path and/or a real identifier (function/class/command/event name) that exists in the code.
+- If something cannot be verified from the source files, write "Unknown" and explain what would be needed to confirm it.
+
 ## Causal Analysis Template (MANDATORY)
 Write a \`## Causal Analysis\` section and include the following headings EXACTLY (fill all that apply; if truly not applicable, write "N/A" and explain why).
 
@@ -426,6 +431,10 @@ Write a \`## Causal Analysis\` section and include the following headings EXACTL
 ### State & Data (Read/Write)
 - What data/state is read or written? (in-memory, files, DB, caches). Include the "source of truth".
 
+### State Inventory (for Diagram)
+- List the key states you will use in the \`stateDiagram-v2\`.
+- For each state, define it in terms of concrete code conditions (e.g., boolean flags, enum values, object lifecycle, file presence).
+
 ### Boundaries (Async/Thread/Transaction)
 - Where async boundaries occur (await/promise/event emitter), transaction boundaries, queues/RPC boundaries.
 
@@ -439,8 +448,8 @@ Write a \`## Causal Analysis\` section and include the following headings EXACTL
 - Conditions that must hold after success (and after failure, if relevant).
 
 ### Causal Diagram(s)
-- **Default requirement**: Include a \`stateDiagram-v2\` for state transitions (include event triggers on edges).
-- **Fallback (only if truly not applicable)**: Use a \`sequenceDiagram\` instead, and explicitly explain in the text why a state machine is not a good fit for this component.
+- **Default requirement**: Include a \`stateDiagram-v2\` for state transitions (include event triggers on edges) using the states from "State Inventory".
+- **Fallback (only if truly not applicable)**: Use a \`sequenceDiagram\` instead, and explicitly explain why a state machine is not a good fit (e.g., pure stateless utilities/types/config with no meaningful triggers/state transitions).
 
 Example \`stateDiagram-v2\` (event triggers on edges):
 \`\`\`mermaid
@@ -500,6 +509,19 @@ ${l3ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
 3. For each PRESENT file, do quick sanity checks:
    - Not empty / not a placeholder stub
    - Contains at least a title and some substantive content (not just headings)
+   - Contains a \`## Causal Analysis\` section
+   - Contains ALL required headings under Causal Analysis:
+     - \`### Trigger(s)\`
+     - \`### Preconditions & Guards\`
+     - \`### Step-by-Step Causal Chain\`
+     - \`### State & Data (Read/Write)\`
+     - \`### State Inventory (for Diagram)\`
+     - \`### Boundaries (Async/Thread/Transaction)\`
+     - \`### Side Effects & External I/O\`
+     - \`### Error Paths & Retries\`
+     - \`### Invariants (Postconditions)\`
+     - \`### Causal Diagram(s)\`
+   - Includes at least one Mermaid diagram block (\`\`\`mermaid ... \`\`\`) under \`### Causal Diagram(s)\`
 4. Always write a short report to \`${intermediateDir}/L3V/validation_report.md\`:
    - Missing components
    - Components that failed sanity checks (brief reason)
