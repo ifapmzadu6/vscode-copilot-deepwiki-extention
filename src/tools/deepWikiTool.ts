@@ -439,9 +439,8 @@ Write a \`## Causal Analysis\` section and include the following headings EXACTL
 - Conditions that must hold after success (and after failure, if relevant).
 
 ### Causal Diagram(s)
-- Include at least ONE diagram that matches the dominant causality:
-  - \`stateDiagram-v2\` for state transitions (include event triggers on edges)
-  - \`sequenceDiagram\` for request/event flow (show caller/callee and async hops)
+- **Default requirement**: Include a \`stateDiagram-v2\` for state transitions (include event triggers on edges).
+- **Fallback (only if truly not applicable)**: Use a \`sequenceDiagram\` instead, and explicitly explain in the text why a state machine is not a good fit for this component.
 
 Example \`stateDiagram-v2\` (event triggers on edges):
 \`\`\`mermaid
