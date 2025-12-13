@@ -75,6 +75,7 @@ dist/
 *.wasm
 *.mjs
 *.cjs
+!.eslintrc.cjs
 *.map
 src/**/*.js
 src/**/*.d.ts
@@ -139,10 +140,8 @@ _site/
 # Rust
 target/
 
-# Package Lock files
-package-lock.json
-yarn.lock
-pnpm-lock.yaml
+# Package lock files are typically committed to ensure reproducible installs.
+# (If you prefer otherwise, ignore them in your user/global gitignore instead.)
 
 # macOS
 .DS_Store

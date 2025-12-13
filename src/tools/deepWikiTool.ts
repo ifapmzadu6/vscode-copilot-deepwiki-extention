@@ -605,10 +605,9 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
                 // Input: All L3 analysis files (even from previous loops)
                 // ---------------------------------------------------------
-                const bq = '`'; // Define backtick for Mermaid in L4 prompt
-                await this.runPhase(
-                    `L4: Architect (Loop ${loopCount + 1})`,
-                    'Update system overview and maps',
+	                await this.runPhase(
+	                    `L4: Architect (Loop ${loopCount + 1})`,
+	                    'Update system overview and maps',
 	                    `# Architect Agent (L4)
 
 ## Role
