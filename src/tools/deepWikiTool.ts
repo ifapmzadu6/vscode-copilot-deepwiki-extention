@@ -72,7 +72,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 	        // Function to generate pipeline overview with current stage highlighted
 	        const getPipelineOverview = (currentStage: string) => `
 	## Pipeline Overview (short)
-	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5-Pre Group Pages${currentStage.startsWith('L5-Pre') ? ' ← YOU' : ''} → L5 Write Pages${currentStage === 'L5' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → Indexer${currentStage === 'Indexer' ? ' ← YOU' : ''}
+	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-V Validate${currentStage === 'L3V' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5-Pre Group Pages${currentStage.startsWith('L5-Pre') ? ' ← YOU' : ''} → L5 Write Pages${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
 	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
 	`;
 
@@ -84,6 +84,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         interface ComponentDef { name: string; files: string[]; description: string }
 
         try {
+            // Pre-create intermediate level directories so all phases can reliably write artifacts.
+            for (const level of ['L1', 'L2', 'L3', 'L3V', 'L3R', 'L4', 'L5', 'L5V', 'L6', 'L7', 'L8', 'L9']) {
+                const dirUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, level));
+                await vscode.workspace.fs.createDirectory(dirUri);
+            }
+
             // ==================================================================================
             // PHASE 0: PROJECT CONTEXT ANALYSIS (Environment Understanding)
             // This phase runs once to understand the project structure and build environment.
@@ -451,7 +457,7 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
                     `# L3 Validator Agent
 
 ## Role
-Check that all expected L3 analysis files exist.
+Quality gate for L3 outputs: ensure expected analysis files exist and are minimally usable for downstream stages.
 
 ## Expected Files
 Directory: \`${intermediateDir}/L3/\`
@@ -460,14 +466,20 @@ ${l3ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
 
 ## Workflow
 1. List files in \`${intermediateDir}/L3/\`
-2. Compare against expected files above
-3. If ALL files exist → Write empty array to \`${intermediateDir}/L3/validation_failures.json\`
-4. If ANY files are MISSING → Write JSON array of missing component names to \`${intermediateDir}/L3/validation_failures.json\`
+2. Compare against expected files above and identify missing files
+3. For each PRESENT file, do quick sanity checks:
+   - Not empty / not a placeholder stub
+   - Contains at least a title and some substantive content (not just headings)
+4. Always write a short report to \`${intermediateDir}/L3V/validation_report.md\`:
+   - Missing components
+   - Components that failed sanity checks (brief reason)
+5. If ALL files exist AND pass sanity checks → Write empty array to \`${intermediateDir}/L3V/validation_failures.json\`
+6. If ANY files are missing OR fail sanity checks → Write JSON array of component names that must be retried to \`${intermediateDir}/L3V/validation_failures.json\`
 
 ## Output
-Write to \`${intermediateDir}/L3/validation_failures.json\`:
+Write to \`${intermediateDir}/L3V/validation_failures.json\`:
 - If all present: \`[]\`
-- If missing: \`["Component A", "Component B"]\`
+- If retry needed: \`["Component A", "Component B"]\`
 
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
@@ -477,7 +489,7 @@ Write to \`${intermediateDir}/L3/validation_failures.json\`:
                 );
 
                 // Check L3 validation result and retry failed components
-                const l3FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', 'validation_failures.json'));
+                const l3FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3V', 'validation_failures.json'));
                 let l3FailedComponents: string[] = [];
                 try {
                     const content = await vscode.workspace.fs.readFile(l3FailuresUri);
@@ -491,6 +503,89 @@ Write to \`${intermediateDir}/L3/validation_failures.json\`:
                     const failedL3Components = componentsToAnalyze.filter(c => l3FailedComponents.includes(c.name));
                     const l3RetryTasks = failedL3Components.map(createL3Task);
                     await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Retry (Loop ${loopCount + 1})`, token);
+                }
+
+                // ---------------------------------------------------------
+                // L3-R: REVIEWER (Deeper review of each component analysis; parallel)
+                // ---------------------------------------------------------
+                const createL3RTask = (component: ComponentDef) => {
+                    const componentStr = JSON.stringify(component);
+                    const originalIndex = componentList.findIndex(c => c.name === component.name);
+                    const paddedIndex = String(originalIndex + 1).padStart(3, '0');
+                    const analysisFile = `${paddedIndex}_${component.name}_analysis.md`;
+                    const reviewFile = `${paddedIndex}_${component.name}_review.md`;
+                    const retryFile = `${paddedIndex}_${component.name}_retry.json`;
+                    return () => this.runPhase(
+                        `L3-R: Reviewer (Loop ${loopCount + 1}, ${component.name})`,
+                        `Review L3 analysis`,
+                        `# L3 Reviewer Agent (L3-R)
+
+## Role
+- **Your Stage**: L3-R Reviewer (Quality Gate)
+- **Core Responsibility**: Review the L3 analysis for correctness and usefulness before L4 synthesis.
+- **Critical Success Factor**: Catch wrong/invented statements early so they don't propagate.
+
+## Input
+- **Assigned Component**: ${componentStr}
+- Component list (source of truth): \`${intermediateDir}/L2/component_list.json\`
+- L3 analysis file: \`${intermediateDir}/L3/${analysisFile}\`
+
+## Workflow
+1. Open the L3 analysis file and the component's source files.
+2. Verify at least 3 concrete claims in the analysis against ACTUAL SOURCE CODE (APIs, control flow, events, state changes).
+3. If you find an unverifiable or wrong claim: delete or rewrite the smallest possible part in the L3 analysis (do not guess).
+4. If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
+5. Ensure diagrams (if present) are consistent with code; remove/adjust broken or misleading diagrams.
+6. Write a short review note to \`${intermediateDir}/L3R/${reviewFile}\`:
+   - What you verified
+   - What you changed (if any)
+   - Remaining concerns (if any)
+7. If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`. Otherwise, do not create the file.
+
+## Constraints
+1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
+2. **No guessing**: If you can't verify, delete rather than invent.
+3. **Chat Final Response**: One short confirmation line; no file contents.
+
+` + getPipelineOverview('L3R'),
+                        token,
+                        options.toolInvocationToken
+                    );
+                };
+
+                const l3rTasks = componentsToAnalyze.map(createL3RTask);
+                await runWithConcurrencyLimit(l3rTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (Loop ${loopCount + 1})`, token);
+
+                const l3rRetryPattern = new vscode.RelativePattern(workspaceFolder, `${intermediateDir}/L3R/*_retry.json`);
+                const l3rRetryUris = await vscode.workspace.findFiles(l3rRetryPattern);
+                const l3rRetryNamesSet = new Set<string>();
+                for (const uri of l3rRetryUris) {
+                    try {
+                        const content = await vscode.workspace.fs.readFile(uri);
+                        const names = this.parseJson<string[]>(new TextDecoder().decode(content));
+                        if (Array.isArray(names)) names.forEach(n => l3rRetryNamesSet.add(n));
+                    } catch {
+                        // ignore invalid retry file
+                    } finally {
+                        try {
+                            await vscode.workspace.fs.delete(uri);
+                        } catch {
+                            // ignore delete failures
+                        }
+                    }
+                }
+
+                const l3rRetryNames = Array.from(l3rRetryNamesSet);
+                if (l3rRetryNames.length > 0) {
+                    logger.log('DeepWiki', `L3 Reviewer requested re-analysis for: ${l3rRetryNames.join(', ')}`);
+                    const retryComponents = componentsToAnalyze.filter(c => l3rRetryNames.includes(c.name));
+                    if (retryComponents.length > 0) {
+                        const l3RetryTasks = retryComponents.map(createL3Task);
+                        await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
+                        // Re-run L3-R only for the re-analyzed components once (do not request further retries).
+                        const l3rSecondPassTasks = retryComponents.map(createL3RTask);
+                        await runWithConcurrencyLimit(l3rSecondPassTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
+                    }
                 }
 
                 // ---------------------------------------------------------
@@ -767,6 +862,9 @@ ${mdCodeBlock}
 ## Summary
 {Description of what this page covers}
 
+## Sources
+- \`path/to/source/file\` (add multiple; prefer \`src/...\`)
+
 ## Use Cases
 {Description of how and when to use these components}
 
@@ -811,6 +909,7 @@ ${mdCodeBlock}
 3. Do NOT re-analyze source code; synthesize and consolidate L3 content into a reader-friendly page.
 4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
 5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
+6. **Grounding requirement**: Maintain a \`## Sources\` section listing the component source files this page is based on (and any additional files you read). Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing.
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -875,11 +974,11 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
 ## Workflow
 1. List files in \`${outputPath}/pages/\`
 2. Compare against expected files above
-3. If ALL files exist → Write empty array to \`${intermediateDir}/L5/page_validation_failures.json\`
-4. If ANY files are MISSING → Write JSON array of missing page names to \`${intermediateDir}/L5/page_validation_failures.json\`
+3. If ALL files exist → Write empty array to \`${intermediateDir}/L5V/page_validation_failures.json\`
+4. If ANY files are MISSING → Write JSON array of missing page names to \`${intermediateDir}/L5V/page_validation_failures.json\`
 
 ## Output
-Write to \`${intermediateDir}/L5/page_validation_failures.json\`:
+Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - If all present: \`[]\`
 - If missing: \`["Page A", "Page B"]\`
 
@@ -891,7 +990,7 @@ Write to \`${intermediateDir}/L5/page_validation_failures.json\`:
                 );
 
                 // Check L5 validation result and retry failed pages
-                const l5FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_validation_failures.json'));
+                const l5FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5V', 'page_validation_failures.json'));
                 let l5FailedPages: string[] = [];
                 try {
                     const content = await vscode.workspace.fs.readFile(l5FailuresUri);
@@ -937,22 +1036,28 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Input
 - Read generated pages in \`${outputPath}/pages/\`
-- Read all L3 analysis files in \`${intermediateDir}/L3/\`
+- Read relevant L3 analysis files in \`${intermediateDir}/L3/\` for each page’s components
+- Read \`${intermediateDir}/L5/page_structure.json\` and \`${intermediateDir}/L2/component_list.json\` to map pages ↔ components ↔ source files
 
 ## Workflow
-1. **Accuracy**: Verify content against ACTUAL SOURCE CODE → If errors found, use \`applyPatch\` to fix immediately
-2. **Completeness**: Ensure no sections (Overview, Architecture, API) are empty or placeholders → Use \`applyPatch\` to fill if needed
-3. **Connectivity**: Verify that all links work and point to existing files → Use \`applyPatch\` to fix broken links
-4. **Formatting**: Fix broken Markdown tables or Mermaid syntax errors → Use \`applyPatch\` to write fixes
-5. **Numerical Consistency**: Check for inconsistent numerical values (e.g., "8h" vs "8 hours") → Use \`applyPatch\` to unify
-6. **Signature Accuracy**: Verify method/function signatures match actual source code
-	   - If a signature is incorrect, read the actual source file and use \`applyPatch\` to fix
-	   - Include only brief signatures; never paste implementation bodies
-7. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate directory files (intermediate/, ../L3/, ../L4/, etc.) → Use \`applyPatch\` to fix
-8. ` + retryInstruction + `
+1. **Inventory**: Read \`${intermediateDir}/L5/page_structure.json\` and ensure every expected page exists under \`${outputPath}/pages/\`.
+2. For EACH page:
+   - **Sources**: Ensure a meaningful \`## Sources\` section exists. Populate it from the component file list (from \`${intermediateDir}/L2/component_list.json\`) plus any extra files you read to verify details. Remove any non-existent paths.
+   - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
+   - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the Sources as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
+   - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
+   - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
+   - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
+3. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.) in final docs.
+4. **Report**: Write \`${intermediateDir}/L6/review_report.md\` summarizing:
+   - Files fixed (and what changed)
+   - Claims removed due to unverifiability
+   - Any major issues
+5. ` + retryInstruction + `
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
+- Always write \`${intermediateDir}/L6/review_report.md\`.
 - Write \`${intermediateDir}/L6/retry_request.json\` ONLY if requesting retries.
   - The file must be a raw JSON array of component names, e.g. \`["Auth Module"]\` (no extra fields, no fences).
 
@@ -1001,12 +1106,12 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             // INDEXER
             // ---------------------------------------------------------
             await this.runPhase(
-                'Indexer',
+                'L7: Indexer',
                 'Create README and Sidebar',
 	                `# Indexer Agent
 
 ## Role
-- **Your Stage**: Indexer (Final)
+- **Your Stage**: L7 Indexer
 - **Core Responsibility**: Synthesize L4/L5 outputs into a high‑quality landing README
 - **Critical Success Factor**: First screen should answer "What is this? How is it organized? Where do I start?"
 
@@ -1050,7 +1155,8 @@ For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
 - No links to intermediate files.
 
 ## Output
-Write Markdown to \`${outputPath}/README.md\` (no fences around the whole file).
+1. Write Markdown to \`${outputPath}/README.md\` (no fences around the whole file).
+2. Write a short build log to \`${intermediateDir}/L7/indexer_report.md\` (what you changed/validated; keep it brief).
 
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
@@ -1059,7 +1165,79 @@ Write Markdown to \`${outputPath}/README.md\` (no fences around the whole file).
 4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
 
-` + getPipelineOverview('Indexer'),
+` + getPipelineOverview('L7'),
+                token,
+                options.toolInvocationToken
+            );
+
+            // ---------------------------------------------------------
+            // Final QA: README verifier (avoid duplicating L6 page review loop)
+            // ---------------------------------------------------------
+            await this.runPhase(
+                'L8: Final QA (README Verifier)',
+                'Verify README claims and diagrams against generated pages and source code',
+                `# Final QA Agent (README Verifier)
+
+## Role
+- **Your Stage**: L8 Final QA (README-only)
+- **Core Responsibility**: Ensure \`${outputPath}/README.md\` contains no unverifiable claims.
+- **Critical Success Factor**: README is the entry point; it must not hallucinate.
+
+## Input
+- \`${outputPath}/README.md\`
+- All files under \`${outputPath}/pages/\`
+- Source code: read as needed to verify any high-level claim
+
+## Workflow
+1. Read \`${outputPath}/README.md\` and the linked pages in \`${outputPath}/pages/\`.
+2. Verify the one-line summary and any architectural assertions against the pages and, when needed, actual source code.
+3. If anything cannot be verified, delete it or rewrite it conservatively (no guessing).
+4. Ensure there are no links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.).
+5. Write a report to \`${intermediateDir}/L8/factcheck_report.md\` including:
+   - Files modified (at least README if changed)
+   - Summary of removed/rewritten unverifiable claims
+   - Any remaining known limitations (if any)
+
+## Constraints
+1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
+2. **No guessing**: If you can't verify, remove or rewrite conservatively.
+3. **Incremental Writing**: Use \`applyPatch\` as you go.
+4. **Chat Final Response**: One short confirmation line; no file contents.
+`,
+                token,
+                options.toolInvocationToken
+            );
+
+            // ---------------------------------------------------------
+            // Final QA: Release Gate
+            // ---------------------------------------------------------
+            await this.runPhase(
+                'L9: Final QA (Release Gate)',
+                'Final output integrity checks and cleanup',
+                `# Final QA Agent (Release Gate)
+
+## Role
+- **Your Stage**: L9 Final QA (Release Gate)
+- **Core Responsibility**: Enforce final output invariants right before completion.
+
+## Input
+- \`${outputPath}/README.md\`
+- \`${outputPath}/pages/*.md\`
+
+## Workflow
+1. Scan ALL docs under \`${outputPath}/README.md\` and \`${outputPath}/pages/\`.
+2. Enforce these invariants (fix by editing docs as needed):
+   - No references/links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.)
+   - No obvious placeholder text (e.g., "TODO", "TBD", "{...}")
+   - Links between docs resolve to existing final files under \`${outputPath}/\`
+3. Do not add new product claims; restrict yourself to cleanup, link fixes, and removing placeholders/unverifiable remnants.
+4. Write a short gate report to \`${intermediateDir}/L9/release_gate_report.md\` with what you changed/fixed.
+
+## Constraints
+1. **Scope**: Only modify files under \`.deepwiki/\`.
+2. **Incremental Writing**: Use \`applyPatch\` as you go.
+3. **Chat Final Response**: One short confirmation line; no file contents.
+`,
                 token,
                 options.toolInvocationToken
             );
@@ -1161,6 +1339,5 @@ Write Markdown to \`${outputPath}/README.md\` (no fences around the whole file).
             throw error;
         }
     }
-
 
 }
