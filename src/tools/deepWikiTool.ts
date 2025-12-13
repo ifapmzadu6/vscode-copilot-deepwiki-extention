@@ -386,6 +386,9 @@ Create the FINAL component list.
                     const componentStr = JSON.stringify(component);
                     const originalIndex = componentList.findIndex(c => c.name === component.name);
                     const paddedIndex = String(originalIndex + 1).padStart(3, '0');
+                    const analysisFileUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', `${paddedIndex}_${component.name}_analysis.md`)
+                    );
                     return () => this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
                         `Analyze component`,
@@ -450,7 +453,8 @@ Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 
 ` + getPipelineOverview('L3'),
                         token,
-                        options.toolInvocationToken
+                        options.toolInvocationToken,
+                        [analysisFileUri]
                     );
                 };
 
@@ -905,6 +909,9 @@ ${mdCodeBlock}
 `; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
                 const createL5Task = (pageChunk: PageGroup[]) => {
+                    const pageUris = pageChunk.map((p) =>
+                        vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${p.pageName}.md`))
+                    );
                     return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1})`,
                         `Write ${pageChunk.length} documentation pages`,
@@ -952,7 +959,8 @@ Write files to \`${outputPath}/pages/\`.
 
 ` + getPipelineOverview('L5'),
                         token,
-                        options.toolInvocationToken
+                        options.toolInvocationToken,
+                        pageUris
                     );
                 };
 
@@ -1323,7 +1331,8 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
         description: string,
         prompt: string,
         cancellationToken: vscode.CancellationToken,
-        toolInvocationToken: vscode.ChatParticipantToolToken | undefined
+        toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
+        cleanupUrisOnRequestFailed?: vscode.Uri[]
     ): Promise<void> {
         const startTime = Date.now();
         logger.log('DeepWiki', `>>> Starting Phase: ${agentName} - ${description}`);
@@ -1346,10 +1355,30 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
             const duration = ((Date.now() - startTime) / 1000).toFixed(1);
             let resultPreview = '';
+            let resultText = '';
             for (const part of result.content) {
                 if (part instanceof vscode.LanguageModelTextPart) {
-                    resultPreview = part.value.substring(0, 150).replace(/\n/g, ' ');
-                    break;
+                    if (resultPreview === '') {
+                        resultPreview = part.value.substring(0, 150).replace(/\n/g, ' ');
+                    }
+                    resultText += part.value + '\n';
+                }
+            }
+
+            // Some subagent failures are reported as plain text. If we see the marker phrase,
+            // delete the expected output files so downstream validators will retry cleanly.
+            if (/your request failed/i.test(resultText)) {
+                logger.warn('DeepWiki', `Subagent reported request failure in phase "${agentName}". Cleaning outputs for retry.`);
+                if (cleanupUrisOnRequestFailed && cleanupUrisOnRequestFailed.length > 0) {
+                    for (const uri of cleanupUrisOnRequestFailed) {
+                        try {
+                            await vscode.workspace.fs.delete(uri, { recursive: true });
+                        } catch {
+                            // ignore cleanup errors (missing files etc.)
+                        }
+                    }
+                } else {
+                    throw new Error(`Subagent request failed in phase "${agentName}"`);
                 }
             }
             logger.log('DeepWiki', `<<< Completed Phase: ${agentName} in ${duration}s - ${resultPreview}...`);
