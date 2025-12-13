@@ -396,6 +396,10 @@ Create the FINAL component list.
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace event/state causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
+## Reasoning Style (Priority)
+- **Causal-chain-first**: Prioritize explaining causality over summarization.
+- Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
+
 ## Input
 - **Assigned Component**: ${componentStr}
 - **Source Code Files**: The original source files listed in the component
