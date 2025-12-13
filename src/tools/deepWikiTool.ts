@@ -396,6 +396,11 @@ Create the FINAL component list.
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace event/state causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
 
+## Reasoning Style (Priority)
+- **Causal-chain-first**: Prioritize explaining causality over summarization.
+- Produce a **causal trace**: what triggers what, through which code paths, leading to what state/data changes and observable effects (include error/retry paths if important).
+- Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
+
 ## Input
 - **Assigned Component**: ${componentStr}
 - **Source Code Files**: The original source files listed in the component
@@ -414,18 +419,19 @@ Create the FINAL component list.
 ## Causal Analysis Requirements
 Analyze the source code and document:
 
-### Event Causality
-- **Event Chain**: Trace how events propagate (e.g., "User clicks button → \`click\` event → \`handleClick()\` → emits \`data.updated\` → \`onDataUpdated()\` triggers")
-- **Event Sources**: Where do events originate? (user actions, timers, external APIs)
-- **Event Consumers**: Who listens and what do they do?
+### Causal Trace (What Triggers What)
+- **Trigger(s)**: What initiates behavior? (commands, UI events, timers, external APIs, VS Code activation/hooks)
+- **Propagation path**: The concrete call chain / message flow (use real identifiers, e.g., \`handleClick()\` → \`updateState()\` → \`refreshView()\`)
+- **State/Data changes**: What gets read/written (source of truth; key invariants)
+- **Side effects**: External I/O, VS Code APIs that mutate workspace/editor state, logs/telemetry
+- **Error/Retry paths**: Failure modes, propagation, retries/backoff if present
 
-### State Causality
-- **State Dependencies**: Which states depend on other states? (e.g., "\`isLoading\` must be false before \`data\` can be set")
-- **Mutation Triggers**: What causes state changes? (events, function calls, lifecycle hooks)
-- **Downstream Effects**: What happens when state X changes? (UI re-renders, side effects, other state updates)
+### Causality Diagram (Let the Best Diagram Win)
+Include at least ONE Mermaid diagram that best expresses the causality you found:
+- Prefer \`stateDiagram-v2\` when the component has meaningful state transitions (include triggers/conditions on edges).
+- Prefer \`sequenceDiagram\` when caller/callee interactions and async hops are the main story.
 
-### Causal Diagram
-Create a \`stateDiagram-v2\` showing state transitions with event triggers:
+Example \`stateDiagram-v2\` (event triggers on edges):
 \`\`\`mermaid
 stateDiagram-v2
     [*] --> Idle
