@@ -12,6 +12,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
+-   **Nested DeepWiki Awareness**: If a workspace subdirectory already contains `.deepwiki/README.md`, that subtree is excluded from analysis and the generated docs only link to the existing DeepWiki.
 -   **Security & Safety**: Sub-agents operate under strict constraints, using only **allow-listed file system and search tools** (`read_file`, `create_file`, `file_search` etc.). Execution of shell commands (`run_in_terminal`) or external processes is strictly forbidden.
 -   **Standard Compliant**: Leverages the standard `runSubagent` tool provided by VS Code / Copilot.
 
@@ -176,6 +177,8 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
 └── intermediate/           # Intermediate artifacts (for debugging/context)
     ├── L1/                 # Project context phase outputs
     │   └── project_context.md      # Project structure, build system, conditional patterns
+    │   ├── existing_deepwikis.md   # Nested DeepWiki list (excluded roots)
+    │   └── existing_deepwikis.json # Nested DeepWiki list (machine-readable)
     ├── L2/                 # Discovery phase outputs
     │   ├── component_draft.json    # Initial draft from L2-A
     │   ├── review_report.md        # Review from L2-B

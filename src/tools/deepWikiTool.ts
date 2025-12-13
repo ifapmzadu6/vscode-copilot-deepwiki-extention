@@ -90,6 +90,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 await vscode.workspace.fs.createDirectory(dirUri);
             }
 
+            const existingDeepWikis = await this.discoverExistingDeepWikis(workspaceFolder, outputPath);
+            const existingDeepWikisNote =
+                existingDeepWikis.length > 0
+                    ? `\n\n## Existing Nested DeepWikis (EXCLUDE)\nRead \`${intermediateDir}/L1/existing_deepwikis.md\` and DO NOT analyze any files under those root directories. If you need to mention them, only link to their \`.deepwiki/README.md\`.\n`
+                    : '';
+
             // ==================================================================================
             // PHASE 0: PROJECT CONTEXT ANALYSIS (Environment Understanding)
             // This phase runs once to understand the project structure and build environment.
@@ -112,6 +118,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
 ## Goal
 Create a concise but accurate project context document for later stages.
+${existingDeepWikisNote}
 
 ## Workflow
 1. Detect project type, languages, build/entry points → write "## Overview"
@@ -189,16 +196,18 @@ ${mdCodeBlock}
 
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for project structure and build system info
+- **Excluded Roots**: Read \`${intermediateDir}/L1/existing_deepwikis.md\` and exclude those directories entirely from analysis
 
 ## Goal
 Create an INITIAL draft of logical components based on **what the code does**, not just folders.
 
 ## Workflow
 1. Read the L1 project context to understand the project structure (exclude generated/vendor code).
-2. Scan the project source files and **read their contents** to understand what each file does.
-3. Group files into **components** - files that work together to implement a feature or module.
-4. **Verify each file exists** before adding it to the files array.
-5. Before writing, quickly sanity-check that your JSON is valid and non-empty.
+2. Identify excluded roots from \`${intermediateDir}/L1/existing_deepwikis.md\` and DO NOT read/include any files under those roots.
+3. Scan the project source files and **read their contents** to understand what each file does.
+4. Group files into **components** - files that work together to implement a feature or module.
+5. **Verify each file exists** before adding it to the files array.
+6. Before writing, quickly sanity-check that your JSON is valid and non-empty.
 
 ## Output
 Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_draft.json\`.
@@ -253,6 +262,7 @@ CRITIQUE the draft. Do NOT fix it yourself.
 ## Input
 - Read \`${intermediateDir}/L2/component_draft.json\`
 - **Reference**: Use file listing tools and **read file contents** to verify groupings.
+- **Excluded Roots**: Read \`${intermediateDir}/L1/existing_deepwikis.md\` and treat those directories as out of scope.
 
 ## Workflow
 1. Review groupings for **functional cohesion**:
@@ -260,7 +270,8 @@ CRITIQUE the draft. Do NOT fix it yourself.
    - Are unrelated files incorrectly grouped just because they share a directory?
 2. **Verification**: Read sample files to verify they actually belong together.
 3. **File Existence Check**: Verify ALL file paths in the draft actually exist. Flag any non-existent files.
-4. Check for missing core files or included noise.${retryContextL2}
+4. **Scope Check**: If any file path is under an excluded root, flag it as out-of-scope and request removal.
+5. Check for missing core files or included noise.${retryContextL2}
 
 ## Output
 Write a critique report to \`${intermediateDir}/L2/review_report.md\` (point out what to change and why).
@@ -293,12 +304,14 @@ Create the FINAL component list.
 ## Input
 - Draft: \`${intermediateDir}/L2/component_draft.json\`
 - Review: \`${intermediateDir}/L2/review_report.md\`
+- Excluded Roots: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
 ## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested fixes to the component list.
-3. Ensure: (a) no missing core files, (b) no duplicates, (c) each component has a clear purpose.
-4. Produce valid JSON.${retryContextL2}
+3. Remove any file paths that fall under excluded roots (already documented elsewhere).
+4. Ensure: (a) no missing core files, (b) no duplicates, (c) each component has a clear purpose.
+5. Produce valid JSON.${retryContextL2}
 
 ## Output
 - Write the FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L2/component_list.json\`.
@@ -1120,6 +1133,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - \`${intermediateDir}/L4/relationships.md\`
 - \`${intermediateDir}/L5/page_structure.json\` (source of truth for pages)
 - All files under \`${outputPath}/pages/\`
+- Existing nested DeepWikis list: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
 ## Workflow
 Create \`${outputPath}/README.md\` with these sections in order:
@@ -1148,6 +1162,9 @@ Insert exactly:
 For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
 - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
 - One-line description using the rationale.
+
+### 2.5 Existing DeepWikis (optional)
+If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short section listing links to those existing docs (link to their \`.deepwiki/README.md\` only; do not summarize their internals).
 
 ### 3. Quick self-check
 - All three diagrams present and render.
@@ -1338,6 +1355,62 @@ For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
             logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
             throw error;
         }
+    }
+
+    private async discoverExistingDeepWikis(
+        workspaceFolder: vscode.WorkspaceFolder,
+        outputPath: string
+    ): Promise<Array<{ rootDir: string; deepWikiReadme: string; linkFromGeneratedReadme: string }>> {
+        const workspaceRoot = workspaceFolder.uri.fsPath;
+        const intermediateDir = `${outputPath}/intermediate`;
+        const outputDirFsPath = path.join(workspaceRoot, outputPath);
+
+        const include = new vscode.RelativePattern(workspaceFolder, '**/.deepwiki/README.md');
+        const exclude = new vscode.RelativePattern(workspaceFolder, `{**/node_modules/**,**/.git/**,${outputPath}/**}`);
+        const matches = await vscode.workspace.findFiles(include, exclude);
+
+        const items: Array<{ rootDir: string; deepWikiReadme: string; linkFromGeneratedReadme: string }> = [];
+
+        for (const uri of matches) {
+            const readmeFsPath = uri.fsPath;
+            const deepWikiDir = path.dirname(readmeFsPath);
+            const rootDirFsPath = path.dirname(deepWikiDir);
+
+            // Exclude the generated output directory itself (e.g., workspaceRoot/.deepwiki).
+            if (path.normalize(deepWikiDir) === path.normalize(outputDirFsPath)) continue;
+
+            const rootDir = path.relative(workspaceRoot, rootDirFsPath).replace(/\\/g, '/');
+            const deepWikiReadme = path.relative(workspaceRoot, readmeFsPath).replace(/\\/g, '/');
+            const linkFromGeneratedReadme = path
+                .relative(path.join(workspaceRoot, outputPath), readmeFsPath)
+                .replace(/\\/g, '/');
+            items.push({ rootDir: rootDir || '.', deepWikiReadme, linkFromGeneratedReadme });
+        }
+
+        items.sort((a, b) => a.rootDir.localeCompare(b.rootDir));
+
+        const mdLines: string[] = ['# Existing Nested DeepWikis', ''];
+        if (items.length === 0) {
+            mdLines.push('- (none)');
+        } else {
+            mdLines.push(
+                'Directories that already contain their own `.deepwiki` docs. Exclude these roots from analysis and only link to their README if needed.'
+            );
+            mdLines.push('');
+            for (const item of items) {
+                mdLines.push(`- Root: \`${item.rootDir}\``);
+                mdLines.push(`  - README: \`${item.deepWikiReadme}\``);
+                mdLines.push(`  - LinkFromGeneratedREADME: \`${item.linkFromGeneratedReadme}\``);
+            }
+        }
+        mdLines.push('');
+
+        const mdPath = path.join(workspaceRoot, intermediateDir, 'L1', 'existing_deepwikis.md');
+        const jsonPath = path.join(workspaceRoot, intermediateDir, 'L1', 'existing_deepwikis.json');
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(mdPath), new TextEncoder().encode(mdLines.join('\n')));
+        await vscode.workspace.fs.writeFile(vscode.Uri.file(jsonPath), new TextEncoder().encode(JSON.stringify(items, null, 2) + '\n'));
+
+        return items;
     }
 
 }
