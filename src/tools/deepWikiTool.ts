@@ -510,6 +510,14 @@ Create the FINAL component list.
 - **Causal-chain-first**: Prioritize explaining causality over summarization.
 - Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
 
+## Depth Targets (Write More Than a Summary)
+Your output must be detailed enough that L4 can reconstruct architecture and relationships without re-reading source code.
+
+- Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\` (functions, classes, events, commands, services, config keys).
+- Include **2–4 critical end-to-end flows** with step-by-step call/event sequences (what triggers it → what runs → what state changes → what observable effect).
+- Include **edge cases / failure modes** (at least 5 bullets) that are visible in code paths (validation, fallbacks, cancellation, retries, platform differences).
+- Prefer specifics over generalities; if you can't justify a claim from code, omit it.
+
 ## Input
 - **Assigned Component**: ${componentStr}
 - **Source Code Files**: The original source files listed in the component
@@ -521,6 +529,8 @@ Create the FINAL component list.
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
+   - Edge Cases & Failure Modes
+   - Integration Points & Dependencies
 4. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
@@ -551,7 +561,52 @@ stateDiagram-v2
 \`\`\`
 
 ## Output
-Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\` using this structure (example only; do not wrap the whole file in fences):
+${mdCodeBlock}markdown
+# ${component.name} - Analysis
+
+## File Structure
+- ...
+
+## Overview and Architecture
+- ...
+
+## Key Logic
+
+### Key Types & APIs
+| Symbol | Location | Responsibility |
+|--------|----------|----------------|
+| ... | ... | ... |
+
+### Critical Flows
+1. ...
+2. ...
+
+## Causal Analysis
+
+### Event Causality
+- ...
+
+### State Causality
+- ...
+
+## Edge Cases & Failure Modes
+- ...
+
+## Integration Points & Dependencies
+- Upstream callers/triggers: ...
+- Downstream consumers/effects: ...
+- Contracts (events/services/commands/config keys): ...
+
+## Diagrams
+${mdCodeBlock}mermaid
+stateDiagram-v2
+    [*] --> Idle
+${mdCodeBlock}
+${mdCodeBlock}
+- Do not wrap the entire file in Markdown fences.
+- Mermaid diagrams must be in \`\`\`mermaid fences.
+- Avoid large raw code pastes; reference symbols/paths instead.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
