@@ -539,6 +539,7 @@ Your output must be detailed enough that L4 can reconstruct architecture and rel
 Write the analysis using this structure:
 
 - \`# ${component.name} - Analysis\`
+- \`## File Structure\` (list the component's source files; absolute accuracy required)
 - \`## Overview and Architecture\`
   - What this component does and what it does NOT do
   - Key submodules/files and their responsibilities
@@ -582,7 +583,10 @@ stateDiagram-v2
 \`\`\`
 
 ## Output
-Write to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
+- Do not wrap the entire file in Markdown fences.
+- Mermaid diagrams must be in \`\`\`mermaid fences.
+- Avoid large raw code pastes; reference symbols/paths instead.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
