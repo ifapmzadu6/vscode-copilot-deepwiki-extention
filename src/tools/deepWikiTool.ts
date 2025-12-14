@@ -559,6 +559,11 @@ Use this exact bullet structure:
 - \`## Integration Points & Dependencies\`: ≤ 12 bullets total
 - \`## Diagrams\`: ≤ 2 diagrams (must include \`stateDiagram-v2\`; add \`sequenceDiagram\` only if it adds new information)
 
+**If you hit the caps** (complex component):
+- DO NOT drop CEI blocks or evidence anchors.
+- Reduce narrative and de-duplicate bullets first.
+- If still too large, keep the top-level sections within caps and move additional detail into CEI blocks (add more CEI blocks instead of more prose).
+
 ## Causal Analysis Requirements
 Analyze the source code and document:
 
@@ -1484,12 +1489,18 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
    - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
    - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
-3. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.) in final docs.
-4. **Report**: Write \`${intermediateDir}/L6/review_report.md\` summarizing:
+3. Cross-page consistency (terminology & boundaries):
+   - Identify the top 10 most important domain terms across the docs (services, components, event names, key concepts).
+   - Ensure naming is consistent across pages (same term, same casing; avoid synonyms unless you define them).
+   - If multiple terms refer to the same concept, standardize to one and update all pages.
+   - Ensure component responsibility boundaries do not conflict across pages; if they do, narrow/remove claims until consistent and verifiable.
+   - If helpful, add a short \`## Glossary\` section to \`${outputPath}/README.md\` OR add a \`## Glossary\` section to pages that introduce new terms (keep it short).
+4. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.) in final docs.
+5. **Report**: Write \`${intermediateDir}/L6/review_report.md\` summarizing:
    - Files fixed (and what changed)
    - Claims removed due to unverifiability
    - Any major issues
-5. ` + retryInstruction + `
+6. ` + retryInstruction + `
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
