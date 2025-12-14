@@ -305,7 +305,7 @@ ${jsonExample}
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
-4. **Naming**: \`name\` must be filename-safe across platforms (avoid \`<>:"/\\\\|?*\`; no leading/trailing spaces).
+4. **Naming**: Use filename-safe component names (no \`/\`, no leading/trailing spaces). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\` (NOT \`Editor/Core\`).
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
 ` + getPipelineOverview('L2-A'),
@@ -403,6 +403,7 @@ Create the FINAL component list.
 1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "List finalized."). Do not include JSON or file contents.
+4. **Naming**: Component \`name\` values must be filename-safe (no \`/\`). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\` (NOT \`Editor/Core\`). Rename any component that violates this.
 
 ` + getPipelineOverview('L2-C'),
                     token,
