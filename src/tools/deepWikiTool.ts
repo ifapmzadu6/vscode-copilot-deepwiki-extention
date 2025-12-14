@@ -848,6 +848,9 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 
 ## Workflow
 1. Read L3 analysis and confirm key responsibilities/links.
+2. Source verification (mandatory):
+   - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
+   - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.
 2. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
 3. Write \`${intermediateDir}/L4/relationships.md\`:
@@ -1169,8 +1172,8 @@ ${mdCodeBlock}
 - Claim: ...
 
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports summary claim X
-- \`path/to/file.ts::Symbol\` — supports summary claim Y
+- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports summary claim X
+- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports summary claim Y
 
 ## Use Cases
 {Description of how and when to use these components}
@@ -1180,7 +1183,7 @@ ${mdCodeBlock}
 - Claim: ...
 
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports use case claim X
+- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports use case claim X
 
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
@@ -1204,8 +1207,8 @@ ${mdCodeBlock}
 
 ### Claims → Evidence → Implication (CEI)
 - Claim: ...
-  - Evidence: \`path/to/file.ts::Symbol\` — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` — why this supports the claim
+  - Evidence: [\`path/to/file.ts\`](path/to/file.ts)::Symbol — why this supports the claim
+  - Evidence: [\`path/to/file.ts\`](path/to/file.ts)::OtherSymbol — why this supports the claim
   - Implication: what this means for behavior/architecture/integration
 
 ### Element-Level Mechanics (when applicable)
@@ -1227,7 +1230,7 @@ stateDiagram-v2
 ${mdCodeBlock}
 
 ##### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports this element’s mechanics claim
+- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports this element’s mechanics claim
 
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
@@ -1237,7 +1240,7 @@ ${mdCodeBlock}
 - Claim: ...
 
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports external interface claim X
+- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
                 const createL5Task = (pageChunk: PageGroup[]) => {
@@ -1261,7 +1264,8 @@ ${mdCodeBlock}
 ## Workflow
 1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
 2. Read L3 analysis for ALL components in that page's \`components\` array
-3. Do NOT re-analyze source code; synthesize and consolidate L3 content into a reader-friendly page.
+3. Synthesize and consolidate L3 content into a reader-friendly page.
+   - You MAY read source code files to verify claims and evidence anchors, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
 4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
 5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
 6. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
@@ -1295,6 +1299,10 @@ For key mechanics (especially "## Internal Mechanics Details"), add a short CEI 
 **Evidence Anchors**:
 For every major section, include a "### Evidence (Anchors)" subsection with concrete \`path::Symbol\` anchors.
 These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide verifiable anchors, DELETE or narrow the claim.
+
+**Source Links (Allowed)**:
+- You MAY include Markdown links to source files (e.g., \`[\`src/foo.ts\`](src/foo.ts)\`).
+- Do NOT link to intermediate artifacts (\`intermediate/\`, \`../L3/\`, etc.).
 
 **Element-Level State Diagrams**:
 If you split "## Internal Mechanics Details" into element subsections (e.g., \`### Auth Service\`, \`### Session Store\`), include a **stateDiagram-v2 in EACH element subsection**. If an element is effectively stateless, use a trivial state diagram (e.g., a single "Stateless" state) and briefly explain why.
@@ -1365,6 +1373,9 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
    - Read the page Markdown and extract ONLY lines that start with \`- Claim:\` (ignore all other text for claim extraction).
    - Associate each claim with its nearest preceding section heading (e.g., Summary / Use Cases / Internal Mechanics Details / External Interface).
    - For each extracted claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
+   - Source verification (mandatory):
+     - For each evidence anchor’s file path, confirm the file exists in the workspace.
+     - Spot-check that the referenced symbol name appears in that file (string match is acceptable).
    - If a claim cannot be supported, mark it as unsupported.
    - Ensure each major section contains a "### Evidence (Anchors)" subsection. If missing, treat as a failure.
    - Ensure each major section contains a "### Claims" subsection with \`- Claim:\` lines. If missing or empty, treat as a failure.
