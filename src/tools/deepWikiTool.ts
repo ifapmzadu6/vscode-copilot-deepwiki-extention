@@ -525,6 +525,13 @@ Create the FINAL component list.
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
+## Mermaid Sanity Check (IMPORTANT)
+Before finalizing any Mermaid block:
+1. Ensure the code fence is exactly \`\`\`mermaid ... \`\`\` and is properly closed.
+2. Ensure the first line is the correct diagram type (e.g., \`stateDiagram-v2\`, \`sequenceDiagram\`, \`C4Context\`, \`C4Component\`).
+3. Avoid tabs; prefer spaces. Keep indentation consistent.
+4. If you are uncertain about Mermaid syntax, simplify the diagram to a minimal valid form rather than risking a syntax error.
+
 ## Causal Analysis Requirements
 Analyze the source code and document:
 
@@ -751,6 +758,13 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 - **Required**: at least one \`stateDiagram-v2\` for cross-component state/event flow
 - **Recommended**: \`C4Context\`, \`sequenceDiagram\`, \`classDiagram\`, \`block\`
 - **Forbidden**: \`flowchart\`, \`graph TD\`
+
+## Mermaid Sanity Check (IMPORTANT)
+Before finalizing any Mermaid block:
+1. Ensure the code fence is exactly \`\`\`mermaid ... \`\`\` and is properly closed.
+2. Ensure the first line is the correct diagram type (e.g., \`stateDiagram-v2\`, \`sequenceDiagram\`, \`C4Context\`, \`C4Component\`).
+3. Avoid tabs; prefer spaces. Keep indentation consistent.
+4. Prefer fewer nodes/edges over dense diagrams; keep it renderable.
 
 ## Output
 - \`${intermediateDir}/L4/overview.md\`
@@ -1138,6 +1152,12 @@ If you split "## Internal Mechanics Details" into element subsections (e.g., \`#
 **Element-Level Use Cases**:
 If you split "## Internal Mechanics Details" into element subsections, include a short use case explanation inside each element subsection (under "##### Use Cases").
 
+**Mermaid Sanity Check (IMPORTANT)**:
+Before finalizing any Mermaid block:
+1. Ensure the code fence is exactly \`\`\`mermaid ... \`\`\` and is properly closed.
+2. Ensure the first line is the correct diagram type.
+3. Prefer minimal, known-good syntax over complex features. If unsure, simplify.
+
 ### Template
 ` + pageTemplate + `
 
@@ -1269,7 +1289,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
    - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
    - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
-   - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
+   - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors. Keep Mermaid diagrams minimal if you need to simplify to make them render.
 3. **CRITICAL - Remove Intermediate Links**: REMOVE any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.) in final docs.
 4. **Report**: Write \`${intermediateDir}/L6/review_report.md\` summarizing:
    - Files fixed (and what changed)
