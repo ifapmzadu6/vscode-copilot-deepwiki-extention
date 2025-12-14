@@ -1784,9 +1784,9 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
                 }
             }
 
-            // Some subagent failures are reported as plain text. If we see the marker phrase,
+            // Some subagent failures are reported as plain text. If we see a known marker phrase,
             // delete the expected output files so downstream validators will retry cleanly.
-            if (/your request failed/i.test(resultText)) {
+            if (/(your request failed|hit the length limit)/i.test(resultText)) {
                 logger.warn('DeepWiki', `Subagent reported request failure in phase "${agentName}". Cleaning outputs for retry.`);
                 if (cleanupUrisOnRequestFailed && cleanupUrisOnRequestFailed.length > 0) {
                     for (const uri of cleanupUrisOnRequestFailed) {
