@@ -8,7 +8,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust multi-level (L1-L6) process plus Indexer and Final QA, where each agent builds upon the previous one's output.
 -   **Self-Correction Loop**: L2 Discoverer, L5-Pre Page Consolidator, and L6 Page Reviewer can request re-analysis for fundamental issues, ensuring quality. Max 5 retries for L3/L4/L5 loop, max 6 retries for L2 and L5-Pre loops.
--   **Parallel Processing**: Analyzes logical components in parallel for faster execution. Concurrency is limited to 3 parallel agents to prevent API rate limiting. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
+-   **Parallel Processing**: Runs sub-agents with a conservative concurrency limit (default is 1) to reduce rate limiting risk. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
@@ -95,14 +95,14 @@ Analyzes the project structure, build system, and conditional code patterns befo
 This phase enables DeepWiki to be aware of build configurations and feature flags.
 
 ### 2. Level 2: DISCOVERER (Component Grouping & Refinement)
-Identifies and groups files into logical components, and determines their importance (High/Medium/Low). Uses L1 context to understand project structure. This stage uses a 3-step internal process:
+Identifies and groups files into logical components. Uses L1 context to understand project structure. This stage uses a 3-step internal process:
 -   **L2-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L1 project context.
 -   **L2-B Reviewer**: Critiques the draft and writes a review report (`review_report.md`). **Verifies against the ACTUAL file system structure.**
 -   **L2-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
 ### 3. Level 3: ANALYZER (Parallel)
-Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and adapts analysis depth based on the component's **importance**.
+Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and produces analysis artifacts for later synthesis.
 -   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`).
 
 **L3-V Validator**: After analysis completes, validates that all expected output files exist. If files are missing, triggers automatic retry for failed components using the same analysis logic.
@@ -122,7 +122,7 @@ This phase consolidates similar components into single cohesive pages, reducing 
 
 ### 6. Level 5: WRITER (Parallel)
 Generates the final documentation pages based on `page_structure.json` (`pages/{PageName}.md`). When multiple components are consolidated into one page, weaves their descriptions together cohesively. Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
--   **Grounding via Sources**: Each page includes a `## Sources` section listing the source files used to justify claims.
+-   **Grounding via File Structure**: Each page includes a source tree / file structure section listing the source files used to justify claims.
 
 **L5-V Validator**: After writing completes, validates that all expected page files exist. If files are missing, triggers automatic retry for failed pages using the same writing logic.
 
@@ -152,6 +152,14 @@ Final integrity pass over generated docs: removes intermediate references/placeh
 2.  Open Copilot Chat (Ctrl+Shift-I or Cmd-Shift-I)
 3.  Type: `@workspace #createDeepWiki`
 4.  The tool will orchestrate agents to generate documentation in the `.deepwiki` folder.
+
+### Resume / Start From Stage
+
+You can resume from a specific stage by passing tool input:
+- `startFromStage`: one of `L1`..`L9` (default: `L1`)
+- `outputPath`: output directory (default: `.deepwiki`)
+
+When `startFromStage` is not `L1`, earlier stages are skipped and existing artifacts under `outputPath` are reused (no cleanup).
 
 ## Hallucination Mitigation (Fact Check)
 
