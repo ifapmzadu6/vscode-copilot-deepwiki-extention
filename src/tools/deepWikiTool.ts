@@ -3,6 +3,7 @@ import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
 import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
+import { validateMermaidMarkdown } from '../utils/mermaidValidation';
 
 /**
  * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
@@ -1166,13 +1167,34 @@ Write files to \`${outputPath}/pages/\`.
                     pageChunks.push(pageStructure.slice(i, i + pageChunkSize));
                 }
 
-                // Initial L5 writing
-                const l5Tasks = pageChunks.map(createL5Task);
-                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
+                    // Initial L5 writing
+                    const l5Tasks = pageChunks.map(createL5Task);
+                    await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
 
-                // ---------------------------------------------------------
-                // L5 Validator: Check for missing page files and retry if needed
-                // ---------------------------------------------------------
+                    // Validate Mermaid blocks in pages. If invalid, delete the page file so L5-V triggers retries.
+                    const invalidPages: string[] = [];
+                    for (const p of pageStructure) {
+                        try {
+                            const pageUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${p.pageName}.md`));
+                            const bytes = await vscode.workspace.fs.readFile(pageUri);
+                            const content = new TextDecoder().decode(bytes);
+                            const mermaidErrors = await validateMermaidMarkdown(content);
+                            if (mermaidErrors.length > 0) {
+                                invalidPages.push(p.pageName);
+                                await vscode.workspace.fs.delete(pageUri);
+                                logger.warn('DeepWiki', `Invalid Mermaid syntax in page "${p.pageName}.md" (deleted; will retry). First error at line ${mermaidErrors[0].startLine}: ${mermaidErrors[0].message}`);
+                            }
+                        } catch {
+                            // ignore missing pages here; L5-V will handle them
+                        }
+                    }
+                    if (invalidPages.length > 0) {
+                        logger.warn('DeepWiki', `Mermaid validation failed for ${invalidPages.length} page(s): ${invalidPages.join(', ')}`);
+                    }
+
+                    // ---------------------------------------------------------
+                    // L5 Validator: Check for missing page files and retry if needed
+                    // ---------------------------------------------------------
                 const l5ExpectedPages = pageStructure.map(p => ({
                     pageName: p.pageName,
                     file: `${p.pageName}.md`
@@ -1328,10 +1350,12 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             // INDEXER
             // ---------------------------------------------------------
             if (startStageIndex <= stageOrder.indexOf('L7')) {
-                await this.runPhase(
-                    'L7: Indexer',
-                    'Create README and Sidebar',
-	                    `# Indexer Agent
+                const maxL7Attempts = 2;
+                for (let attempt = 1; attempt <= maxL7Attempts; attempt++) {
+                    await this.runPhase(
+                        'L7: Indexer',
+                        'Create README and Sidebar',
+	                        `# Indexer Agent
 
 ## Role
 - **Your Stage**: L7 Indexer
@@ -1430,11 +1454,32 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
 4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
+6. **Mermaid Validation**: Mermaid blocks will be validated. Ensure your Mermaid syntax is correct.
 
 ` + getPipelineOverview('L7'),
-                    token,
-                    options.toolInvocationToken
-                );
+                        token,
+                        options.toolInvocationToken
+                    );
+
+                    // Validate Mermaid blocks in README. If invalid, delete README and retry once.
+                    const readmeUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'README.md'));
+                    try {
+                        const bytes = await vscode.workspace.fs.readFile(readmeUri);
+                        const content = new TextDecoder().decode(bytes);
+                        const mermaidErrors = await validateMermaidMarkdown(content);
+                        if (mermaidErrors.length === 0) {
+                            break;
+                        }
+                        const first = mermaidErrors[0];
+                        logger.warn('DeepWiki', `Invalid Mermaid syntax in README (attempt ${attempt}/${maxL7Attempts}). First error at line ${first.startLine}: ${first.message}`);
+                        await vscode.workspace.fs.delete(readmeUri);
+                        if (attempt === maxL7Attempts) {
+                            throw new Error(`README Mermaid validation failed: first error at line ${first.startLine}: ${first.message}`);
+                        }
+                    } catch (e) {
+                        if (attempt === maxL7Attempts) throw e;
+                    }
+                }
             }
 
             // ---------------------------------------------------------
