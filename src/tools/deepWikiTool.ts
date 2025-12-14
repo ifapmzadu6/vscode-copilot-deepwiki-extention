@@ -1296,6 +1296,7 @@ Insert exactly:
 - Use Mermaid \`C4Component\` diagram syntax.
 - Nodes:
   - Each component node = one page from \`${intermediateDir}/L5/page_structure.json\` (exactly; no missing/extra pages).
+  - **Label nodes by the pageName/component name (no \`.md\` filename suffix)**.
   - Optional: group pages into 3–7 boundaries for readability (e.g., "Auth", "Core", "Infra", "UI", "Data"), but each page must still appear as its own node.
 - Relationships:
   - Derive relationships from \`${intermediateDir}/L4/relationships.md\` and L3 analyses (when needed).
@@ -1310,9 +1311,9 @@ C4Component
 title System Breakdown (Pages)
 
 Container_Boundary(docs, "DeepWiki Pages") {
-  Component(auth, "Authentication.md", "Docs Page", "Auth flows and internals")
-  Component(api, "API.md", "Docs Page", "Public interfaces and integration points")
-  Component(storage, "Storage.md", "Docs Page", "Persistence and data access")
+  Component(auth, "Authentication", "Docs Page", "Auth flows and internals")
+  Component(api, "API", "Docs Page", "Public interfaces and integration points")
+  Component(storage, "Storage", "Docs Page", "Persistence and data access")
 }
 
 Rel(api, auth, "calls/uses")
