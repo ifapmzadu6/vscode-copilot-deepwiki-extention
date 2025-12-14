@@ -561,16 +561,49 @@ stateDiagram-v2
 \`\`\`
 
 ## Output
-Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
-- Use this heading structure:
-  - \`# ${component.name} - Analysis\`
-  - \`## File Structure\` (list the component's source files; absolute accuracy required)
-  - \`## Overview and Architecture\`
-  - \`## Key Logic\` (include \`### Key Types & APIs\`, \`### Critical Flows\`)
-  - \`## Causal Analysis\` (include \`### Event Causality\`, \`### State Causality\`)
-  - \`## Edge Cases & Failure Modes\`
-  - \`## Integration Points & Dependencies\`
-  - \`## Diagrams\` (Mermaid)
+Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\` using this structure (example only; do not wrap the whole file in fences):
+${mdCodeBlock}markdown
+# ${component.name} - Analysis
+
+## File Structure
+- ...
+
+## Overview and Architecture
+- ...
+
+## Key Logic
+
+### Key Types & APIs
+| Symbol | Location | Responsibility |
+|--------|----------|----------------|
+| ... | ... | ... |
+
+### Critical Flows
+1. ...
+2. ...
+
+## Causal Analysis
+
+### Event Causality
+- ...
+
+### State Causality
+- ...
+
+## Edge Cases & Failure Modes
+- ...
+
+## Integration Points & Dependencies
+- Upstream callers/triggers: ...
+- Downstream consumers/effects: ...
+- Contracts (events/services/commands/config keys): ...
+
+## Diagrams
+${mdCodeBlock}mermaid
+stateDiagram-v2
+    [*] --> Idle
+${mdCodeBlock}
+${mdCodeBlock}
 - Do not wrap the entire file in Markdown fences.
 - Mermaid diagrams must be in \`\`\`mermaid fences.
 - Avoid large raw code pastes; reference symbols/paths instead.
