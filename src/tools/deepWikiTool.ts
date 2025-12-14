@@ -851,12 +851,12 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 2. Source verification (mandatory):
    - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
    - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.
-2. Write \`${intermediateDir}/L4/overview.md\`:
+3. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
-3. Write \`${intermediateDir}/L4/relationships.md\`:
+4. Write \`${intermediateDir}/L4/relationships.md\`:
    - cross-component event/state causality map
    - include diagrams (see below)
-4. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
+5. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
 
 ## Diagrams
 - **Required**: at least one \`stateDiagram-v2\` for cross-component state/event flow
@@ -1172,8 +1172,8 @@ ${mdCodeBlock}
 - Claim: ...
 
 ### Evidence (Anchors)
-- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports summary claim X
-- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports summary claim Y
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports summary claim X
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports summary claim Y
 
 ## Use Cases
 {Description of how and when to use these components}
@@ -1183,7 +1183,7 @@ ${mdCodeBlock}
 - Claim: ...
 
 ### Evidence (Anchors)
-- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports use case claim X
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports use case claim X
 
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
@@ -1207,8 +1207,8 @@ ${mdCodeBlock}
 
 ### Claims → Evidence → Implication (CEI)
 - Claim: ...
-  - Evidence: [\`path/to/file.ts\`](path/to/file.ts)::Symbol — why this supports the claim
-  - Evidence: [\`path/to/file.ts\`](path/to/file.ts)::OtherSymbol — why this supports the claim
+  - Evidence: [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — why this supports the claim
+  - Evidence: [\`path/to/file.ts\`](/path/to/file.ts)::OtherSymbol — why this supports the claim
   - Implication: what this means for behavior/architecture/integration
 
 ### Element-Level Mechanics (when applicable)
@@ -1230,7 +1230,7 @@ stateDiagram-v2
 ${mdCodeBlock}
 
 ##### Evidence (Anchors)
-- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports this element’s mechanics claim
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports this element’s mechanics claim
 
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
@@ -1240,7 +1240,7 @@ ${mdCodeBlock}
 - Claim: ...
 
 ### Evidence (Anchors)
-- [\`path/to/file.ts\`](path/to/file.ts)::Symbol — supports external interface claim X
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
                 const createL5Task = (pageChunk: PageGroup[]) => {
@@ -1301,7 +1301,7 @@ For every major section, include a "### Evidence (Anchors)" subsection with conc
 These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide verifiable anchors, DELETE or narrow the claim.
 
 **Source Links (Allowed)**:
-- You MAY include Markdown links to source files (e.g., \`[\`src/foo.ts\`](src/foo.ts)\`).
+- You MAY include Markdown links to source files, preferably repo-root relative (GitHub-style), e.g. \`[\`src/foo.ts\`](/src/foo.ts)\`.
 - Do NOT link to intermediate artifacts (\`intermediate/\`, \`../L3/\`, etc.).
 
 **Element-Level State Diagrams**:
