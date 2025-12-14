@@ -987,6 +987,14 @@ ${mdCodeBlock}
 ## Use Cases
 {Description of how and when to use these components}
 
+### Element-Level Use Cases (when applicable)
+If you later split this page into element subsections (see "Element-Level Mechanics" below), add matching subsections here:
+
+#### {ElementName}
+- {When/why to use this element}
+- {Common workflows involving it}
+- {When NOT to use it / pitfalls}
+
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
 %% Overview diagram (File/Class/State) of the internal structure
@@ -1056,6 +1064,9 @@ When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X ha
 
 **Element-Level State Diagrams**:
 If you split "## Internal Mechanics Details" into element subsections (e.g., \`### Auth Service\`, \`### Session Store\`), include a **stateDiagram-v2 in EACH element subsection**. If an element is effectively stateless, use a trivial state diagram (e.g., a single "Stateless" state) and briefly explain why.
+
+**Element-Level Use Cases**:
+If you split "## Internal Mechanics Details" into element subsections, also split "## Use Cases" into matching element subsections and include a short use case explanation for each element.
 
 ### Template
 ` + pageTemplate + `
@@ -1183,6 +1194,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 2. For EACH page:
    - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
    - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
+   - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure "## Use Cases" is also split into matching element subsections and each element has a concrete use case explanation.
    - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
    - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
    - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
