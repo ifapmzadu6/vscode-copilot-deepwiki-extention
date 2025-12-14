@@ -984,9 +984,6 @@ ${mdCodeBlock}
 ## Summary
 {Description of what this page covers}
 
-## Sources
-- \`path/to/source/file\` (add multiple; prefer \`src/...\`)
-
 ## Use Cases
 {Description of how and when to use these components}
 
@@ -1034,7 +1031,7 @@ ${mdCodeBlock}
 3. Do NOT re-analyze source code; synthesize and consolidate L3 content into a reader-friendly page.
 4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
 5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
-6. **Grounding requirement**: Maintain a \`## Sources\` section listing the component source files this page is based on (and any additional files you read). Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing.
+6. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -1169,9 +1166,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Workflow
 1. **Inventory**: Read \`${intermediateDir}/L5/page_structure.json\` and ensure every expected page exists under \`${outputPath}/pages/\`.
 2. For EACH page:
-   - **Sources**: Ensure a meaningful \`## Sources\` section exists. Populate it from the component file list (from \`${intermediateDir}/L2/component_list.json\`) plus any extra files you read to verify details. Remove any non-existent paths.
+   - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
    - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
-   - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the Sources as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
+   - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
    - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
    - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
    - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
