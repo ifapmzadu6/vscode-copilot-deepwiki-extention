@@ -1291,31 +1291,35 @@ Insert exactly:
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
 
-**D. Documentation Breakdown (block-beta) — REQUIRED**
+**D. Documentation Breakdown (C4Component) — REQUIRED**
 - Goal: Show the breakdown of the GENERATED DOCS under \`${outputPath}/\` (not runtime architecture).
-- Include at least these nodes:
+- Use Mermaid \`C4Component\` diagram syntax.
+- Must include at least:
   - \`${outputPath}/README.md\` (landing page / system overview / TOC)
   - \`${outputPath}/pages/\` (generated docs)
-- Under \`pages/\`, group pages into 3–7 reader-friendly clusters (e.g., "Auth", "Core", "Infra", "UI", "Data") and list the exact page names under each cluster.
+- Under \`pages/\`, group pages into 3–7 reader-friendly clusters (e.g., "Auth", "Core", "Infra", "UI", "Data").
+  - Each cluster should list the exact page names it contains.
 - Must cover ALL pages from \`${intermediateDir}/L5/page_structure.json\` exactly once (no missing/extra pages).
-- No arrows; max one nesting level; keep it readable (avoid dozens of standalone blocks).
+- Keep relationships minimal and readable:
+  - Use a single relationship from README → each cluster labeled "links to".
+  - Avoid drawing one relationship per page (too noisy).
 - 2–3 sentence preface, then diagram.
 
-Use Mermaid \`block-beta\` syntax. Example shape (replace labels with your actual pages/clusters):
+Example shape (replace labels with your actual pages/clusters):
 \`\`\`mermaid
-block-beta
-  columns 1
-  ROOT["${outputPath}/"]
-  block:ROOT
-    columns 2
-    README["README.md\\n(System overview + TOC)"]
-    PAGES["pages/"]
-    block:PAGES
-      columns 2
-      GROUP1["Cluster A (N pages)\\n- PageOne\\n- PageTwo"]
-      GROUP2["Cluster B (M pages)\\n- AnotherPage"]
-    end
-  end
+C4Component
+title Documentation Breakdown (${outputPath}/)
+
+Container_Boundary(out, "${outputPath}/") {
+  Component(readme, "README.md", "Landing / TOC", "System overview + links to pages")
+  Container_Boundary(pages, "pages/") {
+    Component(group1, "Cluster A", "Pages", "- PageOne\\n- PageTwo")
+    Component(group2, "Cluster B", "Pages", "- AnotherPage")
+  }
+}
+
+Rel(readme, group1, "links to")
+Rel(readme, group2, "links to")
 \`\`\`
 
 ### 2. Components
