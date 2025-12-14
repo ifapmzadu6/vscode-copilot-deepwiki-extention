@@ -1291,10 +1291,17 @@ Insert exactly:
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
 
-**D. Component Overview (block) — REQUIRED**
+**D. Component Overview (block-beta) — REQUIRED**
 - Must match pages in \`${intermediateDir}/L5/page_structure.json\` exactly.
 - Each block = one page; no arrows; max one nesting level.
 - 2–3 sentence preface, then diagram.
+
+Use Mermaid \`block-beta\` syntax. Minimal example:
+\`\`\`mermaid
+block-beta
+  columns 3
+  A["Page A"] B["Page B"] C["Page C"]
+\`\`\`
 
 ### 2. Components
 For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
