@@ -539,7 +539,6 @@ Use this exact bullet structure:
    - Use \`replace_string_in_file\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
-   - De-duplicate: merge overlapping bullets instead of adding new ones.
    - Keep each \`replace_string_in_file\` small (aim: one section at a time; avoid huge single patches).
 4. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
@@ -1269,7 +1268,6 @@ ${mdCodeBlock}
 8. Token-stability workflow:
    - Use \`replace_string_in_file\` after EACH major section.
    - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
-   - De-duplicate: merge overlapping bullets/claims instead of adding new ones.
    - Keep each \`replace_string_in_file\` small (aim: one section at a time; avoid huge single patches).
 
 **Consolidation Guidelines**:
