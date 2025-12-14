@@ -103,14 +103,18 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 .slice(0, 80);
 
         const editToolNameForPrompt = (() => {
-            const fromInputRaw = typeof params.fileEditToolName === 'string' ? params.fileEditToolName : '';
-            const fromInput = sanitizeToolNameForPrompt(fromInputRaw);
+            const fromInput = sanitizeToolNameForPrompt(params.fileEditToolName ?? '');
             if (fromInput.length > 0) return fromInput;
-            const available = new Set(vscode.lm.tools.map(t => t.name));
-            if (available.has('apply_patch')) return 'apply_patch';
-            if (available.has('replace_string_in_file')) return 'replace_string_in_file';
             return 'edit tool';
         })();
+
+        if (editToolNameForPrompt === 'edit tool') {
+            return new vscode.LanguageModelToolResult([
+                new vscode.LanguageModelTextPart(
+                    'Error: `fileEditToolName` is required. Please provide the available file-edit tool name for subagents (e.g., "apply_patch" or "replace_string_in_file").'
+                ),
+            ]);
+        }
 
         // Define ComponentDef interface globally within invoke scope
         interface ComponentDef { name: string; files: string[]; description: string }

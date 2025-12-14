@@ -37,37 +37,40 @@
         "userDescription": "Generate DeepWiki documentation for the current workspace.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
-	      "inputSchema": {
-	        "type": "object",
-	        "properties": {
-	          "outputPath": {
-	            "type": "string",
-	            "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
-	          },
-	          "fileEditToolName": {
-	            "type": "string",
-	            "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions), e.g. 'apply_patch' or 'replace_string_in_file'. If omitted, the extension will auto-detect when possible."
-	          },
-	          "startFromStage": {
-	            "type": "string",
-	            "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist.",
-	            "enum": [
-	              "L1",
-	              "L2",
-	              "L3",
-	              "L4",
-	              "L5",
-	              "L6",
-	              "L7",
-	              "L8",
-	              "L9"
-	            ]
-	          }
-	        }
+		      "inputSchema": {
+		        "type": "object",
+		        "properties": {
+		          "outputPath": {
+		            "type": "string",
+		            "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
+		          },
+		          "fileEditToolName": {
+		            "type": "string",
+		            "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions), e.g. 'apply_patch' or 'replace_string_in_file'. If omitted, the extension will auto-detect when possible."
+		          },
+		          "startFromStage": {
+		            "type": "string",
+		            "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist.",
+		            "enum": [
+		              "L1",
+		              "L2",
+		              "L3",
+		              "L4",
+		              "L5",
+		              "L6",
+		              "L7",
+		              "L8",
+		              "L9"
+		            ]
+		          }
+		        },
+		        "required": [
+		          "fileEditToolName"
+		        ]
+		      }
 	      }
-      }
-    ]
-  },
+	    ]
+	  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
