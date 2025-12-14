@@ -115,6 +115,44 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         interface ComponentDef { name: string; files: string[]; description: string }
         interface PageGroup { pageName: string; components: string[]; rationale: string }
 
+        const validateComponentList = (list: ComponentDef[]) => {
+            const invalidNameChars = /[<>:"/\\|?*]/;
+            const invalidNames: string[] = [];
+            const emptyNames: string[] = [];
+            const trimmedMismatch: string[] = [];
+            const duplicateNames = new Set<string>();
+            const seenNames = new Set<string>();
+
+            for (const c of list) {
+                const rawName = typeof c?.name === 'string' ? c.name : '';
+                const trimmed = rawName.trim();
+                if (trimmed.length === 0) {
+                    emptyNames.push(String(c?.name));
+                    continue;
+                }
+                if (rawName !== trimmed) {
+                    trimmedMismatch.push(rawName);
+                }
+                if (invalidNameChars.test(rawName)) {
+                    invalidNames.push(rawName);
+                }
+                if (seenNames.has(rawName)) {
+                    duplicateNames.add(rawName);
+                }
+                seenNames.add(rawName);
+            }
+
+            const problems: string[] = [];
+            if (emptyNames.length > 0) problems.push(`empty names: ${emptyNames.slice(0, 5).join(', ')}`);
+            if (trimmedMismatch.length > 0) problems.push(`names with leading/trailing spaces: ${trimmedMismatch.slice(0, 5).join(', ')}`);
+            if (invalidNames.length > 0) problems.push(`names with invalid characters (e.g. '/'): ${invalidNames.slice(0, 5).join(', ')}`);
+            if (duplicateNames.size > 0) problems.push(`duplicate names: ${Array.from(duplicateNames).slice(0, 5).join(', ')}`);
+
+            if (problems.length > 0) {
+                throw new Error(`Invalid component_list.json (component name constraints violated): ${problems.join(' | ')}`);
+            }
+        };
+
         const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
             const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePathFromWorkspace));
             await vscode.workspace.fs.stat(uri);
@@ -305,7 +343,7 @@ ${jsonExample}
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
-4. **Naming**: \`name\` must be filename-safe across platforms (avoid \`<>:"/\\\\|?*\`; no leading/trailing spaces).
+4. **Naming**: \`name\` must be filename-safe across platforms (avoid \`<>:"/\\\\|?*\`; no leading/trailing spaces). In particular, DO NOT include \`/\` in names (use \`-\` or space instead).
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
 ` + getPipelineOverview('L2-A'),
@@ -403,6 +441,7 @@ Create the FINAL component list.
 1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "List finalized."). Do not include JSON or file contents.
+4. **Naming**: Component \`name\` values must be filename-safe (no \`/\`); rename any component whose name contains \`/\` (e.g., replace with \`-\`).
 
 ` + getPipelineOverview('L2-C'),
                     token,
@@ -421,6 +460,7 @@ Create the FINAL component list.
                     if (!Array.isArray(componentList) || componentList.length === 0) {
                         throw new Error('Parsed JSON is not a valid array or is empty.');
                     }
+                    validateComponentList(componentList);
 
                     logger.log('DeepWiki', `L2 Success: Identified ${componentList.length} logical components.`);
                     isL2Success = true;
@@ -443,6 +483,7 @@ Create the FINAL component list.
                 if (!Array.isArray(componentList) || componentList.length === 0) {
                     throw new Error('Resume failed: component_list.json is missing or empty. Start from L2 or L1.');
                 }
+                validateComponentList(componentList);
                 logger.log('DeepWiki', `Resume: Loaded ${componentList.length} logical components from L2 output.`);
             }
 
