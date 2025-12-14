@@ -1291,16 +1291,31 @@ Insert exactly:
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
 
-**D. Component Overview (block-beta) — REQUIRED**
-- Must match pages in \`${intermediateDir}/L5/page_structure.json\` exactly.
-- Each block = one page; no arrows; max one nesting level.
+**D. Documentation Breakdown (block-beta) — REQUIRED**
+- Goal: Show the breakdown of the GENERATED DOCS under \`${outputPath}/\` (not runtime architecture).
+- Include at least these nodes:
+  - \`${outputPath}/README.md\` (landing page / system overview / TOC)
+  - \`${outputPath}/pages/\` (generated docs)
+- Under \`pages/\`, group pages into 3–7 reader-friendly clusters (e.g., "Auth", "Core", "Infra", "UI", "Data") and list the exact page names under each cluster.
+- Must cover ALL pages from \`${intermediateDir}/L5/page_structure.json\` exactly once (no missing/extra pages).
+- No arrows; max one nesting level; keep it readable (avoid dozens of standalone blocks).
 - 2–3 sentence preface, then diagram.
 
-Use Mermaid \`block-beta\` syntax. Minimal example:
+Use Mermaid \`block-beta\` syntax. Example shape (replace labels with your actual pages/clusters):
 \`\`\`mermaid
 block-beta
-  columns 3
-  A["Page A"] B["Page B"] C["Page C"]
+  columns 1
+  ROOT["${outputPath}/"]
+  block:ROOT
+    columns 2
+    README["README.md\\n(System overview + TOC)"]
+    PAGES["pages/"]
+    block:PAGES
+      columns 2
+      GROUP1["Cluster A (N pages)\\n- PageOne\\n- PageTwo"]
+      GROUP2["Cluster B (M pages)\\n- AnotherPage"]
+    end
+  end
 \`\`\`
 
 ### 2. Components
