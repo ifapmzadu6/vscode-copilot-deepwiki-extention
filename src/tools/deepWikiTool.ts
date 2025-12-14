@@ -1291,35 +1291,32 @@ Insert exactly:
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
 
-**D. Documentation Breakdown (C4Component) — REQUIRED**
-- Goal: Show the breakdown of the GENERATED DOCS under \`${outputPath}/\` (not runtime architecture).
+**D. System Breakdown (C4Component) — REQUIRED**
+- Goal: Show the system's decomposition at **page granularity** (each generated page is a node), not a "docs folder structure" diagram.
 - Use Mermaid \`C4Component\` diagram syntax.
-- Must include at least:
-  - \`${outputPath}/README.md\` (landing page / system overview / TOC)
-  - \`${outputPath}/pages/\` (generated docs)
-- Under \`pages/\`, group pages into 3–7 reader-friendly clusters (e.g., "Auth", "Core", "Infra", "UI", "Data").
-  - Each cluster should list the exact page names it contains.
-- Must cover ALL pages from \`${intermediateDir}/L5/page_structure.json\` exactly once (no missing/extra pages).
-- Keep relationships minimal and readable:
-  - Use a single relationship from README → each cluster labeled "links to".
-  - Avoid drawing one relationship per page (too noisy).
+- Nodes:
+  - Each component node = one page from \`${intermediateDir}/L5/page_structure.json\` (exactly; no missing/extra pages).
+  - Optional: group pages into 3–7 boundaries for readability (e.g., "Auth", "Core", "Infra", "UI", "Data"), but each page must still appear as its own node.
+- Relationships:
+  - Derive relationships from \`${intermediateDir}/L4/relationships.md\` and L3 analyses (when needed).
+  - Use a small, readable set of edges (target ~8–15 total). Prefer edges that represent the "main path" of interactions.
+  - Use meaningful labels like "calls", "uses", "emits", "depends on", "reads/writes".
+  - Do NOT add edges based on guesswork; if unsure, omit.
 - 2–3 sentence preface, then diagram.
 
-Example shape (replace labels with your actual pages/clusters):
+Example shape (replace pages and relationships with your actual pages/system):
 \`\`\`mermaid
 C4Component
-title Documentation Breakdown (${outputPath}/)
+title System Breakdown (Pages)
 
-Container_Boundary(out, "${outputPath}/") {
-  Component(readme, "README.md", "Landing / TOC", "System overview + links to pages")
-  Container_Boundary(pages, "pages/") {
-    Component(group1, "Cluster A", "Pages", "- PageOne\\n- PageTwo")
-    Component(group2, "Cluster B", "Pages", "- AnotherPage")
-  }
+Container_Boundary(docs, "DeepWiki Pages") {
+  Component(auth, "Authentication.md", "Docs Page", "Auth flows and internals")
+  Component(api, "API.md", "Docs Page", "Public interfaces and integration points")
+  Component(storage, "Storage.md", "Docs Page", "Persistence and data access")
 }
 
-Rel(readme, group1, "links to")
-Rel(readme, group2, "links to")
+Rel(api, auth, "calls/uses")
+Rel(auth, storage, "reads/writes")
 \`\`\`
 
 ### 2. Components
