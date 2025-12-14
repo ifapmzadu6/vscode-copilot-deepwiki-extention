@@ -138,6 +138,15 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 await requireFile(path.join(intermediateDir, 'L5', 'page_structure.json'));
                 await requireAnyFileMatch(`${outputPath}/pages/*.md`);
             }
+            if (startStageIndex >= stageOrder.indexOf('L7')) {
+                // Prefer L5 grouping artifact for stable README TOC/diagrams.
+                // If missing (e.g., older runs), the Indexer will fall back to generating it.
+                try {
+                    await requireFile(path.join(intermediateDir, 'L5', 'page_groups.json'));
+                } catch {
+                    // ignore
+                }
+            }
             if (startStageIndex >= stageOrder.indexOf('L8')) {
                 await requireFile(path.join(outputPath, 'README.md'));
             }
@@ -974,6 +983,69 @@ ${mdCodeBlock}
                 }
 
                 // ---------------------------------------------------------
+                // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
+                // ---------------------------------------------------------
+                const pageGroupsExample = `
+[
+  {
+    "groupName": "Authentication",
+    "pages": ["Authentication", "Authorization"],
+    "rationale": "User identity, permissions, and auth flows"
+  },
+  {
+    "groupName": "Infrastructure",
+    "pages": ["Configuration", "Logging"],
+    "rationale": "Cross-cutting runtime infrastructure"
+  }
+]
+`;
+
+                await this.runPhase(
+                    `L5-G: Page Grouper (Loop ${loopCount + 1})`,
+                    'Group pages for README navigation',
+                    `# Page Grouper Agent (L5-G)
+
+## Role
+- **Your Stage**: L5-G Page Grouper (Information Architecture for README)
+- **Core Responsibility**: Create stable, reader-friendly groups of pages for the README TOC and diagrams.
+
+## Goal
+Group the generated pages (pageName values) into 3–8 groups so the README navigation and diagrams don't drift.
+
+## Input
+- Page structure (source of truth): \`${intermediateDir}/L5/page_structure.json\`
+- L4 overview/relationships (optional signal for clustering):
+  - \`${intermediateDir}/L4/overview.md\`
+  - \`${intermediateDir}/L4/relationships.md\`
+
+## Workflow
+1. Read \`${intermediateDir}/L5/page_structure.json\` and collect the full set of pageName values.
+2. Create 3–8 groups with clear, human-friendly names (avoid overly generic names like "Misc" unless unavoidable).
+3. Assign EVERY pageName to exactly one group.
+4. Keep groups balanced; avoid single-page groups unless that page is truly standalone/important.
+5. Provide a short rationale per group.
+
+## Output
+Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_groups.json\`.
+
+**Format example (do not include fences in the file)**:
+${mdCodeBlock}json
+${pageGroupsExample}
+${mdCodeBlock}
+
+## Constraints
+1. Output must be a single valid JSON array.
+2. Each \`pages\` item must be an exact pageName from \`${intermediateDir}/L5/page_structure.json\` (no \`.md\` suffix).
+3. Every page must appear exactly once across all groups (no missing/duplicates).
+4. **Scope**: Only write under \`.deepwiki/\`.
+5. **Chat Final Response**: One short confirmation line; no file contents.
+
+` + getPipelineOverview('L5'),
+                    token,
+                    options.toolInvocationToken
+                );
+
+                // ---------------------------------------------------------
                 // Level 5: WRITER (Process pages based on page_structure.json)
                 // ---------------------------------------------------------
                 const pageTemplate = `
@@ -1270,6 +1342,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - \`${intermediateDir}/L5/page_structure.json\` (source of truth for pages)
+- \`${intermediateDir}/L5/page_groups.json\` (source of truth for README grouping; created by L5-G)
 - All files under \`${outputPath}/pages/\`
 - Existing nested DeepWikis list: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
@@ -1291,15 +1364,52 @@ Insert exactly:
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
 
-**D. Component Overview (block) — REQUIRED**
-- Must match pages in \`${intermediateDir}/L5/page_structure.json\` exactly.
-- Each block = one page; no arrows; max one nesting level.
+**D. System Breakdown (C4Component) — REQUIRED**
+- Goal: Show the system breakdown at **page granularity** (each generated page is a node).
+- Use Mermaid \`C4Component\` syntax.
+- Use \`${intermediateDir}/L5/page_groups.json\` as the source of truth for grouping.
+  - If \`${intermediateDir}/L5/page_groups.json\` does not exist, create it first (same format as L5-G), then use it.
+- Nodes:
+  - Each node label = pageName (no \`.md\` suffix).
+  - Every page from \`${intermediateDir}/L5/page_structure.json\` must appear exactly once.
+  - Put page nodes inside boundaries for each groupName from page_groups.json.
+- Relationships:
+  - Derive edges from \`${intermediateDir}/L4/relationships.md\` (and L3 analyses if needed).
+  - Keep a small, readable set of edges (hard cap: 12 total).
+  - Prefer **cross-group** relationships over within-group relationships.
+  - If there are many pages, choose up to 1–2 representative "interface pages" per group (highest fan-in/out in L4 relationships) and draw edges primarily between those representatives.
+  - If the diagram still becomes too dense, omit most/all relationships and rely on the grouped TOC; never draw a spaghetti graph.
+  - Label edges with meaningful verbs ("calls", "uses", "emits", "depends on", "reads/writes").
+  - No guesswork; omit if uncertain.
 - 2–3 sentence preface, then diagram.
 
+Example shape (replace pages/groups/edges with your actual data):
+\`\`\`mermaid
+C4Component
+title System Breakdown
+
+Container_Boundary(system, "System") {
+  Container_Boundary(auth, "Authentication") {
+    Component(p_auth, "Auth", "Docs Page", "Auth flows and internals")
+  }
+  Container_Boundary(core, "Core") {
+    Component(p_api, "API", "Docs Page", "Public interfaces and integration points")
+    Component(p_storage, "Storage", "Docs Page", "Persistence and data access")
+  }
+}
+
+Rel(p_api, p_auth, "calls/uses")
+Rel(p_auth, p_storage, "reads/writes")
+\`\`\`
+Note: Do not label the outer boundary as "DeepWiki Pages" or anything that implies documentation. Name boundaries as system areas/domains (or omit the outer boundary entirely).
+
 ### 2. Components
-For EACH page in \`${intermediateDir}/L5/page_structure.json\`:
-- Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
-- One-line description using the rationale.
+Use \`${intermediateDir}/L5/page_groups.json\` to group the TOC.
+For EACH group:
+- Print a short group heading and (optionally) the group's rationale.
+- Under it, list each page in that group as:
+  - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
+  - One-line description using the page_structure rationale for that page.
 
 ### 2.5 Existing DeepWikis (optional)
 If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short section listing links to those existing docs (link to their \`.deepwiki/README.md\` only; do not summarize their internals).
@@ -1307,6 +1417,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ### 3. Quick self-check
 - All three diagrams present and render.
 - Components list matches page_structure exactly.
+- Grouped TOC matches page_groups exactly.
 - No links to intermediate files.
 
 ## Output

@@ -208,6 +208,7 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── page_structure_draft.json    # Initial draft from L5-Pre-A
     │   ├── page_structure_review.md     # Review from L5-Pre-B
     │   ├── page_structure.json          # Final page structure from L5-Pre-C
+    │   ├── page_groups.json             # Page groups for README TOC/diagrams (from L5-G)
     │   └── ...
     ├── L5V/                # L5 validator outputs
     │   └── page_validation_failures.json  # (temporary, lists failed pages for retry)
