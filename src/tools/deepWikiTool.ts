@@ -539,6 +539,7 @@ Use this exact bullet structure:
    - Use \`applyPatch\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
+   - Keep each \`applyPatch\` small (aim: one section at a time; avoid huge single patches).
 4. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
 5. For each analysis section: Analyze → Use \`applyPatch\` to write
@@ -1275,6 +1276,7 @@ ${mdCodeBlock}
 8. Token-stability workflow:
    - Use \`applyPatch\` after EACH major section.
    - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
+   - Keep each \`applyPatch\` small (aim: one section at a time; avoid huge single patches).
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -1834,7 +1836,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
             // Some subagent failures are reported as plain text. If we see a known marker phrase,
             // delete the expected output files so downstream validators will retry cleanly.
-            if (/(your request failed|hit the length limit)/i.test(resultText)) {
+            if (/(your request failed|hit the length limit|output token limit|token limit exceeded|maximum context length|context length exceeded)/i.test(resultText)) {
                 logger.warn('DeepWiki', `Subagent reported request failure in phase "${agentName}". Cleaning outputs for retry.`);
                 if (cleanupUrisOnRequestFailed && cleanupUrisOnRequestFailed.length > 0) {
                     for (const uri of cleanupUrisOnRequestFailed) {
