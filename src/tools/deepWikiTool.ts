@@ -539,6 +539,8 @@ Use this exact bullet structure:
    - Use \`applyPatch\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
+   - De-duplicate: merge overlapping bullets instead of adding new ones.
+   - Keep each \`applyPatch\` small (aim: one section at a time; avoid huge single patches).
 4. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
 5. For each analysis section: Analyze → Use \`applyPatch\` to write
@@ -550,14 +552,6 @@ Use this exact bullet structure:
 6. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
-
-## Output Size Guidelines (Hard Caps)
-- \`## Overview and Architecture\`: ≤ 12 bullets
-- \`### Key Types & APIs\`: ≤ 12 rows
-- \`### Critical Flows\`: ≤ 4 flows, each ≤ 10 steps
-- \`## Edge Cases & Failure Modes\`: ≤ 12 bullets
-- \`## Integration Points & Dependencies\`: ≤ 12 bullets total
-- \`## Diagrams\`: ≤ 2 diagrams (must include \`stateDiagram-v2\`; add \`sequenceDiagram\` only if it adds new information)
 
 ## Causal Analysis Requirements
 Analyze the source code and document:
@@ -1275,6 +1269,8 @@ ${mdCodeBlock}
 8. Token-stability workflow:
    - Use \`applyPatch\` after EACH major section.
    - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
+   - De-duplicate: merge overlapping bullets/claims instead of adding new ones.
+   - Keep each \`applyPatch\` small (aim: one section at a time; avoid huge single patches).
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
