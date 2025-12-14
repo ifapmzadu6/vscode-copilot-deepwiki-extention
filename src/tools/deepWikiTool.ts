@@ -662,7 +662,7 @@ ${mdCodeBlock}
                     `# L3 Validator Agent
 
 ## Role
-Quality gate for L3 outputs: ensure expected analysis files exist and are minimally usable for downstream stages.
+Quality gate for L3 outputs: ensure expected analysis files exist and are structurally rich enough to support L4/L5 without re-reading source code.
 
 ## Expected Files
 Directory: \`${intermediateDir}/L3/\`
@@ -672,12 +672,29 @@ ${l3ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
 ## Workflow
 1. List files in \`${intermediateDir}/L3/\`
 2. Compare against expected files above and identify missing files
-3. For each PRESENT file, do quick sanity checks:
-   - Not empty / not a placeholder stub
-   - Contains at least a title and some substantive content (not just headings)
+3. For each PRESENT file, run these checks and record pass/fail per component:
+   - **Required headings present**:
+     - \`## File Structure\`
+     - \`## Overview and Architecture\`
+     - \`## Key Logic\`
+     - \`## Causal Analysis\`
+     - \`## Edge Cases & Failure Modes\`
+     - \`## Integration Points & Dependencies\`
+     - \`## Diagrams\`
+   - **CEI density**:
+     - Count occurrences of \`- Claim:\` (must be \`>= 12\`)
+     - Count occurrences of \`- Evidence:\` (must be \`>= 24\`)
+     - Evidence anchors must include \`::\` (e.g., \`path/to/file.ts::Symbol\`)
+   - **Anchor density**:
+     - At least 10 concrete anchors in backticks matching \`*::*\` (e.g., \`path/to/file.ts::Symbol\`)
+   - **Diagram presence**:
+     - At least one Mermaid fence \`\`\`mermaid
+     - Mermaid content includes \`stateDiagram-v2\`
+   - **No obvious placeholders**:
+     - Reject if it still contains \`TODO\`, \`TBD\`, \`{...}\`, or repeated \`- ...\` placeholders as the majority of content.
 4. Always write a short report to \`${intermediateDir}/L3V/validation_report.md\`:
    - Missing components
-   - Components that failed sanity checks (brief reason)
+   - Components that failed checks (which check failed, and observed counts)
 5. If ALL files exist AND pass sanity checks → Write empty array to \`${intermediateDir}/L3V/validation_failures.json\`
 6. If ANY files are missing OR fail sanity checks → Write JSON array of component names that must be retried to \`${intermediateDir}/L3V/validation_failures.json\`
 
@@ -1134,14 +1151,14 @@ ${mdCodeBlock}
 {Description of what this page covers}
 
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports summary claim X
-- \`path/to/file.ts::Symbol\` — supports summary claim Y
+- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports summary claim X
+- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports summary claim Y
 
 ## Use Cases
 {Description of how and when to use these components}
 
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports use case claim X
+- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports use case claim X
 
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
@@ -1161,8 +1178,8 @@ ${mdCodeBlock}
 
 ### Claims → Evidence → Implication (CEI)
 - Claim: ...
-  - Evidence: \`path/to/file.ts::Symbol\` — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` — why this supports the claim
+  - Evidence: \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
+  - Evidence: \`path/to/file.ts::OtherSymbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
   - Implication: what this means for behavior/architecture/integration
 
 ### Element-Level Mechanics (when applicable)
@@ -1184,13 +1201,13 @@ stateDiagram-v2
 ${mdCodeBlock}
 
 ##### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports this element’s mechanics claim
+- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports this element’s mechanics claim
 
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
 
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` — supports external interface claim X
+- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
                 const createL5Task = (pageChunk: PageGroup[]) => {
@@ -1234,13 +1251,14 @@ When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X ha
 **Claims → Evidence → Implication (CEI)**:
 For key mechanics (especially "## Internal Mechanics Details"), add a short CEI list:
 - Claim: ...
-  - Evidence: \`path/to/file.ts::Symbol\` — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` — why this supports the claim
+  - Evidence: \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
+  - Evidence: \`path/to/file.ts::OtherSymbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
   - Implication: what this means for behavior/architecture/integration
 
 **Evidence Anchors**:
 For every major section, include a "### Evidence (Anchors)" subsection with concrete \`path::Symbol\` anchors.
-These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide anchors, DELETE or narrow the claim.
+Each evidence line MUST include which L3 analysis file supports it, e.g. \`(L3: 001_Component_analysis.md)\`.
+These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide verifiable anchors + an L3 reference, DELETE or narrow the claim.
 
 **Element-Level State Diagrams**:
 If you split "## Internal Mechanics Details" into element subsections (e.g., \`### Auth Service\`, \`### Session Store\`), include a **stateDiagram-v2 in EACH element subsection**. If an element is effectively stateless, use a trivial state diagram (e.g., a single "Stateless" state) and briefly explain why.
@@ -1312,6 +1330,7 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
    - For each claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
    - If a claim cannot be supported, mark it as unsupported.
    - Ensure each major section contains a "### Evidence (Anchors)" subsection. If missing, treat as a failure.
+   - Ensure each evidence line includes an L3 analysis filename reference, e.g. \`(L3: 001_Component_analysis.md)\`. If missing, treat as a failure.
 6. Write an evidence map to \`${intermediateDir}/L5V/evidence_map.json\` as RAW JSON (no fences).
 7. For any page with unsupported claims or missing evidence sections:
    - Write feedback to \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\` describing what to delete/rewrite and which anchors are required.
@@ -1329,7 +1348,9 @@ Write to \`${intermediateDir}/L5V/evidence_map.json\` (RAW JSON; no fences):
   - \`section\`
   - \`claim\`
   - \`verdict\`: \`"supported" | "weak" | "unsupported"\`
-  - \`evidenceAnchors\`: string[] (\`path::Symbol\`)
+  - \`evidence\`: array of objects:
+    - \`l3File\`: string (e.g. \`001_Component_analysis.md\`)
+    - \`anchor\`: string (\`path::Symbol\`)
 
 Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
 - If all supported: \`[]\`
