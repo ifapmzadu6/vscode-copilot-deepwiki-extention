@@ -225,7 +225,7 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
+3. **Incremental Writing**: Write section-by-section with \`replace_string_in_file\`.
 
 ` + getPipelineOverview('L1'),
                     token,
@@ -536,20 +536,20 @@ Use this exact bullet structure:
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 2. Read source code files for this component
 3. Token-stability workflow (do NOT write all at once):
-   - Use \`applyPatch\` after EACH section.
+   - Use \`replace_string_in_file\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
    - De-duplicate: merge overlapping bullets instead of adding new ones.
-   - Keep each \`applyPatch\` small (aim: one section at a time; avoid huge single patches).
+   - Keep each \`replace_string_in_file\` small (aim: one section at a time; avoid huge single patches).
 4. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
-5. For each analysis section: Analyze → Use \`applyPatch\` to write
+5. For each analysis section: Analyze → Use \`replace_string_in_file\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
-6. Create Mermaid diagrams → Use \`applyPatch\` to write
+6. Create Mermaid diagrams → Use \`replace_string_in_file\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
@@ -641,7 +641,7 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`replace_string_in_file\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L3'),
                         token,
@@ -865,7 +865,7 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
+3. **Incremental Writing**: Write section-by-section with \`replace_string_in_file\`.
 
 ` + getPipelineOverview('L4'),
                     token,
@@ -1260,17 +1260,17 @@ ${mdCodeBlock}
 2. Read L3 analysis for ALL components in that page's \`components\` array
 3. Synthesize and consolidate L3 content into a reader-friendly page.
    - You MAY read source code files to verify claims and evidence anchors, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
-4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
-5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
+4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`replace_string_in_file\` to write immediately
+5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`replace_string_in_file\` to write
 6. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
 7. If present, read validator feedback for your page(s) and apply it:
    - \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\`
    - Remove/rewrite unsupported claims and add missing evidence anchors.
 8. Token-stability workflow:
-   - Use \`applyPatch\` after EACH major section.
+   - Use \`replace_string_in_file\` after EACH major section.
    - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
    - De-duplicate: merge overlapping bullets/claims instead of adding new ones.
-   - Keep each \`applyPatch\` small (aim: one section at a time; avoid huge single patches).
+   - Keep each \`replace_string_in_file\` small (aim: one section at a time; avoid huge single patches).
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -1315,7 +1315,7 @@ Write files to \`${outputPath}/pages/\`.
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`replace_string_in_file\` after each instruction step. Due to token limits, writing all at once risks data loss.
 4. **Do NOT include raw source code or implementation details.**
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references. If you include signatures, keep them short (no bodies).
 6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory. If filenames contain spaces, wrap link targets in angle brackets, e.g. \`[Page Name](<Page Name.md>)\`.
@@ -1496,7 +1496,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`applyPatch\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`replace_string_in_file\` after each instruction step. Due to token limits, writing all at once risks data loss.
 
 ` + getPipelineOverview('L6'),
                     token,
@@ -1637,7 +1637,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
+3. **Incremental Writing**: Write section-by-section with \`replace_string_in_file\`.
 4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
 
@@ -1679,7 +1679,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
 2. **No guessing**: If you can't verify, remove or rewrite conservatively.
-3. **Incremental Writing**: Use \`applyPatch\` as you go.
+3. **Incremental Writing**: Use \`replace_string_in_file\` as you go.
 4. **Chat Final Response**: One short confirmation line; no file contents.
 `,
                     token,
@@ -1715,7 +1715,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`.
-2. **Incremental Writing**: Use \`applyPatch\` as you go.
+2. **Incremental Writing**: Use \`replace_string_in_file\` as you go.
 3. **Chat Final Response**: One short confirmation line; no file contents.
 `,
                     token,
