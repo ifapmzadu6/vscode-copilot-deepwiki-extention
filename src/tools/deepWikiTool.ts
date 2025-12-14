@@ -535,15 +535,29 @@ Use this exact bullet structure:
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 2. Read source code files for this component
-3. For each analysis section: Analyze → Use \`applyPatch\` to write
+3. Token-stability workflow (do NOT write all at once):
+   - Use \`applyPatch\` after EACH section.
+   - Prefer short bullets/tables over long paragraphs.
+   - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
+4. Priority order (highest → lowest):
+   1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
+5. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
-4. Create Mermaid diagrams → Use \`applyPatch\` to write
+6. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
+
+## Output Size Guidelines (Hard Caps)
+- \`## Overview and Architecture\`: ≤ 12 bullets
+- \`### Key Types & APIs\`: ≤ 12 rows
+- \`### Critical Flows\`: ≤ 4 flows, each ≤ 10 steps
+- \`## Edge Cases & Failure Modes\`: ≤ 12 bullets
+- \`## Integration Points & Dependencies\`: ≤ 12 bullets total
+- \`## Diagrams\`: ≤ 2 diagrams (must include \`stateDiagram-v2\`; add \`sequenceDiagram\` only if it adds new information)
 
 ## Causal Analysis Requirements
 Analyze the source code and document:
@@ -1150,12 +1164,20 @@ ${mdCodeBlock}
 ## Summary
 {Description of what this page covers}
 
+### Claims
+- Claim: ...
+- Claim: ...
+
 ### Evidence (Anchors)
 - \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports summary claim X
 - \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports summary claim Y
 
 ## Use Cases
 {Description of how and when to use these components}
+
+### Claims
+- Claim: ...
+- Claim: ...
 
 ### Evidence (Anchors)
 - \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports use case claim X
@@ -1175,6 +1197,10 @@ ${mdCodeBlock}
 ${mdCodeBlock}mermaid
 %% Sequence diagram or State diagram detailing the internal logic
 ${mdCodeBlock}
+
+### Claims
+- Claim: ...
+- Claim: ...
 
 ### Claims → Evidence → Implication (CEI)
 - Claim: ...
@@ -1205,6 +1231,10 @@ ${mdCodeBlock}
 
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
+
+### Claims
+- Claim: ...
+- Claim: ...
 
 ### Evidence (Anchors)
 - \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports external interface claim X
@@ -1238,6 +1268,9 @@ ${mdCodeBlock}
 7. If present, read validator feedback for your page(s) and apply it:
    - \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\`
    - Remove/rewrite unsupported claims and add missing evidence anchors.
+8. Token-stability workflow:
+   - Use \`applyPatch\` after EACH major section.
+   - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -1247,6 +1280,10 @@ ${mdCodeBlock}
 
 **Causal Explanation**:
 When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
+
+**Claims (MUST USE \`- Claim:\` LINES)**:
+- Every major section must include a \`### Claims\` subsection with \`- Claim:\` lines.
+- L5-V will ONLY validate claims that appear on \`- Claim:\` lines. Any important statement not written as a claim line may be deleted as unsupported.
 
 **Claims → Evidence → Implication (CEI)**:
 For key mechanics (especially "## Internal Mechanics Details"), add a short CEI list:
@@ -1326,11 +1363,13 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
 5. Evidence grounding (reverse synthesis):
    - Read \`${intermediateDir}/L5/page_structure.json\` to map pages → components.
    - For each page, read the relevant L3 analysis files for its components in \`${intermediateDir}/L3/\`.
-   - Read the page Markdown and identify non-trivial claims by section (Summary / Use Cases / Internal Mechanics / External Interface).
-   - For each claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
+   - Read the page Markdown and extract ONLY lines that start with \`- Claim:\` (ignore all other text for claim extraction).
+   - Associate each claim with its nearest preceding section heading (e.g., Summary / Use Cases / Internal Mechanics Details / External Interface).
+   - For each extracted claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`, each with an L3 filename.
    - If a claim cannot be supported, mark it as unsupported.
    - Ensure each major section contains a "### Evidence (Anchors)" subsection. If missing, treat as a failure.
    - Ensure each evidence line includes an L3 analysis filename reference, e.g. \`(L3: 001_Component_analysis.md)\`. If missing, treat as a failure.
+   - Ensure each major section contains a "### Claims" subsection with \`- Claim:\` lines. If missing or empty, treat as a failure.
 6. Write an evidence map to \`${intermediateDir}/L5V/evidence_map.json\` as RAW JSON (no fences).
 7. For any page with unsupported claims or missing evidence sections:
    - Write feedback to \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\` describing what to delete/rewrite and which anchors are required.
