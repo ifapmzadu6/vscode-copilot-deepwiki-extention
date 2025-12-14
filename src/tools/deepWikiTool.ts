@@ -1385,7 +1385,7 @@ Example shape (replace pages/groups/edges with your actual data):
 C4Component
 title System Breakdown (Pages)
 
-Container_Boundary(docs, "DeepWiki Pages") {
+Container_Boundary(system, "System") {
   Container_Boundary(auth, "Authentication") {
     Component(p_auth, "Auth", "Docs Page", "Auth flows and internals")
   }
@@ -1398,6 +1398,7 @@ Container_Boundary(docs, "DeepWiki Pages") {
 Rel(p_api, p_auth, "calls/uses")
 Rel(p_auth, p_storage, "reads/writes")
 \`\`\`
+Note: Do not label the outer boundary as "DeepWiki Pages" or anything that implies documentation. Name boundaries as system areas/domains (or omit the outer boundary entirely).
 
 ### 2. Components
 Use \`${intermediateDir}/L5/page_groups.json\` to group the TOC.
