@@ -1375,7 +1375,10 @@ Insert exactly:
   - Put page nodes inside boundaries for each groupName from page_groups.json.
 - Relationships:
   - Derive edges from \`${intermediateDir}/L4/relationships.md\` (and L3 analyses if needed).
-  - Keep a small, readable set of edges (target ~8–15 total).
+  - Keep a small, readable set of edges (hard cap: 12 total).
+  - Prefer **cross-group** relationships over within-group relationships.
+  - If there are many pages, choose up to 1–2 representative "interface pages" per group (highest fan-in/out in L4 relationships) and draw edges primarily between those representatives.
+  - If the diagram still becomes too dense, omit most/all relationships and rely on the grouped TOC; never draw a spaghetti graph.
   - Label edges with meaningful verbs ("calls", "uses", "emits", "depends on", "reads/writes").
   - No guesswork; omit if uncertain.
 - 2–3 sentence preface, then diagram.
