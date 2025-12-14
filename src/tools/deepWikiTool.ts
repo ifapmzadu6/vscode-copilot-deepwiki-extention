@@ -535,15 +535,29 @@ Use this exact bullet structure:
 ## Workflow
 1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
 2. Read source code files for this component
-3. For each analysis section: Analyze → Use \`applyPatch\` to write
+3. Token-stability workflow (do NOT write all at once):
+   - Use \`applyPatch\` after EACH section.
+   - Prefer short bullets/tables over long paragraphs.
+   - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
+4. Priority order (highest → lowest):
+   1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
+5. For each analysis section: Analyze → Use \`applyPatch\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
-4. Create Mermaid diagrams → Use \`applyPatch\` to write
+6. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
+
+## Output Size Guidelines (Hard Caps)
+- \`## Overview and Architecture\`: ≤ 12 bullets
+- \`### Key Types & APIs\`: ≤ 12 rows
+- \`### Critical Flows\`: ≤ 4 flows, each ≤ 10 steps
+- \`## Edge Cases & Failure Modes\`: ≤ 12 bullets
+- \`## Integration Points & Dependencies\`: ≤ 12 bullets total
+- \`## Diagrams\`: ≤ 2 diagrams (must include \`stateDiagram-v2\`; add \`sequenceDiagram\` only if it adds new information)
 
 ## Causal Analysis Requirements
 Analyze the source code and document:
@@ -834,12 +848,15 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 
 ## Workflow
 1. Read L3 analysis and confirm key responsibilities/links.
-2. Write \`${intermediateDir}/L4/overview.md\`:
+2. Source verification (mandatory):
+   - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
+   - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.
+3. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
-3. Write \`${intermediateDir}/L4/relationships.md\`:
+4. Write \`${intermediateDir}/L4/relationships.md\`:
    - cross-component event/state causality map
    - include diagrams (see below)
-4. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
+5. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
 
 ## Diagrams
 - **Required**: at least one \`stateDiagram-v2\` for cross-component state/event flow
@@ -1150,15 +1167,23 @@ ${mdCodeBlock}
 ## Summary
 {Description of what this page covers}
 
+### Claims
+- Claim: ...
+- Claim: ...
+
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports summary claim X
-- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports summary claim Y
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports summary claim X
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports summary claim Y
 
 ## Use Cases
 {Description of how and when to use these components}
 
+### Claims
+- Claim: ...
+- Claim: ...
+
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports use case claim X
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports use case claim X
 
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
@@ -1176,10 +1201,14 @@ ${mdCodeBlock}mermaid
 %% Sequence diagram or State diagram detailing the internal logic
 ${mdCodeBlock}
 
+### Claims
+- Claim: ...
+- Claim: ...
+
 ### Claims → Evidence → Implication (CEI)
 - Claim: ...
-  - Evidence: \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
+  - Evidence: [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — why this supports the claim
+  - Evidence: [\`path/to/file.ts\`](/path/to/file.ts)::OtherSymbol — why this supports the claim
   - Implication: what this means for behavior/architecture/integration
 
 ### Element-Level Mechanics (when applicable)
@@ -1201,13 +1230,17 @@ stateDiagram-v2
 ${mdCodeBlock}
 
 ##### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports this element’s mechanics claim
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports this element’s mechanics claim
 
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
 
+### Claims
+- Claim: ...
+- Claim: ...
+
 ### Evidence (Anchors)
-- \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — supports external interface claim X
+- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
                 const createL5Task = (pageChunk: PageGroup[]) => {
@@ -1231,13 +1264,17 @@ ${mdCodeBlock}
 ## Workflow
 1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
 2. Read L3 analysis for ALL components in that page's \`components\` array
-3. Do NOT re-analyze source code; synthesize and consolidate L3 content into a reader-friendly page.
+3. Synthesize and consolidate L3 content into a reader-friendly page.
+   - You MAY read source code files to verify claims and evidence anchors, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
 4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`applyPatch\` to write immediately
 5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`applyPatch\` to write
 6. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
 7. If present, read validator feedback for your page(s) and apply it:
    - \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\`
    - Remove/rewrite unsupported claims and add missing evidence anchors.
+8. Token-stability workflow:
+   - Use \`applyPatch\` after EACH major section.
+   - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
 
 **Consolidation Guidelines**:
 - If a page has multiple components, weave their descriptions together
@@ -1248,17 +1285,24 @@ ${mdCodeBlock}
 **Causal Explanation**:
 When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
 
+**Claims (MUST USE \`- Claim:\` LINES)**:
+- Every major section must include a \`### Claims\` subsection with \`- Claim:\` lines.
+- L5-V will ONLY validate claims that appear on \`- Claim:\` lines. Any important statement not written as a claim line may be deleted as unsupported.
+
 **Claims → Evidence → Implication (CEI)**:
 For key mechanics (especially "## Internal Mechanics Details"), add a short CEI list:
 - Claim: ...
-  - Evidence: \`path/to/file.ts::Symbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` (L3: \`001_Component_analysis.md\`) — why this supports the claim
+  - Evidence: \`path/to/file.ts::Symbol\` — why this supports the claim
+  - Evidence: \`path/to/file.ts::OtherSymbol\` — why this supports the claim
   - Implication: what this means for behavior/architecture/integration
 
 **Evidence Anchors**:
 For every major section, include a "### Evidence (Anchors)" subsection with concrete \`path::Symbol\` anchors.
-Each evidence line MUST include which L3 analysis file supports it, e.g. \`(L3: 001_Component_analysis.md)\`.
-These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide verifiable anchors + an L3 reference, DELETE or narrow the claim.
+These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide verifiable anchors, DELETE or narrow the claim.
+
+**Source Links (Allowed)**:
+- You MAY include Markdown links to source files, preferably repo-root relative (GitHub-style), e.g. \`[\`src/foo.ts\`](/src/foo.ts)\`.
+- Do NOT link to intermediate artifacts (\`intermediate/\`, \`../L3/\`, etc.).
 
 **Element-Level State Diagrams**:
 If you split "## Internal Mechanics Details" into element subsections (e.g., \`### Auth Service\`, \`### Session Store\`), include a **stateDiagram-v2 in EACH element subsection**. If an element is effectively stateless, use a trivial state diagram (e.g., a single "Stateless" state) and briefly explain why.
@@ -1326,11 +1370,15 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
 5. Evidence grounding (reverse synthesis):
    - Read \`${intermediateDir}/L5/page_structure.json\` to map pages → components.
    - For each page, read the relevant L3 analysis files for its components in \`${intermediateDir}/L3/\`.
-   - Read the page Markdown and identify non-trivial claims by section (Summary / Use Cases / Internal Mechanics / External Interface).
-   - For each claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
+   - Read the page Markdown and extract ONLY lines that start with \`- Claim:\` (ignore all other text for claim extraction).
+   - Associate each claim with its nearest preceding section heading (e.g., Summary / Use Cases / Internal Mechanics Details / External Interface).
+   - For each extracted claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
+   - Source verification (mandatory):
+     - For each evidence anchor’s file path, confirm the file exists in the workspace.
+     - Spot-check that the referenced symbol name appears in that file (string match is acceptable).
    - If a claim cannot be supported, mark it as unsupported.
    - Ensure each major section contains a "### Evidence (Anchors)" subsection. If missing, treat as a failure.
-   - Ensure each evidence line includes an L3 analysis filename reference, e.g. \`(L3: 001_Component_analysis.md)\`. If missing, treat as a failure.
+   - Ensure each major section contains a "### Claims" subsection with \`- Claim:\` lines. If missing or empty, treat as a failure.
 6. Write an evidence map to \`${intermediateDir}/L5V/evidence_map.json\` as RAW JSON (no fences).
 7. For any page with unsupported claims or missing evidence sections:
    - Write feedback to \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\` describing what to delete/rewrite and which anchors are required.
@@ -1342,7 +1390,7 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - If all present: \`[]\`
 - If missing: \`["Page A", "Page B"]\`
 
-Write to \`${intermediateDir}/L5V/evidence_map.json\` (RAW JSON; no fences):
+Write to \`${intermediateDir}/L5V/evidence_map.json\` (RAW JSON; no fences). This is an intermediate artifact; it may reference L3 files.
 - Array of objects:
   - \`pageName\`
   - \`section\`
