@@ -1383,7 +1383,7 @@ Insert exactly:
 Example shape (replace pages/groups/edges with your actual data):
 \`\`\`mermaid
 C4Component
-title System Breakdown (Pages)
+title System Breakdown
 
 Container_Boundary(system, "System") {
   Container_Boundary(auth, "Authentication") {
