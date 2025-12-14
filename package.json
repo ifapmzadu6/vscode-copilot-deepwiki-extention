@@ -46,11 +46,7 @@
 	          },
 	          "fileEditToolName": {
 	            "type": "string",
-	            "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions). If omitted, the extension will auto-detect when possible.",
-	            "enum": [
-	              "apply_patch",
-	              "replace_string_in_file"
-	            ]
+	            "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions), e.g. 'apply_patch' or 'replace_string_in_file'. If omitted, the extension will auto-detect when possible."
 	          },
 	          "startFromStage": {
 	            "type": "string",

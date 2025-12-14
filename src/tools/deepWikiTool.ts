@@ -95,11 +95,17 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
+        const sanitizeToolNameForPrompt = (value: string) =>
+            value
+                .replace(/[`]/g, '')
+                .replace(/[\r\n\t]/g, ' ')
+                .trim()
+                .slice(0, 80);
+
         const editToolNameForPrompt = (() => {
-            const fromInput = params.fileEditToolName;
-            if (fromInput === 'apply_patch' || fromInput === 'replace_string_in_file') {
-                return fromInput;
-            }
+            const fromInputRaw = typeof params.fileEditToolName === 'string' ? params.fileEditToolName : '';
+            const fromInput = sanitizeToolNameForPrompt(fromInputRaw);
+            if (fromInput.length > 0) return fromInput;
             const available = new Set(vscode.lm.tools.map(t => t.name));
             if (available.has('apply_patch')) return 'apply_patch';
             if (available.has('replace_string_in_file')) return 'replace_string_in_file';
