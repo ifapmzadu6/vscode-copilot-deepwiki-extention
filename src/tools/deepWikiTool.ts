@@ -559,10 +559,16 @@ Use this exact bullet structure:
 - \`## Integration Points & Dependencies\`: ≤ 12 bullets total
 - \`## Diagrams\`: ≤ 2 diagrams (must include \`stateDiagram-v2\`; add \`sequenceDiagram\` only if it adds new information)
 
-**If you hit the caps** (complex component):
-- DO NOT drop CEI blocks or evidence anchors.
-- Reduce narrative and de-duplicate bullets first.
-- If still too large, keep the top-level sections within caps and move additional detail into CEI blocks (add more CEI blocks instead of more prose).
+**Self-check to stay within caps**:
+- Before finishing each section, quickly COUNT:
+  - bullets in the section
+  - table rows
+  - number of flows and steps per flow
+  - number of diagrams
+- If any count exceeds its cap:
+  - DO NOT drop CEI blocks or evidence anchors.
+  - Reduce narrative and de-duplicate bullets first.
+  - Prefer moving details into additional CEI blocks (instead of more prose).
 
 ## Causal Analysis Requirements
 Analyze the source code and document:
