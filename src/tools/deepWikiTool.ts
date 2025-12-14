@@ -535,28 +535,6 @@ Your output must be detailed enough that L4 can reconstruct architecture and rel
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
-## Output Format (Use These Headings)
-Write the analysis using this structure:
-
-- \`# ${component.name} - Analysis\`
-- \`## File Structure\` (list the component's source files; absolute accuracy required)
-- \`## Overview and Architecture\`
-  - What this component does and what it does NOT do
-  - Key submodules/files and their responsibilities
-- \`## Key Logic\`
-  - \`### Key Types & APIs\` (table)
-  - \`### Critical Flows\` (2–4 step-by-step flows)
-- \`## Causal Analysis\`
-  - \`### Event Causality\`
-  - \`### State Causality\`
-- \`## Edge Cases & Failure Modes\` (>= 5 bullets)
-- \`## Integration Points & Dependencies\`
-  - Upstream callers / triggers
-  - Downstream effects / consumers
-  - Important contracts (commands, services, events, config keys)
-- \`## Diagrams\` (Mermaid)
-  - At least one \`stateDiagram-v2\` and one \`sequenceDiagram\` if applicable
-
 ## Causal Analysis Requirements
 Analyze the source code and document:
 
@@ -584,6 +562,15 @@ stateDiagram-v2
 
 ## Output
 Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`.
+- Use this heading structure:
+  - \`# ${component.name} - Analysis\`
+  - \`## File Structure\` (list the component's source files; absolute accuracy required)
+  - \`## Overview and Architecture\`
+  - \`## Key Logic\` (include \`### Key Types & APIs\`, \`### Critical Flows\`)
+  - \`## Causal Analysis\` (include \`### Event Causality\`, \`### State Causality\`)
+  - \`## Edge Cases & Failure Modes\`
+  - \`## Integration Points & Dependencies\`
+  - \`## Diagrams\` (Mermaid)
 - Do not wrap the entire file in Markdown fences.
 - Mermaid diagrams must be in \`\`\`mermaid fences.
 - Avoid large raw code pastes; reference symbols/paths instead.
