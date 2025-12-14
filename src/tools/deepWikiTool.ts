@@ -510,6 +510,14 @@ Create the FINAL component list.
 - **Causal-chain-first**: Prioritize explaining causality over summarization.
 - Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
 
+## Depth Targets (Write More Than a Summary)
+Your output must be detailed enough that L4 can reconstruct architecture and relationships without re-reading source code.
+
+- Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\` (functions, classes, events, commands, services, config keys).
+- Include **2–4 critical end-to-end flows** with step-by-step call/event sequences (what triggers it → what runs → what state changes → what observable effect).
+- Include **edge cases / failure modes** (at least 5 bullets) that are visible in code paths (validation, fallbacks, cancellation, retries, platform differences).
+- Prefer specifics over generalities; if you can't justify a claim from code, omit it.
+
 ## Input
 - **Assigned Component**: ${componentStr}
 - **Source Code Files**: The original source files listed in the component
@@ -521,9 +529,32 @@ Create the FINAL component list.
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
+   - Edge Cases & Failure Modes
+   - Integration Points & Dependencies
 4. Create Mermaid diagrams → Use \`applyPatch\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
+
+## Output Format (Use These Headings)
+Write the analysis using this structure:
+
+- \`# ${component.name} - Analysis\`
+- \`## Overview and Architecture\`
+  - What this component does and what it does NOT do
+  - Key submodules/files and their responsibilities
+- \`## Key Logic\`
+  - \`### Key Types & APIs\` (table)
+  - \`### Critical Flows\` (2–4 step-by-step flows)
+- \`## Causal Analysis\`
+  - \`### Event Causality\`
+  - \`### State Causality\`
+- \`## Edge Cases & Failure Modes\` (>= 5 bullets)
+- \`## Integration Points & Dependencies\`
+  - Upstream callers / triggers
+  - Downstream effects / consumers
+  - Important contracts (commands, services, events, config keys)
+- \`## Diagrams\` (Mermaid)
+  - At least one \`stateDiagram-v2\` and one \`sequenceDiagram\` if applicable
 
 ## Causal Analysis Requirements
 Analyze the source code and document:

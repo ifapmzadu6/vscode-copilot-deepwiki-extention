@@ -3,6 +3,7 @@
 src/**
 .deepwiki/**
 docs/**
+test_vscode_L3/**
 .gitignore
 .yarnrc
 .eslintignore
