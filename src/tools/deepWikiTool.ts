@@ -23,13 +23,15 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         _token: vscode.CancellationToken
     ): Promise<vscode.PreparedToolInvocation> {
         const outputPath = options.input.outputPath || '.deepwiki';
+        const startFromStage = options.input.startFromStage || 'L1';
         return {
             invocationMessage: 'Initializing DeepWiki Component Pipeline...',
             confirmationMessages: {
                 title: 'Generate DeepWiki',
                 message: new vscode.MarkdownString(
                     'Start the DeepWiki generation pipeline?\n\n' +
-                    'This will analyze your workspace by **Components** and generate documentation in `' + outputPath + '`.'
+                    `This will analyze your workspace by **Components** and generate documentation in \`${outputPath}\`.\n\n` +
+                    `Start from stage: \`${startFromStage}\`${startFromStage === 'L1' ? '' : ' (resume; earlier stages are skipped and existing artifacts are reused)'}.`
                 ),
             },
         };
@@ -41,6 +43,13 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     ): Promise<vscode.LanguageModelToolResult> {
         const params = options.input;
         const outputPath = params.outputPath || '.deepwiki';
+        const stageOrder = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'] as const;
+        type Stage = typeof stageOrder[number];
+        const startFromStageRaw = String(params.startFromStage || 'L1').toUpperCase();
+        const startFromStage: Stage = (stageOrder as readonly string[]).includes(startFromStageRaw)
+            ? (startFromStageRaw as Stage)
+            : 'L1';
+        const startStageIndex = stageOrder.indexOf(startFromStage);
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
         if (!workspaceFolder) {
@@ -53,6 +62,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
         const intermediateDir = `${outputPath}/intermediate`;
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
+        if (startFromStage !== 'L1') {
+            logger.log('DeepWiki', `Resume mode: starting from stage ${startFromStage} (skipping earlier stages)`);
+        }
 
         // Helper to check for cancellation and throw if requested
         const checkCancellation = () => {
@@ -65,8 +77,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         // Check for cancellation before starting
         checkCancellation();
 
-        // Clean up previous output
-        await this.cleanOutputDirectory(workspaceFolder, outputPath);
+        // Clean up previous output only on full runs (L1 start).
+        if (startFromStage === 'L1') {
+            await this.cleanOutputDirectory(workspaceFolder, outputPath);
+        } else {
+            logger.log('DeepWiki', `Skipping cleanup (resume mode; startFromStage=${startFromStage})`);
+        }
 
 
 	        // Function to generate pipeline overview with current stage highlighted
@@ -82,6 +98,20 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
         // Define ComponentDef interface globally within invoke scope
         interface ComponentDef { name: string; files: string[]; description: string }
+        interface PageGroup { pageName: string; components: string[]; rationale: string }
+
+        const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
+            const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePathFromWorkspace));
+            await vscode.workspace.fs.stat(uri);
+        };
+
+        const requireAnyFileMatch = async (glob: string): Promise<void> => {
+            const pattern = new vscode.RelativePattern(workspaceFolder, glob);
+            const files = await vscode.workspace.findFiles(pattern);
+            if (files.length === 0) {
+                throw new Error(`Missing required artifacts: no files match "${glob}"`);
+            }
+        };
 
         try {
             // Pre-create intermediate level directories so all phases can reliably write artifacts.
@@ -90,7 +120,32 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 await vscode.workspace.fs.createDirectory(dirUri);
             }
 
-            const existingDeepWikis = await this.discoverExistingDeepWikis(workspaceFolder, outputPath);
+            // Resume prerequisites (only for stages we are skipping).
+            if (startFromStage === 'L2') {
+                await requireFile(path.join(intermediateDir, 'L1', 'project_context.md'));
+            }
+            if (startStageIndex >= stageOrder.indexOf('L3')) {
+                await requireFile(path.join(intermediateDir, 'L2', 'component_list.json'));
+            }
+            if (startFromStage === 'L4') {
+                await requireAnyFileMatch(`${intermediateDir}/L3/*_analysis.md`);
+            }
+            if (startStageIndex >= stageOrder.indexOf('L5')) {
+                await requireFile(path.join(intermediateDir, 'L4', 'overview.md'));
+                await requireFile(path.join(intermediateDir, 'L4', 'relationships.md'));
+            }
+            if (startStageIndex >= stageOrder.indexOf('L6')) {
+                await requireFile(path.join(intermediateDir, 'L5', 'page_structure.json'));
+                await requireAnyFileMatch(`${outputPath}/pages/*.md`);
+            }
+            if (startStageIndex >= stageOrder.indexOf('L8')) {
+                await requireFile(path.join(outputPath, 'README.md'));
+            }
+
+            const existingDeepWikis =
+                startStageIndex <= stageOrder.indexOf('L7')
+                    ? await this.discoverExistingDeepWikis(workspaceFolder, outputPath)
+                    : [];
             const existingDeepWikisNote =
                 existingDeepWikis.length > 0
                     ? `\n\n## Existing Nested DeepWikis (EXCLUDE)\nRead \`${intermediateDir}/L1/existing_deepwikis.md\` and DO NOT analyze any files under those root directories. If you need to mention them, only link to their \`.deepwiki/README.md\`.\n`
@@ -104,12 +159,13 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             // ---------------------------------------------------------
             // Level 0: PROJECT CONTEXT ANALYZER
             // ---------------------------------------------------------
-            checkCancellation();
-            logger.log('DeepWiki', 'Starting L1: Project Context Analysis...');
-            await this.runPhase(
-                'L1: Project Context Analyzer',
-                'Analyze project environment and context',
-	                `# Project Context Analyzer Agent (L1)
+            if (startFromStage === 'L1') {
+                checkCancellation();
+                logger.log('DeepWiki', 'Starting L1: Project Context Analysis...');
+                await this.runPhase(
+                    'L1: Project Context Analyzer',
+                    'Analyze project environment and context',
+	                    `# Project Context Analyzer Agent (L1)
 
 ## Role
 - **Your Stage**: L1 Analyzer (Pre-Discovery)
@@ -163,9 +219,10 @@ ${mdCodeBlock}
 3. **Incremental Writing**: Write section-by-section with \`applyPatch\`.
 
 ` + getPipelineOverview('L1'),
-                token,
-                options.toolInvocationToken
-            );
+                    token,
+                    options.toolInvocationToken
+                );
+            }
 
             // ==================================================================================
             // PHASE 1: DISCOVERY & EXTRACTION (The Foundation)
@@ -175,6 +232,7 @@ ${mdCodeBlock}
             // ---------------------------------------------------------
             // Level 1-A: COMPONENT DRAFTER
             // ---------------------------------------------------------
+            let componentList: ComponentDef[] = [];
             const jsonExample = `
 [
   {
@@ -184,10 +242,11 @@ ${mdCodeBlock}
   }
 ]
 `;
-            await this.runPhase(
-                'L2-A: Drafter',
-                'Draft initial component grouping',
-	                `# Component Drafter Agent (L2-A)
+            if (startStageIndex <= stageOrder.indexOf('L2')) {
+                await this.runPhase(
+                    'L2-A: Drafter',
+                    'Draft initial component grouping',
+	                    `# Component Drafter Agent (L2-A)
 
 ## Role
 - **Your Stage**: L2-A Drafter (Discovery Phase - First Pass)
@@ -226,18 +285,17 @@ ${jsonExample}
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
 ` + getPipelineOverview('L2-A'),
-                token,
-                options.toolInvocationToken
-            );
+                    token,
+                    options.toolInvocationToken
+                );
 
-            // Loop for Review & Refine
-            let componentList: ComponentDef[] = [];
-            let l1RetryCount = 0;
-            const maxL2Retries = 6;
-            let isL2Success = false;
+                // Loop for Review & Refine
+                let l1RetryCount = 0;
+                const maxL2Retries = 6;
+                let isL2Success = false;
 
-            while (l1RetryCount < maxL2Retries) {
-                logger.log('DeepWiki', `L2 Review/Refine Loop: ${l1RetryCount + 1}/${maxL2Retries}`);
+                while (l1RetryCount < maxL2Retries) {
+                    logger.log('DeepWiki', `L2 Review/Refine Loop: ${l1RetryCount + 1}/${maxL2Retries}`);
 
                 const retryContextL2 = l1RetryCount > 0
                     ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
@@ -347,10 +405,21 @@ Create the FINAL component list.
                     logger.error('DeepWiki', `L2 Attempt ${l1RetryCount + 1} Failed: ${e}`);
                     l1RetryCount++;
                 }
-            }
+                }
 
-            if (!isL2Success) {
-                throw new Error('L2 Discovery failed to produce valid components after retries. Pipeline stopped.');
+                if (!isL2Success) {
+                    throw new Error('L2 Discovery failed to produce valid components after retries. Pipeline stopped.');
+                }
+            } else {
+                // Resume mode: reuse existing L2 output
+                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
+                const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
+                const contentStr = new TextDecoder().decode(fileListContent);
+                componentList = this.parseJson<ComponentDef[]>(contentStr);
+                if (!Array.isArray(componentList) || componentList.length === 0) {
+                    throw new Error('Resume failed: component_list.json is missing or empty. Start from L2 or L1.');
+                }
+                logger.log('DeepWiki', `Resume: Loaded ${componentList.length} logical components from L2 output.`);
             }
 
             // Level 2: EXTRACTOR (Symbol-Level Parallel Extraction)
@@ -368,8 +437,36 @@ Create the FINAL component list.
             const MAX_LOOPS = 5; // Initial run + 4 retries
             let finalPageCount = 0; // Track final page count for completion message
 
+            type LoopStart = 'L3' | 'L4' | 'L5' | 'L6';
+            const loopStart: LoopStart =
+                startFromStage === 'L4'
+                    ? 'L4'
+                    : startFromStage === 'L5'
+                        ? 'L5'
+                        : startFromStage === 'L6'
+                            ? 'L6'
+                            : 'L3';
+
+            // Resume mode starting at L7+ skips the analysis/writing loop entirely.
+            if (startStageIndex >= stageOrder.indexOf('L7')) {
+                componentsToAnalyze = [];
+                try {
+                    const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
+                    const content = await vscode.workspace.fs.readFile(pageStructureUri);
+                    finalPageCount = this.parseJson<PageGroup[]>(new TextDecoder().decode(content)).length;
+                } catch {
+                    finalPageCount = 0;
+                }
+            }
+
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
                 logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
+
+                const firstLoop = loopCount === 0;
+                const initialSkipTo: LoopStart = firstLoop ? loopStart : 'L3';
+                const runL3Stages = initialSkipTo === 'L3';
+                const runL4Stage = initialSkipTo === 'L3' || initialSkipTo === 'L4';
+                const runL5Stages = initialSkipTo === 'L3' || initialSkipTo === 'L4' || initialSkipTo === 'L5';
 
                 // Filter chunks to only include componentsToAnalyze
                 // The chunking logic here is simplified. L3/L5 should be able to handle individual component analysis.
@@ -378,6 +475,7 @@ Create the FINAL component list.
 
                 const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
 
+                if (runL3Stages) {
                 // ---------------------------------------------------------
                 // Level 3: ANALYZER (Process current components - 1 component per task)
                 // ---------------------------------------------------------
@@ -608,11 +706,13 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
                         await runWithConcurrencyLimit(l3rSecondPassTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
                     }
                 }
+                }
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
                 // Input: All L3 analysis files (even from previous loops)
                 // ---------------------------------------------------------
+                if (runL4Stage) {
 	                await this.runPhase(
 	                    `L4: Architect (Loop ${loopCount + 1})`,
 	                    'Update system overview and maps',
@@ -657,10 +757,12 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
                     token,
                     options.toolInvocationToken
                 );
+                }
 
                 // ---------------------------------------------------------
                 // Level 5 Pre: PAGE CONSOLIDATOR (3-stage: Draft → Review → Refine)
                 // ---------------------------------------------------------
+                if (runL5Stages) {
                 const pageStructureExample = `
 [
   {
@@ -1033,6 +1135,7 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
                     const l5RetryTasks = retryPageChunks.map(createL5Task);
                     await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
+                }
 
                 // ---------------------------------------------------------
                 // Level 6: PAGE REVIEWER (Check & Request Retry)
@@ -1129,10 +1232,11 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             // ---------------------------------------------------------
             // INDEXER
             // ---------------------------------------------------------
-            await this.runPhase(
-                'L7: Indexer',
-                'Create README and Sidebar',
-	                `# Indexer Agent
+            if (startStageIndex <= stageOrder.indexOf('L7')) {
+                await this.runPhase(
+                    'L7: Indexer',
+                    'Create README and Sidebar',
+	                    `# Indexer Agent
 
 ## Role
 - **Your Stage**: L7 Indexer
@@ -1194,17 +1298,19 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
 
 ` + getPipelineOverview('L7'),
-                token,
-                options.toolInvocationToken
-            );
+                    token,
+                    options.toolInvocationToken
+                );
+            }
 
             // ---------------------------------------------------------
             // Final QA: README verifier (avoid duplicating L6 page review loop)
             // ---------------------------------------------------------
-            await this.runPhase(
-                'L8: Final QA (README Verifier)',
-                'Verify README claims and diagrams against generated pages and source code',
-                `# Final QA Agent (README Verifier)
+            if (startStageIndex <= stageOrder.indexOf('L8')) {
+                await this.runPhase(
+                    'L8: Final QA (README Verifier)',
+                    'Verify README claims and diagrams against generated pages and source code',
+                    `# Final QA Agent (README Verifier)
 
 ## Role
 - **Your Stage**: L8 Final QA (README-only)
@@ -1232,17 +1338,19 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 3. **Incremental Writing**: Use \`applyPatch\` as you go.
 4. **Chat Final Response**: One short confirmation line; no file contents.
 `,
-                token,
-                options.toolInvocationToken
-            );
+                    token,
+                    options.toolInvocationToken
+                );
+            }
 
             // ---------------------------------------------------------
             // Final QA: Release Gate
             // ---------------------------------------------------------
-            await this.runPhase(
-                'L9: Final QA (Release Gate)',
-                'Final output integrity checks and cleanup',
-                `# Final QA Agent (Release Gate)
+            if (startStageIndex <= stageOrder.indexOf('L9')) {
+                await this.runPhase(
+                    'L9: Final QA (Release Gate)',
+                    'Final output integrity checks and cleanup',
+                    `# Final QA Agent (Release Gate)
 
 ## Role
 - **Your Stage**: L9 Final QA (Release Gate)
@@ -1266,9 +1374,20 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 2. **Incremental Writing**: Use \`applyPatch\` as you go.
 3. **Chat Final Response**: One short confirmation line; no file contents.
 `,
-                token,
-                options.toolInvocationToken
-            );
+                    token,
+                    options.toolInvocationToken
+                );
+            }
+
+            if (finalPageCount === 0) {
+                try {
+                    const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
+                    const content = await vscode.workspace.fs.readFile(pageStructureUri);
+                    finalPageCount = this.parseJson<PageGroup[]>(new TextDecoder().decode(content)).length;
+                } catch {
+                    // ignore
+                }
+            }
 
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(

@@ -37,15 +37,30 @@
         "userDescription": "Generate DeepWiki documentation for the current workspace.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
-        "inputSchema": {
-          "type": "object",
-          "properties": {
-            "outputPath": {
-              "type": "string",
-              "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
-            }
-          }
-        }
+	      "inputSchema": {
+	        "type": "object",
+	        "properties": {
+	          "outputPath": {
+	            "type": "string",
+	            "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
+	          },
+	          "startFromStage": {
+	            "type": "string",
+	            "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist.",
+	            "enum": [
+	              "L1",
+	              "L2",
+	              "L3",
+	              "L4",
+	              "L5",
+	              "L6",
+	              "L7",
+	              "L8",
+	              "L9"
+	            ]
+	          }
+	        }
+	      }
       }
     ]
   },
