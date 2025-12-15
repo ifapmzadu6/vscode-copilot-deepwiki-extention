@@ -88,7 +88,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 	        // Function to generate pipeline overview with current stage highlighted
 	        const getPipelineOverview = (currentStage: string) => `
 	## Pipeline Overview (short)
-	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-V Validate${currentStage === 'L3V' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5-Pre Group Pages${currentStage.startsWith('L5-Pre') ? ' ← YOU' : ''} → L5 Write Pages${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
+	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-V Validate${currentStage === 'L3V' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5 Pages (1:1)${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
 	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
 	`;
 
@@ -889,218 +889,26 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
                 }
 
                 // ---------------------------------------------------------
-                // Level 5 Pre: PAGE CONSOLIDATOR (3-stage: Draft → Review → Refine)
+                // Level 5: PAGE STRUCTURE (deterministic 1:1 mapping)
                 // ---------------------------------------------------------
+                // The wiki pages are intentionally kept at a stable granularity:
+                // one generated page per discovered component.
+                //
+                // L5 is responsible for:
+                // 1) writing `page_structure.json` (this deterministic mapping)
+                // 2) grouping pages for README navigation (`page_groups.json`, via the L5-G subagent)
                 if (runL5Stages) {
-                const pageStructureExample = `
-[
-  {
-    "pageName": "Authentication",
-    "components": ["Auth Module", "Session Manager", "Login Handler"],
-    "rationale": "All handle user authentication flow"
-  },
-  {
-    "pageName": "Utilities",
-    "components": ["String Utils"],
-    "rationale": "Standalone utility module"
-  }
-]
-`;
-                // L5-Pre retry loop variables
-                interface PageGroup { pageName: string; components: string[]; rationale: string }
                 let pageStructure: PageGroup[] = [];
-                let l5PreRetryCount = 0;
-                const maxL5PreRetries = 6;
-                let isL5PreSuccess = false;
+                pageStructure = componentsForThisLoop.map(componentName => ({
+                    pageName: componentName,
+                    components: [componentName],
+                    rationale: '1:1 mapping: component page'
+                }));
 
-                // L5-Pre-A: Page Structure Drafter (runs once before retry loop)
-                await this.runPhase(
-                    `L5-Pre-A: Drafter (Loop ${loopCount + 1})`,
-                    'Draft initial page structure',
-                    `# Page Structure Drafter Agent (L5-Pre-A)
-
-## Role
-- **Your Stage**: L5-Pre-A Drafter (Page Consolidation Phase - First Pass)
-- **Core Responsibility**: Create initial page grouping proposal based on L3 analysis
-- **Critical Success Factor**: Group related components logically - perfection not required, L5-Pre-B will review
-
-## Goal
-Create an INITIAL draft of page structure by analyzing L3 outputs.
-
-## Input
-- Read ALL files in \`${intermediateDir}/L3/\`
-- Component list: ${JSON.stringify(componentsForThisLoop)}
-
-## Workflow
-1. **Read all L3 analysis files** to understand each component's responsibility and scope.
-2. **Identify consolidation opportunities**:
-   - Components with overlapping responsibilities (e.g., "Auth", "Session", "Login" all relate to authentication)
-   - Components that are too granular to warrant separate pages
-   - Components that users would naturally look for together
-3. **Draft page structure**:
-   - Group related components into single pages where it improves readability
-   - Keep components separate if they have distinct, substantial responsibilities
-   - Aim for balanced page sizes (not too large, not too small)
-
-## Output
-Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
-
-**Format (raw JSON; no backticks, no fences)**:
-Example:
-${pageStructureExample}
-
-**Rules**:
-- Every component from the input list MUST appear in exactly one page group
-- \`pageName\` should be descriptive and user-friendly
-- \`rationale\` explains why these components belong together
-
-## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Naming**: \`pageName\` must be a filename-safe page slug across platforms (avoid \`<>:"/\\\\|?*\`; no leading/trailing spaces).
-4. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
-
-` + getPipelineOverview('L5-Pre'),
-                    token,
-                    options.toolInvocationToken
-                );
-
-                // L5-Pre Review/Refine Loop
-                while (l5PreRetryCount < maxL5PreRetries) {
-                    logger.log('DeepWiki', `L5-Pre Review/Refine Loop: ${l5PreRetryCount + 1}/${maxL5PreRetries}`);
-
-                    const retryContextL5Pre = l5PreRetryCount > 0
-                        ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
-                        : '';
-
-                    // L5-Pre-B: Page Structure Reviewer
-                    await this.runPhase(
-                        `L5-Pre-B: Reviewer (Loop ${loopCount + 1}, Attempt ${l5PreRetryCount + 1})`,
-                        'Review page structure draft',
-	                        `# Page Structure Reviewer Agent (L5-Pre-B)
-
-## Role
-- **Your Stage**: L5-Pre-B Reviewer (Page Consolidation Phase - Quality Gate)
-- **Core Responsibility**: Critique L5-Pre-A's draft; identify issues but do NOT edit the draft JSON
-- **Critical Success Factor**: Ensure groupings and page names feel right for readers
-
-## Goal
-CRITIQUE the draft page structure. Do NOT fix it yourself.
-
-## Input
-- Read \`${intermediateDir}/L5/page_structure_draft.json\`
-- Read L3 analysis files in \`${intermediateDir}/L3/\` for reference
-
-## Workflow
-1. **Check grouping logic**:
-   - Are related components grouped together?
-   - Are there groups that should be split (too large/unfocused)?
-   - Are there groups that should be merged (too small/redundant)?
-2. **Verify completeness**:
-   - Are all components from ${JSON.stringify(componentsForThisLoop)} included?
-   - Is any component listed in multiple groups?
-3. **Assess user experience**:
-   - Would a developer easily find what they're looking for?
-   - Are page names intuitive and descriptive?
-4. **Check rationales**:
-   - Do the rationales actually justify the groupings?
-
-## Output
-Write critique report to \`${intermediateDir}/L5/page_structure_review.md\` (what to change and why).
-
-Include:
-- Issues found (if any)
-- Suggested improvements
-- Overall assessment (Good/Needs Work)${retryContextL5Pre}
-
-## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-
-` + getPipelineOverview('L5-Pre'),
-                        token,
-                        options.toolInvocationToken
-                    );
-
-                    // L5-Pre-C: Page Structure Refiner
-                    await this.runPhase(
-                        `L5-Pre-C: Refiner (Loop ${loopCount + 1}, Attempt ${l5PreRetryCount + 1})`,
-                        'Finalize page structure',
-	                        `# Page Structure Refiner Agent (L5-Pre-C)
-
-## Role
-- **Your Stage**: L5-Pre-C Refiner (Page Consolidation Phase - Final Output)
-- **Core Responsibility**: Merge draft with review feedback into final page structure
-- **Critical Success Factor**: Produce valid JSON that L5 Writer can use
-
-## Goal
-Create the FINAL page structure by applying review feedback.
-
-## Input
-- Draft: \`${intermediateDir}/L5/page_structure_draft.json\`
-- Review: \`${intermediateDir}/L5/page_structure_review.md\`
-
-## Workflow
-1. Read the Draft and the Review Report.
-2. Apply the suggested improvements to the page structure.
-3. Self-check: all components included exactly once; no empty groups.
-4. Produce the final valid JSON.${retryContextL5Pre}
-
-## Output
-Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_structure.json\`.
-
-**Format example (do not include fences in the file)**:
-${mdCodeBlock}json
-${pageStructureExample}
-${mdCodeBlock}
-
-**Rules**:
-- Every component MUST appear in exactly one page group
-- \`pageName\` should be descriptive and user-friendly
-- \`rationale\` explains why these components belong together (or why a component stands alone)
-- Output must be valid JSON array
-
-## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Page structure finalized."). Do not include JSON or file contents.
-
-` + getPipelineOverview('L5-Pre'),
-                        token,
-                        options.toolInvocationToken
-                    );
-
-                    // ---------------------------------------------------------
-                    // Check JSON validity for L5-Pre
-                    // ---------------------------------------------------------
-                    const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
-                    try {
-                        const pageStructureContent = await vscode.workspace.fs.readFile(pageStructureUri);
-                        pageStructure = this.parseJson<PageGroup[]>(new TextDecoder().decode(pageStructureContent));
-
-                        if (!Array.isArray(pageStructure) || pageStructure.length === 0) {
-                            throw new Error('Parsed JSON is not a valid array or is empty.');
-                        }
-
-                        finalPageCount = pageStructure.length;
-                        logger.log('DeepWiki', `L5-Pre Success: ${componentList.length} components -> ${pageStructure.length} pages`);
-                        isL5PreSuccess = true;
-                        break; // Exit loop on success
-                    } catch (e) {
-                        logger.error('DeepWiki', `L5-Pre Attempt ${l5PreRetryCount + 1} Failed: ${e}`);
-                        l5PreRetryCount++;
-                    }
-                }
-
-                // Fallback if L5-Pre failed after all retries
-                if (!isL5PreSuccess) {
-                    logger.warn('DeepWiki', `L5-Pre failed after ${maxL5PreRetries} retries, falling back to 1:1 mapping`);
-                    pageStructure = componentsForThisLoop.map(name => ({
-                        pageName: name,
-                        components: [name],
-                        rationale: 'Fallback: individual page'
-                    }));
-                    finalPageCount = pageStructure.length;
-                }
+                const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
+                await vscode.workspace.fs.writeFile(pageStructureUri, Buffer.from(JSON.stringify(pageStructure, null, 2)));
+                finalPageCount = pageStructure.length;
+                logger.log('DeepWiki', `L5 Page Structure: ${componentsForThisLoop.length} components -> ${pageStructure.length} pages (1:1 mapping)`);
 
                 // ---------------------------------------------------------
                 // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
