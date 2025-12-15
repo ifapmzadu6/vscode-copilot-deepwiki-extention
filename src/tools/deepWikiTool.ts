@@ -187,6 +187,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             if (startFromStage === 'L1') {
                 checkCancellation();
                 logger.log('DeepWiki', 'Starting L1: Project Context Analysis...');
+                const projectContextUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
+                );
                 await this.runPhase(
                     'L1: Project Context Analyzer',
                     'Analyze project environment and context',
@@ -245,7 +248,9 @@ ${mdCodeBlock}
 
 ` + getPipelineOverview('L1'),
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    [projectContextUri],
+                    { maxAttempts: 3 }
                 );
             }
 
@@ -859,6 +864,10 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
                 // Input: All L3 analysis files (even from previous loops)
                 // ---------------------------------------------------------
                 if (runL4Stage) {
+                    const l4OverviewUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'overview.md'));
+                    const l4RelationshipsUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'relationships.md')
+                    );
 	                await this.runPhase(
 	                    `L4: Architect (Loop ${loopCount + 1})`,
 	                    'Update system overview and maps',
@@ -904,7 +913,9 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 
 ` + getPipelineOverview('L4'),
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    [l4OverviewUri, l4RelationshipsUri],
+                    { maxAttempts: 3 }
                 );
                 }
 
