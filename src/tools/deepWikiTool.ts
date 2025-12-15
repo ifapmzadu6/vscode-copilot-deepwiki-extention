@@ -187,6 +187,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             if (startFromStage === 'L1') {
                 checkCancellation();
                 logger.log('DeepWiki', 'Starting L1: Project Context Analysis...');
+                const projectContextUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
+                );
                 await this.runPhase(
                     'L1: Project Context Analyzer',
                     'Analyze project environment and context',
@@ -245,7 +248,9 @@ ${mdCodeBlock}
 
 ` + getPipelineOverview('L1'),
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    [projectContextUri],
+                    { maxAttempts: 3 }
                 );
             }
 
@@ -859,6 +864,10 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
                 // Input: All L3 analysis files (even from previous loops)
                 // ---------------------------------------------------------
                 if (runL4Stage) {
+                    const l4OverviewUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'overview.md'));
+                    const l4RelationshipsUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'relationships.md')
+                    );
 	                await this.runPhase(
 	                    `L4: Architect (Loop ${loopCount + 1})`,
 	                    'Update system overview and maps',
@@ -904,7 +913,9 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 
 ` + getPipelineOverview('L4'),
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    [l4OverviewUri, l4RelationshipsUri],
+                    { maxAttempts: 3 }
                 );
                 }
 
@@ -1368,6 +1379,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
             // INDEXER
             // ---------------------------------------------------------
             if (startStageIndex <= stageOrder.indexOf('L7')) {
+                const readmeUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'README.md'));
+                const l7ReportUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L7', 'indexer_report.md'));
                 await this.runPhase(
                     'L7: Indexer',
                     'Create README and Sidebar',
@@ -1439,7 +1452,9 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ` + getPipelineOverview('L7'),
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    [readmeUri, l7ReportUri],
+                    { maxAttempts: 3 }
                 );
             }
 
@@ -1479,7 +1494,9 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 4. **Chat Final Response**: One short confirmation line; no file contents.
 `,
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    undefined,
+                    { maxAttempts: 3 }
                 );
             }
 
@@ -1515,7 +1532,9 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 3. **Chat Final Response**: One short confirmation line; no file contents.
 `,
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    undefined,
+                    { maxAttempts: 3 }
                 );
             }
 
@@ -1581,60 +1600,96 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
         prompt: string,
         cancellationToken: vscode.CancellationToken,
         toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
-        cleanupUrisOnRequestFailed?: vscode.Uri[]
+        cleanupUrisOnRequestFailed?: vscode.Uri[],
+        options?: { maxAttempts?: number; retryDelayMs?: number }
     ): Promise<void> {
-        const startTime = Date.now();
-        logger.log('DeepWiki', `>>> Starting Phase: ${agentName} - ${description}`);
-
-        // Wait 10 seconds before each subagent call to avoid API rate limits
-        await new Promise(resolve => setTimeout(resolve, 10000));
-
-        try {
-            const result = await vscode.lm.invokeTool(
-                'runSubagent',
-                {
-                    input: {
-                        description: description,
-                        prompt: prompt
-                    },
-                    toolInvocationToken: toolInvocationToken
-                },
-                cancellationToken
+        const maxAttempts = Math.max(1, options?.maxAttempts ?? 1);
+        const retryDelayMs = Math.max(0, options?.retryDelayMs ?? 15000);
+        const isRetryableFailureText = (text: string) =>
+            /(your request failed|hit the length limit|there was a network error|no response was returned|rate limit|too many requests|429|timed out|timeout|econnreset|socket hang up)/i.test(
+                text
             );
 
-            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            let resultPreview = '';
-            let resultText = '';
-            for (const part of result.content) {
-                if (part instanceof vscode.LanguageModelTextPart) {
-                    if (resultPreview === '') {
-                        resultPreview = part.value.substring(0, 150).replace(/\n/g, ' ');
-                    }
-                    resultText += part.value + '\n';
-                }
-            }
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const startTime = Date.now();
+            logger.log('DeepWiki', `>>> Starting Phase: ${agentName} (attempt ${attempt}/${maxAttempts}) - ${description}`);
 
-            // Some subagent failures are reported as plain text. If we see a known marker phrase,
-            // delete the expected output files so downstream validators will retry cleanly.
-            if (/(your request failed|hit the length limit|there was a network error|no response was returned)/i.test(resultText)) {
-                logger.warn('DeepWiki', `Subagent reported request failure in phase "${agentName}". Cleaning outputs for retry.`);
-                if (cleanupUrisOnRequestFailed && cleanupUrisOnRequestFailed.length > 0) {
-                    for (const uri of cleanupUrisOnRequestFailed) {
-                        try {
-                            await vscode.workspace.fs.delete(uri, { recursive: true });
-                        } catch {
-                            // ignore cleanup errors (missing files etc.)
+            // Wait before each subagent call to avoid API rate limits (and give transient failures time to clear).
+            await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 10000 : retryDelayMs));
+
+            try {
+                const result = await vscode.lm.invokeTool(
+                    'runSubagent',
+                    {
+                        input: {
+                            description: description,
+                            prompt: prompt
+                        },
+                        toolInvocationToken: toolInvocationToken
+                    },
+                    cancellationToken
+                );
+
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                let resultPreview = '';
+                let resultText = '';
+                for (const part of result.content) {
+                    if (part instanceof vscode.LanguageModelTextPart) {
+                        if (resultPreview === '') {
+                            resultPreview = part.value.substring(0, 150).replace(/\n/g, ' ');
+                        }
+                        resultText += part.value + '\n';
+                    }
+                }
+
+                // Some subagent failures are reported as plain text. If we see a known marker phrase,
+                // delete the expected output files so downstream validators will retry cleanly.
+                if (isRetryableFailureText(resultText)) {
+                    const shouldRetry = attempt < maxAttempts;
+                    logger.warn(
+                        'DeepWiki',
+                        `Subagent reported request failure in phase "${agentName}" (attempt ${attempt}/${maxAttempts}).${shouldRetry ? ' Retrying.' : ''}`
+                    );
+
+                    if (cleanupUrisOnRequestFailed && cleanupUrisOnRequestFailed.length > 0) {
+                        for (const uri of cleanupUrisOnRequestFailed) {
+                            try {
+                                await vscode.workspace.fs.delete(uri, { recursive: true });
+                            } catch {
+                                // ignore cleanup errors (missing files etc.)
+                            }
                         }
                     }
-                } else {
+                    if (shouldRetry) continue;
                     throw new Error(`Subagent request failed in phase "${agentName}"`);
                 }
+
+                logger.log('DeepWiki', `<<< Completed Phase: ${agentName} in ${duration}s - ${resultPreview}...`);
+                return;
+            } catch (error) {
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                const msg = error instanceof Error ? error.message : String(error);
+                const shouldRetry = attempt < maxAttempts && isRetryableFailureText(msg);
+                logger.error(
+                    'DeepWiki',
+                    `!!! Failed Phase: ${agentName} after ${duration}s (attempt ${attempt}/${maxAttempts})${shouldRetry ? ' - retrying' : ''}`,
+                    error
+                );
+                if (shouldRetry) {
+                    if (cleanupUrisOnRequestFailed && cleanupUrisOnRequestFailed.length > 0) {
+                        for (const uri of cleanupUrisOnRequestFailed) {
+                            try {
+                                await vscode.workspace.fs.delete(uri, { recursive: true });
+                            } catch {
+                                // ignore cleanup errors
+                            }
+                        }
+                    }
+                    continue;
+                } else {
+                    throw error;
+                }
             }
-            logger.log('DeepWiki', `<<< Completed Phase: ${agentName} in ${duration}s - ${resultPreview}...`);
-        } catch (error) {
-            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            logger.error('DeepWiki', `!!! Failed Phase: ${agentName} after ${duration}s`, error);
-            throw error;
         }
     }
 
