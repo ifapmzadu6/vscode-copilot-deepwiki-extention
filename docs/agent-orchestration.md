@@ -76,29 +76,35 @@ This approach, popularized by frameworks like **LangGraph**, models the workflow
 
 ### DeepWiki's Evolution
 Our final DeepWiki implementation evolved into a **Hybrid Architecture**.
-- **Graph Structure**: `L1 -> L2 -> L3 -> L4 -> L5-Pre -> L5 -> L6`.
+- **Graph Structure**: `L1 -> L2 -> L3 -> L3V -> L3R -> L4 -> L5 -> L5V -> L6 -> Indexer`.
 - **Conditional Logic**:
     - **L6 Critical Failure Loop**: The L6 Reviewer (Agent) decides whether to loop back to L3 or proceed to Indexing.
-    - **L1 Self-Correction**: The L1 Reviewer decides if the Draft needs refining.
-    - **L5-Pre Page Consolidation**: A 3-stage (Draft → Review → Refine) process that groups similar components into single pages.
+    - **L2 Refinement Loop**: Draft → Review → Refine until `component_list.json` is valid.
+    - **L5 / L5V Missing Output Repair**: L5-V can trigger a targeted retry for missing pages.
 
 ```mermaid
 stateDiagram-v2
     [*] --> L1
-    state "L1 Discovery Loop" as L1
+    state "L1 Project Context" as L1
     state "L2 Extraction" as L2
     state "L3 Analysis" as L3
     state "L4 Architecture" as L4
-    state "L5-Pre Page Consolidation" as L5Pre
+    state "L5-G Grouping" as L5G
     state "L5 Writing" as L5
+    state "L5-V Validation" as L5V
     state "L6 Review" as L6
     state "Indexer" as Indexer
 
     L1 --> L2
     L2 --> L3
+    L3 --> L5V: L3-V file check
+    L5V --> L3: Missing analysis
+    L5V --> L4: OK
     L3 --> L4
-    L4 --> L5Pre
-    L5Pre --> L5
+    L4 --> L5G
+    L5G --> L5
+    L5 --> L5V: L5-V page check
+    L5V --> L5: Missing pages
     L5 --> L6
 
     state L6_Decision <<choice>>
