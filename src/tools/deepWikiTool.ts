@@ -862,7 +862,12 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
      - Spot-check the symbol name appears in that file (string match is acceptable).
 4. If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim (do not guess; smallest possible edit).
 5. If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
-6. Ensure diagrams (if present) are consistent with code; remove/adjust broken or misleading diagrams.
+6. Diagram verification (MANDATORY):
+   - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
+   - For EACH diagram, verify all referenced identifiers against source:
+     - If the diagram names functions/classes/types/events/commands, confirm they exist (string match in the referenced file is acceptable).
+     - If the diagram describes cross-file calls or state transitions, verify at least one concrete code path (entry point → call/emit → handler) supports it.
+   - If a diagram cannot be verified, delete it or rewrite it into a smaller, verifiable diagram. No guesswork.
 7. Write a short review note to \`${intermediateDir}/L3R/${reviewFile}\`:
    - What you verified
    - What you changed (if any)
@@ -871,7 +876,10 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
 
 ## Token-Stability Workflow (MANDATORY)
 - Do NOT try to verify everything in one go.
-- Work incrementally: verify a handful of claims → patch L3 analysis → repeat until ALL \`- Claim:\` lines have been processed.
+- Work incrementally:
+  - verify a handful of claims → patch L3 analysis
+  - verify 1 diagram → patch L3 analysis
+  - repeat until ALL \`- Claim:\` lines and ALL diagrams have been processed.
 - If you are running out of space, prefer deleting unverifiable claims over adding new narrative.
 
 ## Constraints
