@@ -1253,8 +1253,8 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                     if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
                         l5FailedPages = parsed;
                     } else {
-                        logger.warn('DeepWiki', 'L5-V: page_validation_failures.json is not a string array; ignoring.');
-                        l5FailedPages = [];
+                        logger.warn('DeepWiki', 'L5-V: page_validation_failures.json is not a string array; retrying all pages for safety.');
+                        l5FailedPages = componentsToAnalyze.map(c => c.name);
                     }
                     await vscode.workspace.fs.delete(l5FailuresUri);
                 } catch { /* no failures file or invalid */ }
@@ -1267,8 +1267,8 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                     if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
                         l5EvidenceFailedPages = parsed;
                     } else {
-                        logger.warn('DeepWiki', 'L5-V: evidence_validation_failures.json is not a string array; ignoring.');
-                        l5EvidenceFailedPages = [];
+                        logger.warn('DeepWiki', 'L5-V: evidence_validation_failures.json is not a string array; retrying all pages for safety.');
+                        l5EvidenceFailedPages = componentsToAnalyze.map(c => c.name);
                     }
                     await vscode.workspace.fs.delete(l5EvidenceFailuresUri);
                 } catch { /* no failures file or invalid */ }
