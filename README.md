@@ -111,34 +111,27 @@ Deeply analyzes the logic, patterns, and responsibilities of each component. Foc
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
-### 5. Level 5-Pre: PAGE CONSOLIDATOR
-Determines the optimal page structure by analyzing L3 outputs. Uses a 3-stage process similar to L2:
--   **L5-Pre-A Drafter**: Proposes initial page groupings based on component analysis (`page_structure_draft.json`).
--   **L5-Pre-B Reviewer**: Critiques the groupings for logical coherence and user experience (`page_structure_review.md`).
--   **L5-Pre-C Refiner**: Produces the final page structure (`page_structure.json`).
-    -   *Self-Correction Loop*: L5-Pre-B and L5-Pre-C run in a loop (max 6 retries) until a valid `page_structure.json` is produced.
-
-This phase consolidates similar components into single cohesive pages, reducing redundancy and improving documentation quality.
-
-### 6. Level 5: WRITER (Parallel)
-Generates the final documentation pages based on `page_structure.json` (`pages/{PageName}.md`). When multiple components are consolidated into one page, weaves their descriptions together cohesively. Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
+### 5. Level 5: WRITER (Parallel)
+Generates the final documentation pages using a stable 1:1 mapping (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
 -   **Grounding via File Structure**: Each page includes a source tree / file structure section listing the source files used to justify claims.
 
 **L5-V Validator**: After writing completes, validates that all expected page files exist. If files are missing, triggers automatic retry for failed pages using the same writing logic.
+
+### 6. Level 5-G: PAGE GROUPER (README Navigation)
+Groups all pages into 3–8 reader-friendly groups for the README table of contents (`intermediate/L5/page_groups.json`). This is information architecture only (does not change page generation).
 
 ### 7. Level 6: PAGE REVIEWER & RETRY LOOP
 Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, connectivity, formatting).
 -   **Verifies against ACTUAL SOURCE CODE**: Reads referenced source files to ensure descriptions are correct.
 -   **Self-Correction**: Directly fixes minor issues in the pages.
--   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5-Pre, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
+-   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
 
 ### 8. Level 7: Indexer
 Compiles the landing page (`README.md`) with:
 -   **One-Line Summary**: Single sentence describing the entire system
 -   **System Context**: C4Context diagram showing external interactions
 -   **Core State Transitions**: stateDiagram-v2 showing the fundamental state machine
--   **Component Overview**: block diagram serving as a visual table of contents
--   **Component List**: Links to all generated pages with descriptions
+-   **Components (Chapters)**: Grouped chapters with descriptions and links to all generated pages
 
 ### 9. Level 8: Final QA (README Verifier)
 Re-checks `.deepwiki/README.md` claims/diagrams against generated pages (and source code as needed).
@@ -204,11 +197,8 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     ├── L4/                 # Architecture phase outputs
     │   ├── overview.md
     │   └── relationships.md
-    ├── L5/                 # Page consolidation phase outputs
-    │   ├── page_structure_draft.json    # Initial draft from L5-Pre-A
-    │   ├── page_structure_review.md     # Review from L5-Pre-B
-    │   ├── page_structure.json          # Final page structure from L5-Pre-C
-    │   ├── page_groups.json             # Page groups for README TOC/diagrams (from L5-G)
+    ├── L5/                 # README navigation (grouping) outputs
+    │   ├── page_groups.json             # Page groups for README TOC (from L5-G)
     │   └── ...
     ├── L5V/                # L5 validator outputs
     │   └── page_validation_failures.json  # (temporary, lists failed pages for retry)

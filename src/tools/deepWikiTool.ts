@@ -113,7 +113,6 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
         // Define ComponentDef interface globally within invoke scope
         interface ComponentDef { name: string; files: string[]; description: string }
-        interface PageGroup { pageName: string; components: string[]; rationale: string }
 
         const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
             const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePathFromWorkspace));
@@ -150,8 +149,10 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 await requireFile(path.join(intermediateDir, 'L4', 'relationships.md'));
             }
             if (startStageIndex >= stageOrder.indexOf('L6')) {
-                await requireFile(path.join(intermediateDir, 'L5', 'page_structure.json'));
-                await requireAnyFileMatch(`${outputPath}/pages/*.md`);
+                // L6+ is a resume mode: pages may be partially missing (we can auto-regenerate missing ones via L5).
+                // Ensure the pages directory exists, but do not require any files yet.
+                const pagesDirUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages'));
+                await vscode.workspace.fs.createDirectory(pagesDirUri);
             }
             if (startStageIndex >= stageOrder.indexOf('L7')) {
                 // Prefer L5 grouping artifact for stable README TOC/diagrams.
@@ -460,7 +461,7 @@ Create the FINAL component list.
             let componentsToAnalyze = [...componentList]; // All components initially
             let loopCount = 0;
             const MAX_LOOPS = 5; // Initial run + 4 retries
-            let finalPageCount = 0; // Track final page count for completion message
+            // 1 component == 1 page: page count == component count.
 
             type LoopStart = 'L3' | 'L4' | 'L5' | 'L6';
             const loopStart: LoopStart =
@@ -475,20 +476,39 @@ Create the FINAL component list.
             // Resume mode starting at L7+ skips the analysis/writing loop entirely.
             if (startStageIndex >= stageOrder.indexOf('L7')) {
                 componentsToAnalyze = [];
-                try {
-                    const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
-                    const content = await vscode.workspace.fs.readFile(pageStructureUri);
-                    finalPageCount = this.parseJson<PageGroup[]>(new TextDecoder().decode(content)).length;
-                } catch {
-                    finalPageCount = 0;
-                }
             }
 
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
                 logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
 
                 const firstLoop = loopCount === 0;
-                const initialSkipTo: LoopStart = firstLoop ? loopStart : 'L3';
+                let initialSkipTo: LoopStart = firstLoop ? loopStart : 'L3';
+
+                // Auto-repair missing pages when resuming from L6+.
+                // If pages are missing, rerun L5 (Writer + Validator) for those components before continuing to L6.
+                if (firstLoop && startStageIndex >= stageOrder.indexOf('L6') && initialSkipTo === 'L6') {
+                    const missingComponentNames: string[] = [];
+                    for (const component of componentList) {
+                        const pageUri = vscode.Uri.file(
+                            path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`)
+                        );
+                        try {
+                            await vscode.workspace.fs.stat(pageUri);
+                        } catch {
+                            missingComponentNames.push(component.name);
+                        }
+                    }
+
+                    if (missingComponentNames.length > 0) {
+                        logger.warn(
+                            'DeepWiki',
+                            `Resume detected ${missingComponentNames.length} missing page(s). Auto-running L5 Writer for missing components.`
+                        );
+                        componentsToAnalyze = componentList.filter(c => missingComponentNames.includes(c.name));
+                        initialSkipTo = 'L5';
+                    }
+                }
+
                 const runL3Stages = initialSkipTo === 'L3';
                 const runL4Stage = initialSkipTo === 'L3' || initialSkipTo === 'L4';
                 const runL5Stages = initialSkipTo === 'L3' || initialSkipTo === 'L4' || initialSkipTo === 'L5';
@@ -889,26 +909,16 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
                 }
 
                 // ---------------------------------------------------------
-                // Level 5: PAGE STRUCTURE (deterministic 1:1 mapping)
+                // Level 5: PAGES (deterministic 1:1 mapping)
                 // ---------------------------------------------------------
                 // The wiki pages are intentionally kept at a stable granularity:
                 // one generated page per discovered component.
                 //
                 // L5 is responsible for:
-                // 1) writing `page_structure.json` (this deterministic mapping)
+                // 1) writing `.deepwiki/pages/*.md` (1 component = 1 page)
                 // 2) grouping pages for README navigation (`page_groups.json`, via the L5-G subagent)
                 if (runL5Stages) {
-                let pageStructure: PageGroup[] = [];
-                pageStructure = componentsForThisLoop.map(componentName => ({
-                    pageName: componentName,
-                    components: [componentName],
-                    rationale: '1:1 mapping: component page'
-                }));
-
-                const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
-                await vscode.workspace.fs.writeFile(pageStructureUri, Buffer.from(JSON.stringify(pageStructure, null, 2)));
-                finalPageCount = pageStructure.length;
-                logger.log('DeepWiki', `L5 Page Structure: ${componentsForThisLoop.length} components -> ${pageStructure.length} pages (1:1 mapping)`);
+                logger.log('DeepWiki', `L5 Pages: ${componentsForThisLoop.length} components in this loop (1:1 mapping)`);
 
                 // ---------------------------------------------------------
                 // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
@@ -941,13 +951,13 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 Group the generated pages (pageName values) into 3–8 groups so the README navigation and diagrams don't drift.
 
 ## Input
-- Page structure (source of truth): \`${intermediateDir}/L5/page_structure.json\`
+- Components list (source of truth for pages; 1 component = 1 page): \`${intermediateDir}/L2/component_list.json\`
 - L4 overview/relationships (optional signal for clustering):
   - \`${intermediateDir}/L4/overview.md\`
   - \`${intermediateDir}/L4/relationships.md\`
 
 ## Workflow
-1. Read \`${intermediateDir}/L5/page_structure.json\` and collect the full set of pageName values.
+1. Read \`${intermediateDir}/L2/component_list.json\` and collect the full set of component \`name\` values (these are the page names).
 2. Create 3–8 groups with clear, human-friendly names (avoid overly generic names like "Misc" unless unavoidable).
 3. Assign EVERY pageName to exactly one group.
 4. Keep groups balanced; avoid single-page groups unless that page is truly standalone/important.
@@ -963,7 +973,7 @@ ${mdCodeBlock}
 
 ## Constraints
 1. Output must be a single valid JSON array.
-2. Each \`pages\` item must be an exact pageName from \`${intermediateDir}/L5/page_structure.json\` (no \`.md\` suffix).
+2. Each \`pages\` item must be an exact component \`name\` from \`${intermediateDir}/L2/component_list.json\` (no \`.md\` suffix).
 3. Every page must appear exactly once across all groups (no missing/duplicates).
 4. **Scope**: Only write under \`.deepwiki/\`.
 5. **Chat Final Response**: One short confirmation line; no file contents.
@@ -974,7 +984,7 @@ ${mdCodeBlock}
                 );
 
                 // ---------------------------------------------------------
-                // Level 5: WRITER (Process pages based on page_structure.json)
+                // Level 5: WRITER (Write pages; 1 component = 1 page)
                 // ---------------------------------------------------------
                 const pageTemplate = `
 > **Note**: This documentation was auto-generated by an LLM. While we strive for accuracy, please refer to the source code for authoritative information.
@@ -1060,13 +1070,13 @@ ${mdCodeBlock}
 - [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
-                const createL5Task = (pageChunk: PageGroup[]) => {
-                    const pageUris = pageChunk.map((p) =>
-                        vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${p.pageName}.md`))
-                    );
+                const createL5Task = (component: ComponentDef) => {
+                    const pageUris = [
+                        vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`))
+                    ];
                     return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1})`,
-                        `Write ${pageChunk.length} documentation pages`,
+                        `Write documentation page`,
 	                        `# Writer Agent (L5)
 
 ## Role
@@ -1075,12 +1085,12 @@ ${mdCodeBlock}
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
 ## Input
-- Assigned Pages: ${JSON.stringify(pageChunk)}
-- For each page, read the matching L3 analysis files in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
+- Assigned Component: ${JSON.stringify({ name: component.name, files: component.files, description: component.description })}
+- For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
 
 ## Workflow
-1. For EACH assigned page: Create \`${outputPath}/pages/{pageName}.md\` with the page title and Overview section
-2. Read L3 analysis for ALL components in that page's \`components\` array
+1. For EACH assigned component: Create \`${outputPath}/pages/{ComponentName}.md\` with the page title and Overview section
+2. Read the L3 analysis for that component
 3. Synthesize and consolidate L3 content into a reader-friendly page.
    - You MAY read source code files to verify claims and evidence anchors, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
 4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`${editToolNameForPrompt}\` to write immediately
@@ -1149,23 +1159,16 @@ Write files to \`${outputPath}/pages/\`.
                     );
                 };
 
-                // Create page chunks for L5 writing
-                const pageChunkSize = 1;
-                const pageChunks: PageGroup[][] = [];
-                for (let i = 0; i < pageStructure.length; i += pageChunkSize) {
-                    pageChunks.push(pageStructure.slice(i, i + pageChunkSize));
-                }
-
                 // Initial L5 writing
-                const l5Tasks = pageChunks.map(createL5Task);
+                const l5Tasks = componentsToAnalyze.map(createL5Task);
                 await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // L5 Validator: Check for missing page files and retry if needed
                 // ---------------------------------------------------------
-                const l5ExpectedPages = pageStructure.map(p => ({
-                    pageName: p.pageName,
-                    file: `${p.pageName}.md`
+                const l5ExpectedPages = componentsToAnalyze.map(c => ({
+                    pageName: c.name,
+                    file: `${c.name}.md`
                 }));
                 await this.runPhase(
                     `L5-V: Validator (Loop ${loopCount + 1})`,
@@ -1186,8 +1189,9 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
 3. If ALL files exist → Write empty array to \`${intermediateDir}/L5V/page_validation_failures.json\`
 4. If ANY files are MISSING → Write JSON array of missing page names to \`${intermediateDir}/L5V/page_validation_failures.json\`
 5. Evidence grounding (reverse synthesis):
-   - Read \`${intermediateDir}/L5/page_structure.json\` to map pages → components.
-   - For each page, read the relevant L3 analysis files for its components in \`${intermediateDir}/L3/\`.
+   - Pages are 1:1 with components: pageName == componentName.
+   - Read \`${intermediateDir}/L2/component_list.json\` to map componentName → source files.
+   - For each page, read the relevant L3 analysis file in \`${intermediateDir}/L3/\`.
    - Read the page Markdown and extract ONLY lines that start with \`- Claim:\` (ignore all other text for claim extraction).
    - Associate each claim with its nearest preceding section heading (e.g., Summary / Use Cases / Internal Mechanics Details / External Interface).
    - For each extracted claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
@@ -1250,12 +1254,8 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                 if (l5RetryPages.length > 0) {
                     logger.log('DeepWiki', `L5 Validator requested retry for ${l5RetryPages.length} page(s): ${l5RetryPages.join(', ')}`);
                     // Retry using the same task generator function
-                    const failedPageStructure = pageStructure.filter(p => l5RetryPages.includes(p.pageName));
-                    const retryPageChunks: PageGroup[][] = [];
-                    for (let i = 0; i < failedPageStructure.length; i += pageChunkSize) {
-                        retryPageChunks.push(failedPageStructure.slice(i, i + pageChunkSize));
-                    }
-                    const l5RetryTasks = retryPageChunks.map(createL5Task);
+                    const failedComponents = componentsToAnalyze.filter(c => l5RetryPages.includes(c.name));
+                    const l5RetryTasks = failedComponents.map(createL5Task);
                     await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
                 }
@@ -1287,12 +1287,20 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Input
 - Read generated pages in \`${outputPath}/pages/\`
 - Read relevant L3 analysis files in \`${intermediateDir}/L3/\` for each page’s components
-- Read \`${intermediateDir}/L5/page_structure.json\` and \`${intermediateDir}/L2/component_list.json\` to map pages ↔ components ↔ source files
+- Read \`${intermediateDir}/L2/component_list.json\` to map pageName ↔ component ↔ source files (pageName == component name)
 - Read evidence mapping (reverse synthesis), if present: \`${intermediateDir}/L5V/evidence_map.json\`
 
 ## Workflow
-1. **Inventory**: Read \`${intermediateDir}/L5/page_structure.json\` and ensure every expected page exists under \`${outputPath}/pages/\`.
-2. For EACH page:
+1. **Inventory (authoritative)**:
+   - Read \`${intermediateDir}/L2/component_list.json\` and compute the expected page files: \`{component.name}.md\` (1 component = 1 page).
+   - List files in \`${outputPath}/pages/\`.
+   - Identify:
+     - Missing pages: expected but not present
+     - Extra pages: present but not in component_list (these should usually be deleted unless clearly intentional)
+   - If any pages are missing:
+     - Record them in \`${intermediateDir}/L6/review_report.md\`.
+     - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component names so the pipeline can regenerate them.`}
+2. For EACH existing page (where pageName == component name):
    - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
    - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
    - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
@@ -1373,7 +1381,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Input
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
-- \`${intermediateDir}/L5/page_structure.json\` (source of truth for pages)
+- \`${intermediateDir}/L2/component_list.json\` (source of truth for pages; 1 component = 1 page)
 - \`${intermediateDir}/L5/page_groups.json\` (source of truth for README grouping; created by L5-G)
 - All files under \`${outputPath}/pages/\`
 - Existing nested DeepWikis list: \`${intermediateDir}/L1/existing_deepwikis.md\`
@@ -1406,7 +1414,7 @@ For EACH group, create a chapter with this shape:
   - Where a new reader should start (name 1–2 pages as the recommended entry points)
 - Pages list: include ALL pages in this group, each as:
   - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
-  - One-line description using the page_structure rationale for that page.
+  - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component (or a conservative summary from the page itself).
 - Optional (only if it adds real value): 1–3 repo-root source links (\`/src/...\`) to key entry points for this group (no intermediate links).
 
 ### 2.5 Existing DeepWikis (optional)
@@ -1414,7 +1422,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ### 3. Quick self-check
 - Both diagrams present and render.
-- Components list matches page_structure exactly.
+- Components list matches component_list exactly (1 component = 1 page).
 - Grouped TOC matches page_groups exactly.
 - No links to intermediate files.
 
@@ -1511,19 +1519,9 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
                 );
             }
 
-            if (finalPageCount === 0) {
-                try {
-                    const pageStructureUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_structure.json'));
-                    const content = await vscode.workspace.fs.readFile(pageStructureUri);
-                    finalPageCount = this.parseJson<PageGroup[]>(new TextDecoder().decode(content)).length;
-                } catch {
-                    // ignore
-                }
-            }
-
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
-                    `✅ DeepWiki Generation Completed!\n\nDocumented ${componentList.length} components into ${finalPageCount} pages. Check the \`${outputPath}\` directory.`
+                    `✅ DeepWiki Generation Completed!\n\nDocumented ${componentList.length} components into ${componentList.length} pages. Check the \`${outputPath}\` directory.`
                 )
             ]);
 
