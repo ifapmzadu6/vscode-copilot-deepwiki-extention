@@ -462,7 +462,7 @@ Create the FINAL component list.
             let componentsToAnalyze = [...componentList]; // All components initially
             let loopCount = 0;
             const MAX_LOOPS = 5; // Initial run + 4 retries
-            let finalPageCount = 0; // Track final page count for completion message
+            // 1 component == 1 page: page count == component count.
 
             type LoopStart = 'L3' | 'L4' | 'L5' | 'L6';
             const loopStart: LoopStart =
@@ -477,7 +477,6 @@ Create the FINAL component list.
             // Resume mode starting at L7+ skips the analysis/writing loop entirely.
             if (startStageIndex >= stageOrder.indexOf('L7')) {
                 componentsToAnalyze = [];
-                finalPageCount = componentList.length; // 1 component = 1 page
             }
 
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
@@ -925,7 +924,6 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
                     components: [componentName],
                     rationale: '1:1 mapping: component page'
                 }));
-                finalPageCount = componentList.length;
                 logger.log('DeepWiki', `L5 Pages: ${componentsForThisLoop.length} components in this loop (1:1 mapping)`);
 
                 // ---------------------------------------------------------
@@ -1538,13 +1536,9 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
                 );
             }
 
-            if (finalPageCount === 0) {
-                finalPageCount = componentList.length; // 1 component = 1 page
-            }
-
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
-                    `✅ DeepWiki Generation Completed!\n\nDocumented ${componentList.length} components into ${finalPageCount} pages. Check the \`${outputPath}\` directory.`
+                    `✅ DeepWiki Generation Completed!\n\nDocumented ${componentList.length} components into ${componentList.length} pages. Check the \`${outputPath}\` directory.`
                 )
             ]);
 
