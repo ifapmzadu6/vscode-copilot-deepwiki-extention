@@ -854,15 +854,33 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
 
 ## Workflow
 1. Open the L3 analysis file and the component's source files.
-2. Verify at least 3 concrete claims in the analysis against ACTUAL SOURCE CODE (APIs, control flow, events, state changes).
-3. If you find an unverifiable or wrong claim: delete or rewrite the smallest possible part in the L3 analysis (do not guess).
-4. If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
-5. Ensure diagrams (if present) are consistent with code; remove/adjust broken or misleading diagrams.
-6. Write a short review note to \`${intermediateDir}/L3R/${reviewFile}\`:
+2. Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file (ignore all other text for claim extraction).
+3. Verify **ALL extracted claim lines** against ACTUAL SOURCE CODE (APIs, control flow, events, state changes). No sampling.
+   - Use the nearby \`- Evidence:\` anchors (e.g., \`path/to/file.ts::Symbol\`) to navigate quickly.
+   - For each evidence anchor:
+     - Confirm the file path exists.
+     - Spot-check the symbol name appears in that file (string match is acceptable).
+4. If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim (do not guess; smallest possible edit).
+5. If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
+6. Diagram verification (MANDATORY):
+   - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
+   - For EACH diagram, verify all referenced identifiers against source:
+     - If the diagram names functions/classes/types/events/commands, confirm they exist (string match in the referenced file is acceptable).
+     - If the diagram describes cross-file calls or state transitions, verify at least one concrete code path (entry point → call/emit → handler) supports it.
+   - If a diagram cannot be verified, delete it or rewrite it into a smaller, verifiable diagram. No guesswork.
+7. Write a short review note to \`${intermediateDir}/L3R/${reviewFile}\`:
    - What you verified
    - What you changed (if any)
    - Remaining concerns (if any)
-7. If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`. Otherwise, do not create the file.
+8. If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`. Otherwise, do not create the file.
+
+## Token-Stability Workflow (MANDATORY)
+- Do NOT try to verify everything in one go.
+- Work incrementally:
+  - verify a handful of claims → patch L3 analysis
+  - verify 1 diagram → patch L3 analysis
+  - repeat until ALL \`- Claim:\` lines and ALL diagrams have been processed.
+- If you are running out of space, prefer deleting unverifiable claims over adding new narrative.
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
