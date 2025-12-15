@@ -150,7 +150,10 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 await requireFile(path.join(intermediateDir, 'L4', 'relationships.md'));
             }
             if (startStageIndex >= stageOrder.indexOf('L6')) {
-                await requireAnyFileMatch(`${outputPath}/pages/*.md`);
+                // L6+ is a resume mode: pages may be partially missing (we can auto-regenerate missing ones via L5).
+                // Ensure the pages directory exists, but do not require any files yet.
+                const pagesDirUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages'));
+                await vscode.workspace.fs.createDirectory(pagesDirUri);
             }
             if (startStageIndex >= stageOrder.indexOf('L7')) {
                 // Prefer L5 grouping artifact for stable README TOC/diagrams.
@@ -477,35 +480,37 @@ Create the FINAL component list.
                 finalPageCount = componentList.length; // 1 component = 1 page
             }
 
-            // Resume-mode sanity check: if starting at L6+ we expect all component pages to already exist.
-            // (L6/L7/L8/L9 don't generate missing pages; they only review/index/QA.)
-            if (startStageIndex >= stageOrder.indexOf('L6')) {
-                const missingPages: string[] = [];
-                for (const component of componentList) {
-                    const pageUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`)
-                    );
-                    try {
-                        await vscode.workspace.fs.stat(pageUri);
-                    } catch {
-                        missingPages.push(component.name);
-                    }
-                }
-
-                if (missingPages.length > 0) {
-                    const sample = missingPages.slice(0, 10).join(', ');
-                    const suffix = missingPages.length > 10 ? ` …(+${missingPages.length - 10} more)` : '';
-                    throw new Error(
-                        `Resume failed: missing ${missingPages.length} expected page(s) under "${outputPath}/pages/" for component(s): ${sample}${suffix}. Start from L5 to regenerate pages.`
-                    );
-                }
-            }
-
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
                 logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
 
                 const firstLoop = loopCount === 0;
-                const initialSkipTo: LoopStart = firstLoop ? loopStart : 'L3';
+                let initialSkipTo: LoopStart = firstLoop ? loopStart : 'L3';
+
+                // Auto-repair missing pages when resuming from L6+.
+                // If pages are missing, rerun L5 (Writer + Validator) for those components before continuing to L6.
+                if (firstLoop && startStageIndex >= stageOrder.indexOf('L6') && initialSkipTo === 'L6') {
+                    const missingComponentNames: string[] = [];
+                    for (const component of componentList) {
+                        const pageUri = vscode.Uri.file(
+                            path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`)
+                        );
+                        try {
+                            await vscode.workspace.fs.stat(pageUri);
+                        } catch {
+                            missingComponentNames.push(component.name);
+                        }
+                    }
+
+                    if (missingComponentNames.length > 0) {
+                        logger.warn(
+                            'DeepWiki',
+                            `Resume detected ${missingComponentNames.length} missing page(s). Auto-running L5 Writer for missing components.`
+                        );
+                        componentsToAnalyze = componentList.filter(c => missingComponentNames.includes(c.name));
+                        initialSkipTo = 'L5';
+                    }
+                }
+
                 const runL3Stages = initialSkipTo === 'L3';
                 const runL4Stage = initialSkipTo === 'L3' || initialSkipTo === 'L4';
                 const runL5Stages = initialSkipTo === 'L3' || initialSkipTo === 'L4' || initialSkipTo === 'L5';
