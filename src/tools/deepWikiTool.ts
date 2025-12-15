@@ -1397,12 +1397,17 @@ Insert exactly:
 - Show main states and triggers only.
 
 ### 2. Components
-Use \`${intermediateDir}/L5/page_groups.json\` to group the TOC.
-For EACH group:
-- Print a short group heading and (optionally) the group's rationale.
-- Under it, list each page in that group as:
+Use \`${intermediateDir}/L5/page_groups.json\` to structure the README as **chapters** (one chapter per group, in the same order as page_groups).
+For EACH group, create a chapter with this shape:
+- Chapter heading: \`#### <GroupName>\`
+- Chapter description: 3–6 sentences explaining:
+  - What this group is responsible for (scope and boundaries)
+  - How it relates to other groups at a high level (1–2 sentences max)
+  - Where a new reader should start (name 1–2 pages as the recommended entry points)
+- Pages list: include ALL pages in this group, each as:
   - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
   - One-line description using the page_structure rationale for that page.
+- Optional (only if it adds real value): 1–3 repo-root source links (\`/src/...\`) to key entry points for this group (no intermediate links).
 
 ### 2.5 Existing DeepWikis (optional)
 If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short section listing links to those existing docs (link to their \`.deepwiki/README.md\` only; do not summarize their internals).
