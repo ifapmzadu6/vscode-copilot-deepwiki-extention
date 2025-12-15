@@ -1249,7 +1249,13 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                 let l5FailedPages: string[] = [];
                 try {
                     const content = await vscode.workspace.fs.readFile(l5FailuresUri);
-                    l5FailedPages = this.parseJson<string[]>(new TextDecoder().decode(content));
+                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
+                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
+                        l5FailedPages = parsed;
+                    } else {
+                        logger.warn('DeepWiki', 'L5-V: page_validation_failures.json is not a string array; ignoring.');
+                        l5FailedPages = [];
+                    }
                     await vscode.workspace.fs.delete(l5FailuresUri);
                 } catch { /* no failures file or invalid */ }
 
@@ -1257,7 +1263,13 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                 let l5EvidenceFailedPages: string[] = [];
                 try {
                     const content = await vscode.workspace.fs.readFile(l5EvidenceFailuresUri);
-                    l5EvidenceFailedPages = this.parseJson<string[]>(new TextDecoder().decode(content));
+                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
+                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
+                        l5EvidenceFailedPages = parsed;
+                    } else {
+                        logger.warn('DeepWiki', 'L5-V: evidence_validation_failures.json is not a string array; ignoring.');
+                        l5EvidenceFailedPages = [];
+                    }
                     await vscode.workspace.fs.delete(l5EvidenceFailuresUri);
                 } catch { /* no failures file or invalid */ }
 
