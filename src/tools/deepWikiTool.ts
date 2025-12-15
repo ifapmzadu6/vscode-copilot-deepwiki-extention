@@ -273,6 +273,9 @@ ${mdCodeBlock}
 ]
 `;
             if (startStageIndex <= stageOrder.indexOf('L2')) {
+                const componentDraftUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_draft.json')
+                );
                 await this.runPhase(
                     'L2-A: Drafter',
                     'Draft initial component grouping',
@@ -316,7 +319,9 @@ ${jsonExample}
 
 ` + getPipelineOverview('L2-A'),
                     token,
-                    options.toolInvocationToken
+                    options.toolInvocationToken,
+                    [componentDraftUri],
+                    { maxAttempts: 3 }
                 );
 
                 // Loop for Review & Refine
@@ -331,12 +336,15 @@ ${jsonExample}
                     ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
                     : '';
 
-                // ---------------------------------------------------------
-                // Level 1-B: COMPONENT REVIEWER (Critique Only)
-                // ---------------------------------------------------------
-                await this.runPhase(
-                    `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
-                    'Critique component grouping',
+	                // ---------------------------------------------------------
+	                // Level 1-B: COMPONENT REVIEWER (Critique Only)
+	                // ---------------------------------------------------------
+                    const componentReviewUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'review_report.md')
+                    );
+	                await this.runPhase(
+	                    `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
+	                    'Critique component grouping',
 	                    `# Component Reviewer Agent (L2-B)
 
 ## Role
@@ -369,16 +377,21 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\` (point out
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 
 ` + getPipelineOverview('L2-B'),
-                    token,
-                    options.toolInvocationToken
-                );
+	                    token,
+	                    options.toolInvocationToken,
+	                    [componentReviewUri],
+	                    { maxAttempts: 3 }
+	                );
 
-                // ---------------------------------------------------------
-                // Level 1-C: COMPONENT REFINER (Fix & Finalize)
-                // ---------------------------------------------------------
-                await this.runPhase(
-                    `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
-                    'Refine component list based on review',
+	                // ---------------------------------------------------------
+	                // Level 1-C: COMPONENT REFINER (Fix & Finalize)
+	                // ---------------------------------------------------------
+                    const componentListUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                    );
+	                await this.runPhase(
+	                    `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
+	                    'Refine component list based on review',
 	                    `# Component Refiner Agent (L2-C)
 
 ## Role
@@ -412,9 +425,11 @@ Create the FINAL component list.
 4. **Naming**: Component \`name\` values must be filename-safe (no \`/\`). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\` (NOT \`Editor/Core\`). Rename any component that violates this.
 
 ` + getPipelineOverview('L2-C'),
-                    token,
-                    options.toolInvocationToken
-                );
+	                    token,
+	                    options.toolInvocationToken,
+	                    [componentListUri],
+	                    { maxAttempts: 3 }
+	                );
 
                 // ---------------------------------------------------------
                 // Check JSON validity
@@ -704,10 +719,16 @@ ${mdCodeBlock}
                         file: `${String(originalIndex + 1).padStart(3, '0')}_${c.name}_analysis.md`
                     };
                 });
-                await this.runPhase(
-                    `L3-V: Validator (Loop ${loopCount + 1})`,
-                    'Validate L3 output files',
-                    `# L3 Validator Agent
+                    const l3ValidationFailuresUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3V', 'validation_failures.json')
+                    );
+                    const l3ValidationReportUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3V', 'validation_report.md')
+                    );
+	                await this.runPhase(
+	                    `L3-V: Validator (Loop ${loopCount + 1})`,
+	                    'Validate L3 output files',
+	                    `# L3 Validator Agent
 
 ## Role
 Quality gate for L3 outputs: ensure expected analysis files exist and are structurally rich enough to support L4/L5 without re-reading source code.
@@ -754,27 +775,49 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
 `,
-                    token,
-                    options.toolInvocationToken
-                );
+	                    token,
+	                    options.toolInvocationToken,
+                        [l3ValidationFailuresUri, l3ValidationReportUri],
+                        { maxAttempts: 3 }
+	                );
 
-                // Check L3 validation result and retry failed components
-                const l3FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3V', 'validation_failures.json'));
-                let l3FailedComponents: string[] = [];
-                try {
-                    const content = await vscode.workspace.fs.readFile(l3FailuresUri);
-                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
-                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
-                        l3FailedComponents = parsed;
-                    } else {
-                        logger.warn('DeepWiki', 'L3-V: validation_failures.json is not a string array; retrying all components for safety.');
-                        l3FailedComponents = componentsToAnalyze.map(c => c.name);
+	                // Check L3 validation result and retry failed components
+	                let l3FailedComponents: string[] = [];
+                    let l3FailuresListValid = false;
+	                try {
+	                    const content = await vscode.workspace.fs.readFile(l3ValidationFailuresUri);
+	                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
+	                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
+	                        l3FailedComponents = parsed;
+                            l3FailuresListValid = true;
+	                    } else {
+	                        logger.warn('DeepWiki', 'L3-V: validation_failures.json is not a string array; falling back to filesystem check.');
+	                    }
+	                } catch {
+	                    logger.warn('DeepWiki', 'L3-V: missing/invalid validation_failures.json; falling back to filesystem check.');
+	                } finally {
+                        try {
+                            await vscode.workspace.fs.delete(l3ValidationFailuresUri);
+                        } catch {
+                            // ignore delete failures
+                        }
                     }
-                    await vscode.workspace.fs.delete(l3FailuresUri);
-                } catch {
-                    logger.warn('DeepWiki', 'L3-V: missing/invalid validation_failures.json; retrying all components for safety.');
-                    l3FailedComponents = componentsToAnalyze.map(c => c.name);
-                }
+
+                    if (!l3FailuresListValid) {
+                        const missingComponents: string[] = [];
+                        for (const expected of l3ExpectedFiles) {
+                            const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', expected.file));
+                            try {
+                                await vscode.workspace.fs.stat(uri);
+                            } catch {
+                                missingComponents.push(expected.name);
+                            }
+                        }
+                        l3FailedComponents = missingComponents;
+                        if (missingComponents.length === 0) {
+                            logger.warn('DeepWiki', 'L3-V: no missing analysis files detected; proceeding without L3 retries.');
+                        }
+                    }
 
                 if (l3FailedComponents.length > 0) {
                     logger.log('DeepWiki', `L3 Validator found ${l3FailedComponents.length} missing files, retrying: ${l3FailedComponents.join(', ')}`);
