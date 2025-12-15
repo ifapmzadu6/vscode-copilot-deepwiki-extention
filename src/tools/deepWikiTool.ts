@@ -763,9 +763,18 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
                 let l3FailedComponents: string[] = [];
                 try {
                     const content = await vscode.workspace.fs.readFile(l3FailuresUri);
-                    l3FailedComponents = this.parseJson<string[]>(new TextDecoder().decode(content));
+                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
+                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
+                        l3FailedComponents = parsed;
+                    } else {
+                        logger.warn('DeepWiki', 'L3-V: validation_failures.json is not a string array; retrying all components for safety.');
+                        l3FailedComponents = componentsToAnalyze.map(c => c.name);
+                    }
                     await vscode.workspace.fs.delete(l3FailuresUri);
-                } catch { /* no failures file or invalid */ }
+                } catch {
+                    logger.warn('DeepWiki', 'L3-V: missing/invalid validation_failures.json; retrying all components for safety.');
+                    l3FailedComponents = componentsToAnalyze.map(c => c.name);
+                }
 
                 if (l3FailedComponents.length > 0) {
                     logger.log('DeepWiki', `L3 Validator found ${l3FailedComponents.length} missing files, retrying: ${l3FailedComponents.join(', ')}`);
