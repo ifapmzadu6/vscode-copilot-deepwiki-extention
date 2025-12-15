@@ -1071,13 +1071,13 @@ ${mdCodeBlock}
 - [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
-                const createL5Task = (componentChunk: ComponentDef[]) => {
-                    const pageUris = componentChunk.map((c) =>
-                        vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${c.name}.md`))
-                    );
+                const createL5Task = (component: ComponentDef) => {
+                    const pageUris = [
+                        vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`))
+                    ];
                     return () => this.runPhase(
                         `L5: Writer (Loop ${loopCount + 1})`,
-                        `Write ${componentChunk.length} documentation pages`,
+                        `Write documentation page`,
 	                        `# Writer Agent (L5)
 
 ## Role
@@ -1086,7 +1086,7 @@ ${mdCodeBlock}
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
 ## Input
-- Assigned Components: ${JSON.stringify(componentChunk.map(c => ({ name: c.name, files: c.files, description: c.description })))}
+- Assigned Component: ${JSON.stringify({ name: component.name, files: component.files, description: component.description })}
 - For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
 
 ## Workflow
@@ -1160,15 +1160,8 @@ Write files to \`${outputPath}/pages/\`.
                     );
                 };
 
-                // Create page chunks for L5 writing
-                const pageChunkSize = 1;
-                const componentChunks: ComponentDef[][] = [];
-                for (let i = 0; i < componentsForThisLoopDefs.length; i += pageChunkSize) {
-                    componentChunks.push(componentsForThisLoopDefs.slice(i, i + pageChunkSize));
-                }
-
                 // Initial L5 writing
-                const l5Tasks = componentChunks.map(createL5Task);
+                const l5Tasks = componentsForThisLoopDefs.map(createL5Task);
                 await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
@@ -1263,11 +1256,7 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                     logger.log('DeepWiki', `L5 Validator requested retry for ${l5RetryPages.length} page(s): ${l5RetryPages.join(', ')}`);
                     // Retry using the same task generator function
                     const failedComponents = componentsForThisLoopDefs.filter(c => l5RetryPages.includes(c.name));
-                    const retryComponentChunks: ComponentDef[][] = [];
-                    for (let i = 0; i < failedComponents.length; i += pageChunkSize) {
-                        retryComponentChunks.push(failedComponents.slice(i, i + pageChunkSize));
-                    }
-                    const l5RetryTasks = retryComponentChunks.map(createL5Task);
+                    const l5RetryTasks = failedComponents.map(createL5Task);
                     await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
                 }
