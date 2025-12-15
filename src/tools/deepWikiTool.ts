@@ -1396,58 +1396,24 @@ Insert exactly:
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
 
-**D. System Breakdown (C4Component) — REQUIRED**
-- Goal: Show the system breakdown at **page granularity** (each generated page is a node).
-- Use Mermaid \`C4Component\` syntax.
-- Use \`${intermediateDir}/L5/page_groups.json\` as the source of truth for grouping.
-  - If \`${intermediateDir}/L5/page_groups.json\` does not exist, create it first (same format as L5-G), then use it.
-- Nodes:
-  - Each node label = pageName (no \`.md\` suffix).
-  - Every page from \`${intermediateDir}/L5/page_structure.json\` must appear exactly once.
-  - Put page nodes inside boundaries for each groupName from page_groups.json.
-- Relationships:
-  - Derive edges from \`${intermediateDir}/L4/relationships.md\` (and L3 analyses if needed).
-  - Keep a small, readable set of edges (hard cap: 12 total).
-  - Prefer **cross-group** relationships over within-group relationships.
-  - If there are many pages, choose up to 1–2 representative "interface pages" per group (highest fan-in/out in L4 relationships) and draw edges primarily between those representatives.
-  - If the diagram still becomes too dense, omit most/all relationships and rely on the grouped TOC; never draw a spaghetti graph.
-  - Label edges with meaningful verbs ("calls", "uses", "emits", "depends on", "reads/writes").
-  - No guesswork; omit if uncertain.
-- 2–3 sentence preface, then diagram.
-
-Example shape (replace pages/groups/edges with your actual data):
-\`\`\`mermaid
-C4Component
-title System Breakdown
-
-Container_Boundary(system, "System") {
-  Container_Boundary(auth, "Authentication") {
-    Component(p_auth, "Auth", "Docs Page", "Auth flows and internals")
-  }
-  Container_Boundary(core, "Core") {
-    Component(p_api, "API", "Docs Page", "Public interfaces and integration points")
-    Component(p_storage, "Storage", "Docs Page", "Persistence and data access")
-  }
-}
-
-Rel(p_api, p_auth, "calls/uses")
-Rel(p_auth, p_storage, "reads/writes")
-\`\`\`
-Note: Do not label the outer boundary as "DeepWiki Pages" or anything that implies documentation. Name boundaries as system areas/domains (or omit the outer boundary entirely).
-
 ### 2. Components
-Use \`${intermediateDir}/L5/page_groups.json\` to group the TOC.
-For EACH group:
-- Print a short group heading and (optionally) the group's rationale.
-- Under it, list each page in that group as:
+Use \`${intermediateDir}/L5/page_groups.json\` to structure the README as **chapters** (one chapter per group, in the same order as page_groups).
+For EACH group, create a chapter with this shape:
+- Chapter heading: \`#### <GroupName>\`
+- Chapter description: 3–6 sentences explaining:
+  - What this group is responsible for (scope and boundaries)
+  - How it relates to other groups at a high level (1–2 sentences max)
+  - Where a new reader should start (name 1–2 pages as the recommended entry points)
+- Pages list: include ALL pages in this group, each as:
   - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
   - One-line description using the page_structure rationale for that page.
+- Optional (only if it adds real value): 1–3 repo-root source links (\`/src/...\`) to key entry points for this group (no intermediate links).
 
 ### 2.5 Existing DeepWikis (optional)
 If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short section listing links to those existing docs (link to their \`.deepwiki/README.md\` only; do not summarize their internals).
 
 ### 3. Quick self-check
-- All three diagrams present and render.
+- Both diagrams present and render.
 - Components list matches page_structure exactly.
 - Grouped TOC matches page_groups exactly.
 - No links to intermediate files.
