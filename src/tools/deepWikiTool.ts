@@ -921,26 +921,36 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 
 ## Role
 - **Your Stage**: L5-Pre-A Drafter (Page Consolidation Phase - First Pass)
-- **Core Responsibility**: Create initial page grouping proposal based on L3 analysis
+- **Core Responsibility**: Create initial page grouping proposal aligned with L4 architecture (using L3 as supporting evidence)
 - **Critical Success Factor**: Group related components logically - perfection not required, L5-Pre-B will review
 
 ## Goal
-Create an INITIAL draft of page structure by analyzing L3 outputs.
+Create an INITIAL draft of page structure aligned to the conceptual boundaries described in L4.
 
 ## Input
 - Read ALL files in \`${intermediateDir}/L3/\`
+- L4 architecture signals:
+  - \`${intermediateDir}/L4/overview.md\`
+  - \`${intermediateDir}/L4/relationships.md\`
 - Component list: ${JSON.stringify(componentsForThisLoop)}
 
 ## Workflow
-1. **Read all L3 analysis files** to understand each component's responsibility and scope.
-2. **Identify consolidation opportunities**:
+1. **Read L4 overview/relationships first** to learn the system's conceptual boundaries (subsystems/domains), responsibilities, and the most important cross-boundary interactions.
+2. **Read all L3 analysis files** to understand each component's responsibility and scope.
+3. **Use L4 as the primary grouping lens**:
+   - Prefer pages that match L4 subsystems/domains; treat L3 components as evidence for what belongs inside each page.
+   - If L4 describes X as a single bounded area, avoid splitting it into many tiny pages unless there is a strong reader-facing reason.
+4. **Identify consolidation opportunities**:
    - Components with overlapping responsibilities (e.g., "Auth", "Session", "Login" all relate to authentication)
    - Components that are too granular to warrant separate pages
    - Components that users would naturally look for together
-3. **Draft page structure**:
+5. **Draft page structure**:
    - Group related components into single pages where it improves readability
    - Keep components separate if they have distinct, substantial responsibilities
-   - Aim for balanced page sizes (not too large, not too small)
+   - Aim for consistent granularity across pages
+   - Prefer fewer, higher-signal pages over many low-signal pages (avoid a near 1:1 mapping of component→page)
+   - If in doubt, merge (you can still create subsections inside a page later)
+   - As a rule of thumb, target a page count closer to L4 subsystem/domain count than to the raw component count
 
 ## Output
 Write draft to \`${intermediateDir}/L5/page_structure_draft.json\`.
@@ -985,24 +995,30 @@ ${pageStructureExample}
 - **Critical Success Factor**: Ensure groupings and page names feel right for readers
 
 ## Goal
-CRITIQUE the draft page structure. Do NOT fix it yourself.
+CRITIQUE the draft page structure for reader-friendliness and L4 architecture alignment. Do NOT fix it yourself.
 
 ## Input
 - Read \`${intermediateDir}/L5/page_structure_draft.json\`
 - Read L3 analysis files in \`${intermediateDir}/L3/\` for reference
+- Read L4 overview/relationships for architecture alignment:
+  - \`${intermediateDir}/L4/overview.md\`
+  - \`${intermediateDir}/L4/relationships.md\`
 
 ## Workflow
 1. **Check grouping logic**:
    - Are related components grouped together?
    - Are there groups that should be split (too large/unfocused)?
    - Are there groups that should be merged (too small/redundant)?
-2. **Verify completeness**:
+2. **Check architecture alignment (L4)**:
+   - Do the page boundaries match the conceptual subsystems/domains described in L4?
+   - Is the page structure's granularity roughly comparable to the L4 granularity (not too fragmented)?
+3. **Verify completeness**:
    - Are all components from ${JSON.stringify(componentsForThisLoop)} included?
    - Is any component listed in multiple groups?
-3. **Assess user experience**:
+4. **Assess user experience**:
    - Would a developer easily find what they're looking for?
    - Are page names intuitive and descriptive?
-4. **Check rationales**:
+5. **Check rationales**:
    - Do the rationales actually justify the groupings?
 
 ## Output
@@ -1034,17 +1050,21 @@ Include:
 - **Critical Success Factor**: Produce valid JSON that L5 Writer can use
 
 ## Goal
-Create the FINAL page structure by applying review feedback.
+Create the FINAL page structure by applying review feedback and aligning with L4 architecture.
 
 ## Input
 - Draft: \`${intermediateDir}/L5/page_structure_draft.json\`
 - Review: \`${intermediateDir}/L5/page_structure_review.md\`
+- L4 architecture signals:
+  - \`${intermediateDir}/L4/overview.md\`
+  - \`${intermediateDir}/L4/relationships.md\`
 
 ## Workflow
 1. Read the Draft and the Review Report.
 2. Apply the suggested improvements to the page structure.
-3. Self-check: all components included exactly once; no empty groups.
-4. Produce the final valid JSON.${retryContextL5Pre}
+3. Re-check against L4: page boundaries should reflect L4 subsystems/domains unless there is a strong reason to differ.
+4. Self-check: all components included exactly once; no empty groups.
+5. Produce the final valid JSON.${retryContextL5Pre}
 
 ## Output
 Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_structure.json\`.
