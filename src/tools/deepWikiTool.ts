@@ -519,7 +519,6 @@ Create the FINAL component list.
                 // For now, we'll re-chunk the componentsToAnalyze.
 
                 const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
-                const componentsThisLoop = [...componentsToAnalyze];
 
                 if (runL3Stages) {
                 // ---------------------------------------------------------
@@ -1161,13 +1160,13 @@ Write files to \`${outputPath}/pages/\`.
                 };
 
                 // Initial L5 writing
-                const l5Tasks = componentsThisLoop.map(createL5Task);
+                const l5Tasks = componentsToAnalyze.map(createL5Task);
                 await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // L5 Validator: Check for missing page files and retry if needed
                 // ---------------------------------------------------------
-                const l5ExpectedPages = componentsThisLoop.map(c => ({
+                const l5ExpectedPages = componentsToAnalyze.map(c => ({
                     pageName: c.name,
                     file: `${c.name}.md`
                 }));
@@ -1255,7 +1254,7 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                 if (l5RetryPages.length > 0) {
                     logger.log('DeepWiki', `L5 Validator requested retry for ${l5RetryPages.length} page(s): ${l5RetryPages.join(', ')}`);
                     // Retry using the same task generator function
-                    const failedComponents = componentsThisLoop.filter(c => l5RetryPages.includes(c.name));
+                    const failedComponents = componentsToAnalyze.filter(c => l5RetryPages.includes(c.name));
                     const l5RetryTasks = failedComponents.map(createL5Task);
                     await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
