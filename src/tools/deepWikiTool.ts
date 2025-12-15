@@ -1397,20 +1397,22 @@ Insert exactly:
 - Show main states and triggers only.
 
 **D. System Breakdown (C4Component) — REQUIRED**
-- Goal: Show the system breakdown at **page granularity** (each generated page is a node).
+- Goal: Show the system breakdown at **domain/group granularity** (keep it readable on the first screen).
 - Use Mermaid \`C4Component\` syntax.
 - Use \`${intermediateDir}/L5/page_groups.json\` as the source of truth for grouping.
   - If \`${intermediateDir}/L5/page_groups.json\` does not exist, create it first (same format as L5-G), then use it.
+- This diagram is intentionally NOT exhaustive: the complete per-page breakdown is in the **Components** section below.
 - Nodes:
-  - Each node label = pageName (no \`.md\` suffix).
-  - Every page from \`${intermediateDir}/L5/page_structure.json\` must appear exactly once.
-  - Put page nodes inside boundaries for each groupName from page_groups.json.
+  - Prefer one component per group (group as the primary node).
+  - Put group components inside boundaries for each groupName from page_groups.json.
+  - Optional: include up to 1–2 representative "interface pages" per group as additional components only if it adds clarity and stays readable.
+  - Keep the diagram small (aim for 6–10 group components total). If there are many groups, combine the least-central groups into an \`Other\` boundary for the diagram only (do not change the TOC grouping).
 - Relationships:
   - Derive edges from \`${intermediateDir}/L4/relationships.md\` (and L3 analyses if needed).
-  - Keep a small, readable set of edges (hard cap: 12 total).
+  - Keep a small, readable set of edges (hard cap: 8 total).
   - Prefer **cross-group** relationships over within-group relationships.
-  - If there are many pages, choose up to 1–2 representative "interface pages" per group (highest fan-in/out in L4 relationships) and draw edges primarily between those representatives.
-  - If the diagram still becomes too dense, omit most/all relationships and rely on the grouped TOC; never draw a spaghetti graph.
+  - Prefer edges between group components; use representative pages only when a relationship is best explained at that level.
+  - If the diagram becomes too dense, omit most/all relationships and rely on the grouped TOC; never draw a spaghetti graph.
   - Label edges with meaningful verbs ("calls", "uses", "emits", "depends on", "reads/writes").
   - No guesswork; omit if uncertain.
 - 2–3 sentence preface, then diagram.
@@ -1422,16 +1424,14 @@ title System Breakdown
 
 Container_Boundary(system, "System") {
   Container_Boundary(auth, "Authentication") {
-    Component(p_auth, "Auth", "Docs Page", "Auth flows and internals")
+    Component(g_auth, "Authentication", "Domain/Area", "What belongs to this area + key entry points")
   }
   Container_Boundary(core, "Core") {
-    Component(p_api, "API", "Docs Page", "Public interfaces and integration points")
-    Component(p_storage, "Storage", "Docs Page", "Persistence and data access")
+    Component(g_core, "Core", "Domain/Area", "Core responsibilities and key entry points")
   }
 }
 
-Rel(p_api, p_auth, "calls/uses")
-Rel(p_auth, p_storage, "reads/writes")
+Rel(g_core, g_auth, "calls/uses")
 \`\`\`
 Note: Do not label the outer boundary as "DeepWiki Pages" or anything that implies documentation. Name boundaries as system areas/domains (or omit the outer boundary entirely).
 
