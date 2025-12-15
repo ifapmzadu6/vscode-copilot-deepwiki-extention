@@ -477,6 +477,30 @@ Create the FINAL component list.
                 finalPageCount = componentList.length; // 1 component = 1 page
             }
 
+            // Resume-mode sanity check: if starting at L6+ we expect all component pages to already exist.
+            // (L6/L7/L8/L9 don't generate missing pages; they only review/index/QA.)
+            if (startStageIndex >= stageOrder.indexOf('L6')) {
+                const missingPages: string[] = [];
+                for (const component of componentList) {
+                    const pageUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`)
+                    );
+                    try {
+                        await vscode.workspace.fs.stat(pageUri);
+                    } catch {
+                        missingPages.push(component.name);
+                    }
+                }
+
+                if (missingPages.length > 0) {
+                    const sample = missingPages.slice(0, 10).join(', ');
+                    const suffix = missingPages.length > 10 ? ` …(+${missingPages.length - 10} more)` : '';
+                    throw new Error(
+                        `Resume failed: missing ${missingPages.length} expected page(s) under "${outputPath}/pages/" for component(s): ${sample}${suffix}. Start from L5 to regenerate pages.`
+                    );
+                }
+            }
+
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
                 logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
 
@@ -1281,8 +1305,16 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Read evidence mapping (reverse synthesis), if present: \`${intermediateDir}/L5V/evidence_map.json\`
 
 ## Workflow
-1. **Inventory**: List \`${outputPath}/pages/\` and ensure each file maps to a component \`name\` in \`${intermediateDir}/L2/component_list.json\`.
-2. For EACH page (where pageName == component name):
+1. **Inventory (authoritative)**:
+   - Read \`${intermediateDir}/L2/component_list.json\` and compute the expected page files: \`{component.name}.md\` (1 component = 1 page).
+   - List files in \`${outputPath}/pages/\`.
+   - Identify:
+     - Missing pages: expected but not present
+     - Extra pages: present but not in component_list (these should usually be deleted unless clearly intentional)
+   - If any pages are missing:
+     - Record them in \`${intermediateDir}/L6/review_report.md\`.
+     - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component names so the pipeline can regenerate them.`}
+2. For EACH existing page (where pageName == component name):
    - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
    - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
    - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
