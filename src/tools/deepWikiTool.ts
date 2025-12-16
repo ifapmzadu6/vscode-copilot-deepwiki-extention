@@ -806,80 +806,80 @@ ${mdCodeBlock}
 
 ## Workflow (Incremental Write Pattern - MANDATORY)
 
-### Step 0: Initialize Review File (FIRST)
-- Create \`${intermediateDir}/L3R/${reviewFile}\` with a header:
-  \`\`\`markdown
-  # L3R Review: ${component.name}
-  Analysis file: ${analysisFile}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` immediately to write this header.
+1. **Initialize Review File (FIRST)**
+   - Create \`${intermediateDir}/L3R/${reviewFile}\` with a header:
+     \`\`\`markdown
+     # L3R Review: ${component.name}
+     Analysis file: ${analysisFile}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` immediately to write this header.
 
-### Step 1: File Existence Check
-- Check if \`${intermediateDir}/L3/${analysisFile}\` exists.
-- **IMMEDIATELY** append result to \`${intermediateDir}/L3R/${reviewFile}\`:
-  \`\`\`markdown
-  ## File Check
-  - Status: {EXISTS / MISSING / EMPTY}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` to write this section NOW.
-- If the file does NOT exist or is empty:
-  - Append "**Result**: RETRY_REQUIRED - Analysis file missing" to review file
-  - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.name}"]\`
-  - Stop (no further steps).
+2. **File Existence Check**
+   - Check if \`${intermediateDir}/L3/${analysisFile}\` exists.
+   - **IMMEDIATELY** append result to \`${intermediateDir}/L3R/${reviewFile}\`:
+     \`\`\`markdown
+     ## File Check
+     - Status: {EXISTS / MISSING / EMPTY}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this section NOW.
+   - If the file does NOT exist or is empty:
+     - Append "**Result**: RETRY_REQUIRED - Analysis file missing" to review file
+     - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.name}"]\`
+     - Stop (no further steps).
 
-### Step 2: Claim Verification (Incremental)
-- Open the L3 analysis file and the component's source files.
-- Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
-- For EACH batch of claims (process 3-5 at a time):
-  - Verify against ACTUAL SOURCE CODE (APIs, control flow, events, state changes).
-  - Use the nearby \`- Evidence:\` anchors to navigate quickly.
-  - For each evidence anchor: confirm file path exists and symbol appears in that file.
-  - If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim.
-  - **IMMEDIATELY** append verification result to \`${intermediateDir}/L3R/${reviewFile}\`:
-    \`\`\`markdown
-    ### Claims Batch {N}
-    - Verified: {list of verified claims}
-    - Removed/Rewritten: {list with reasons}
-    \`\`\`
-  - Use \`${editToolNameForPrompt}\` to write this section NOW.
-  - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
-- If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
+3. **Claim Verification (Incremental)**
+   - Open the L3 analysis file and the component's source files.
+   - Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
+   - For EACH batch of claims (process 3-5 at a time):
+     - Verify against ACTUAL SOURCE CODE (APIs, control flow, events, state changes).
+     - Use the nearby \`- Evidence:\` anchors to navigate quickly.
+     - For each evidence anchor: confirm file path exists and symbol appears in that file.
+     - If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim.
+     - **IMMEDIATELY** append verification result to \`${intermediateDir}/L3R/${reviewFile}\`:
+       \`\`\`markdown
+       ### Claims Batch {N}
+       - Verified: {list of verified claims}
+       - Removed/Rewritten: {list with reasons}
+       \`\`\`
+     - Use \`${editToolNameForPrompt}\` to write this section NOW.
+     - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
+   - If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
 
-### Step 3: Diagram Verification (Incremental)
-- Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
-- For EACH diagram:
-  - Verify all referenced identifiers against source (functions/classes/types/events/commands must exist).
-  - If describing cross-file calls or state transitions, verify at least one concrete code path supports it.
-  - If a diagram cannot be verified, delete it or rewrite it into a smaller, verifiable diagram.
-  - **IMMEDIATELY** append verification result to \`${intermediateDir}/L3R/${reviewFile}\`:
-    \`\`\`markdown
-    ### Diagram: {diagram description or index}
-    - Status: {VERIFIED / FIXED / REMOVED}
-    - Details: {what was checked or changed}
-    \`\`\`
-  - Use \`${editToolNameForPrompt}\` to write this section NOW.
-  - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
+4. **Diagram Verification (Incremental)**
+   - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
+   - For EACH diagram:
+     - Verify all referenced identifiers against source (functions/classes/types/events/commands must exist).
+     - If describing cross-file calls or state transitions, verify at least one concrete code path supports it.
+     - If a diagram cannot be verified, delete it or rewrite it into a smaller, verifiable diagram.
+     - **IMMEDIATELY** append verification result to \`${intermediateDir}/L3R/${reviewFile}\`:
+       \`\`\`markdown
+       ### Diagram: {diagram description or index}
+       - Status: {VERIFIED / FIXED / REMOVED}
+       - Details: {what was checked or changed}
+       \`\`\`
+     - Use \`${editToolNameForPrompt}\` to write this section NOW.
+     - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-### Step 4: Final Summary and Verdict
-- Append final summary to \`${intermediateDir}/L3R/${reviewFile}\`:
-  \`\`\`markdown
-  ## Summary
-  - Total claims processed: {count}
-  - Claims verified: {count}
-  - Claims removed/rewritten: {count}
-  - Diagrams processed: {count}
-  - Diagrams verified: {count}
-  - Diagrams removed/fixed: {count}
+5. **Final Summary and Verdict**
+   - Append final summary to \`${intermediateDir}/L3R/${reviewFile}\`:
+     \`\`\`markdown
+     ## Summary
+     - Total claims processed: {count}
+     - Claims verified: {count}
+     - Claims removed/rewritten: {count}
+     - Diagrams processed: {count}
+     - Diagrams verified: {count}
+     - Diagrams removed/fixed: {count}
 
-  ## Final Verdict
-  **Result**: {PASS / RETRY_REQUIRED}
-  **Reason**: {Brief explanation}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` to write this final section.
+     ## Final Verdict
+     **Result**: {PASS / RETRY_REQUIRED}
+     **Reason**: {Brief explanation}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this final section.
 
-### Step 5: Retry Decision
-- If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`.
-- Otherwise, do not create the retry file.
+6. **Retry Decision**
+   - If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`.
+   - Otherwise, do not create the retry file.
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
@@ -1392,87 +1392,87 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Workflow (Incremental Write Pattern - MANDATORY)
 
-### Step 0: Initialize Report (FIRST)
-- Create \`${intermediateDir}/L6/review_report.md\` with a header:
-  \`\`\`markdown
-  # L6 Page Review Report
-  Generated: {timestamp}
-  Loop: ${loopCount + 1}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` immediately to write this header.
+1. **Initialize Report (FIRST)**
+   - Create \`${intermediateDir}/L6/review_report.md\` with a header:
+     \`\`\`markdown
+     # L6 Page Review Report
+     Generated: {timestamp}
+     Loop: ${loopCount + 1}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` immediately to write this header.
 
-### Step 1: Inventory Check
-- Read \`${intermediateDir}/L2/component_list.json\` and compute the expected page files: \`{component.name}.md\` (1 component = 1 page).
-- List files in \`${outputPath}/pages/\`.
-- Identify:
-  - Missing pages: expected but not present
-  - Extra pages: present but not in component_list (these should usually be deleted unless clearly intentional)
-- **IMMEDIATELY** append inventory results to \`${intermediateDir}/L6/review_report.md\`:
-  \`\`\`markdown
-  ## Inventory
-  - Expected pages: {count}
-  - Found pages: {count}
-  - Missing: {list or "None"}
-  - Extra: {list or "None"}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` to write this section NOW before proceeding.
-- If any pages are missing:
-  - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component names so the pipeline can regenerate them.`}
+2. **Inventory Check**
+   - Read \`${intermediateDir}/L2/component_list.json\` and compute the expected page files: \`{component.name}.md\` (1 component = 1 page).
+   - List files in \`${outputPath}/pages/\`.
+   - Identify:
+     - Missing pages: expected but not present
+     - Extra pages: present but not in component_list (these should usually be deleted unless clearly intentional)
+   - **IMMEDIATELY** append inventory results to \`${intermediateDir}/L6/review_report.md\`:
+     \`\`\`markdown
+     ## Inventory
+     - Expected pages: {count}
+     - Found pages: {count}
+     - Missing: {list or "None"}
+     - Extra: {list or "None"}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this section NOW before proceeding.
+   - If any pages are missing:
+     - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component names so the pipeline can regenerate them.`}
 
-### Step 2: Page-by-Page Review (Incremental)
-For EACH existing page (where pageName == component name), perform the following sub-steps IN ORDER:
+3. **Page-by-Page Review (Incremental)**
+   For EACH existing page (where pageName == component name), perform the following sub-steps IN ORDER:
 
-#### 2a. Read and Check
-- Read the page file
-- Check ALL of the following:
-  - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
-  - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
-  - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
-  - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
-  - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
-  - **Evidence Map Gate**: If \`${intermediateDir}/L5V/evidence_map.json\` marks a claim as \`unsupported\`, DELETE or rewrite that claim so it becomes supported (do not keep unsupported claims).
-  - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
-  - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
-  - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
-  - **Intermediate Links**: Check for any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.)
+   a. **Read and Check**
+      - Read the page file
+      - Check ALL of the following:
+        - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
+        - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
+        - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
+        - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
+        - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
+        - **Evidence Map Gate**: If \`${intermediateDir}/L5V/evidence_map.json\` marks a claim as \`unsupported\`, DELETE or rewrite that claim so it becomes supported (do not keep unsupported claims).
+        - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
+        - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
+        - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
+        - **Intermediate Links**: Check for any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.)
 
-#### 2b. Write Review Result (IMMEDIATELY after each page check)
-- **IMMEDIATELY** append this page's review result to \`${intermediateDir}/L6/review_report.md\`:
-  \`\`\`markdown
-  ### {PageName}.md
-  - Status: {OK / Issues Found}
-  - File Structure: {OK / Fixed / N/A}
-  - Placeholders: {None found / Removed: ...}
-  - Element use cases: {OK / Added / N/A}
-  - Element diagrams: {OK / Added / N/A}
-  - Accuracy issues: {None / Removed claims: ...}
-  - Evidence gate: {OK / Removed unsupported: ...}
-  - Links: {OK / Fixed: ...}
-  - Formatting: {OK / Fixed: ...}
-  - Intermediate links: {None / Removed: ...}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` to write this section NOW.
+   b. **Write Review Result (IMMEDIATELY after each page check)**
+      - **IMMEDIATELY** append this page's review result to \`${intermediateDir}/L6/review_report.md\`:
+        \`\`\`markdown
+        ### {PageName}.md
+        - Status: {OK / Issues Found}
+        - File Structure: {OK / Fixed / N/A}
+        - Placeholders: {None found / Removed: ...}
+        - Element use cases: {OK / Added / N/A}
+        - Element diagrams: {OK / Added / N/A}
+        - Accuracy issues: {None / Removed claims: ...}
+        - Evidence gate: {OK / Removed unsupported: ...}
+        - Links: {OK / Fixed: ...}
+        - Formatting: {OK / Fixed: ...}
+        - Intermediate links: {None / Removed: ...}
+        \`\`\`
+      - Use \`${editToolNameForPrompt}\` to write this section NOW.
 
-#### 2c. Fix Issues (if any)
-- If issues were found, fix them in the page file using \`${editToolNameForPrompt}\`.
-- Only proceed to the next page AFTER writing the review result AND fixing issues.
+   c. **Fix Issues (if any)**
+      - If issues were found, fix them in the page file using \`${editToolNameForPrompt}\`.
+      - Only proceed to the next page AFTER writing the review result AND fixing issues.
 
-### Step 3: Final Summary and Verdict
-- After ALL pages are reviewed, append a final summary to \`${intermediateDir}/L6/review_report.md\`:
-  \`\`\`markdown
-  ## Summary
-  - Total pages reviewed: {count}
-  - Pages with issues: {count}
-  - Major issues requiring retry: {list or "None"}
+4. **Final Summary and Verdict**
+   - After ALL pages are reviewed, append a final summary to \`${intermediateDir}/L6/review_report.md\`:
+     \`\`\`markdown
+     ## Summary
+     - Total pages reviewed: {count}
+     - Pages with issues: {count}
+     - Major issues requiring retry: {list or "None"}
 
-  ## Final Verdict
-  **Result**: {PASS / RETRY_REQUIRED}
-  **Reason**: {Brief explanation - e.g., "All pages verified successfully" or "Components X, Y need re-analysis due to..."}
-  \`\`\`
-- Use \`${editToolNameForPrompt}\` to write this final section.
+     ## Final Verdict
+     **Result**: {PASS / RETRY_REQUIRED}
+     **Reason**: {Brief explanation - e.g., "All pages verified successfully" or "Components X, Y need re-analysis due to..."}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this final section.
 
-### Step 4: Retry Decision
-` + retryInstruction + `
+5. **Retry Decision**
+   ` + retryInstruction + `
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
