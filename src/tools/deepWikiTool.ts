@@ -1510,7 +1510,7 @@ For EACH group, create a chapter with this shape:
 - Pages list: include ALL pages in this group, each as:
   - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
   - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component (or a conservative summary from the page itself).
-- Optional (only if it adds real value): 1–3 repo-root source links (\`/src/...\`) to key entry points for this group (no intermediate links).
+- Do NOT add source-code links in the README. Keep navigation focused on the generated pages (\`pages/*.md\`); detailed code entry points belong inside each page if needed.
 
 ### 2.5 Existing DeepWikis (optional)
 If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short section listing links to those existing docs (link to their \`.deepwiki/README.md\` only; do not summarize their internals).
@@ -1531,6 +1531,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
 4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
+6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or "what I validated" prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.
 
 ` + getPipelineOverview('L7'),
                     token,
@@ -1574,6 +1575,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 2. **No guessing**: If you can't verify, remove or rewrite conservatively.
 3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
 4. **Chat Final Response**: One short confirmation line; no file contents.
+5. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Fact-check", or similar sections/notes to \`${outputPath}/README.md\`. Keep all verification results exclusively in \`${intermediateDir}/L8/factcheck_report.md\`.
 `,
                     token,
                     options.toolInvocationToken,
@@ -1612,6 +1614,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 1. **Scope**: Only modify files under \`.deepwiki/\`.
 2. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
 3. **Chat Final Response**: One short confirmation line; no file contents.
+4. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Release Gate", or similar report sections into \`${outputPath}/README.md\`. Keep gate details exclusively in \`${intermediateDir}/L9/release_gate_report.md\`.
 `,
                     token,
                     options.toolInvocationToken,
