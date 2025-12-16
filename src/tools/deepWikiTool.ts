@@ -1244,12 +1244,15 @@ Write to: \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
                             });
 
                             await runWithConcurrencyLimit(l3RefactorTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (L5-G update)`, token);
-
-                            // Update componentsForThisLoop with the new component names
-                            const updatedComponentNames = updatedList.map(c => c.name);
-                            componentsForThisLoop.length = 0;
-                            componentsForThisLoop.push(...updatedComponentNames);
                         }
+
+                        // Update componentsToAnalyze and componentsForThisLoop to use updated component list
+                        // This ensures L5 Writer and subsequent stages use the new components
+                        componentsToAnalyze = [...updatedList];
+                        const updatedComponentNames = updatedList.map(c => c.name);
+                        componentsForThisLoop.length = 0;
+                        componentsForThisLoop.push(...updatedComponentNames);
+                        logger.log('DeepWiki', `L5-G: Updated componentsToAnalyze with ${componentsToAnalyze.length} components for L5 Writer`);
                     } else {
                         logger.log('DeepWiki', 'L5-G: No component updates needed.');
                     }
