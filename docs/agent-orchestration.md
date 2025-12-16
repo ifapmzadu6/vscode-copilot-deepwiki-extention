@@ -76,42 +76,47 @@ This approach, popularized by frameworks like **LangGraph**, models the workflow
 
 ### DeepWiki's Evolution
 Our final DeepWiki implementation evolved into a **Hybrid Architecture**.
-- **Graph Structure**: `L1 -> L2 -> L3 -> L3V -> L3R -> L4 -> L5 -> L5V -> L6 -> Indexer`.
+- **Graph Structure**: `L1 -> L2 -> L3 -> L3R -> L4 -> L5G -> L5 -> L5V -> L6 -> L7 -> L8 -> L9`.
 - **Conditional Logic**:
     - **L6 Critical Failure Loop**: The L6 Reviewer (Agent) decides whether to loop back to L3 or proceed to Indexing.
     - **L2 Refinement Loop**: Draft → Review → Refine until `component_list.json` is valid.
-    - **L5 / L5V Missing Output Repair**: L5-V can trigger a targeted retry for missing pages.
+    - **L3-R Validation Gate**: Verifies L3 analysis outputs and triggers retries for missing/failed components.
+    - **L5-V Validation Gate**: Validates L5 page outputs and triggers retries for missing pages.
 
 ```mermaid
 stateDiagram-v2
     [*] --> L1
     state "L1 Project Context" as L1
-    state "L2 Extraction" as L2
-    state "L3 Analysis" as L3
-    state "L4 Architecture" as L4
-    state "L5-G Grouping" as L5G
-    state "L5 Writing" as L5
-    state "L5-V Validation" as L5V
-    state "L6 Review" as L6
-    state "Indexer" as Indexer
+    state "L2 Discoverer" as L2
+    state "L3 Analyzer" as L3
+    state "L3-R Reviewer" as L3R
+    state "L4 Architect" as L4
+    state "L5-G Page Grouper" as L5G
+    state "L5 Writer" as L5
+    state "L5-V Validator" as L5V
+    state "L6 Reviewer" as L6
+    state "L7 Indexer" as L7
+    state "L8 Final QA" as L8
+    state "L9 Release Gate" as L9
 
     L1 --> L2
     L2 --> L3
-    L3 --> L5V: L3-V file check
-    L5V --> L3: Missing analysis
-    L5V --> L4: OK
-    L3 --> L4
+    L3 --> L3R
+    L3R --> L3: Missing/Failed Analysis
+    L3R --> L4: OK
     L4 --> L5G
     L5G --> L5
-    L5 --> L5V: L5-V page check
-    L5V --> L5: Missing pages
-    L5 --> L6
+    L5 --> L5V
+    L5V --> L5: Missing Pages
+    L5V --> L6: OK
 
     state L6_Decision <<choice>>
     L6 --> L6_Decision: Critical Issues?
     L6_Decision --> L3: Yes
-    L6_Decision --> Indexer: No
-    Indexer --> [*]
+    L6_Decision --> L7: No
+    L7 --> L8
+    L8 --> L9
+    L9 --> [*]
 ```
 
 ---

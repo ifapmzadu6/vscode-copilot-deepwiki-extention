@@ -6,7 +6,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
--   **Multi-Stage Pipeline**: Follows a robust multi-level (L1-L6) process plus Indexer and Final QA, where each agent builds upon the previous one's output.
+-   **Multi-Stage Pipeline**: Follows a robust 9-stage (L1-L9) pipeline where each agent builds upon the previous one's output. Includes validation gates (L3-R, L5-V) that trigger targeted retries.
 -   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3/L5 have validators that trigger targeted retries for missing outputs, and L6 can request re-analysis for fundamental issues (max 5 loops).
 -   **Parallel Processing**: Runs sub-agents with a conservative concurrency limit (default is 1) to reduce rate limiting risk. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
@@ -18,7 +18,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 ## Generation Pipeline
 
-The extension orchestrates a sophisticated multi-stage agentic pipeline with a 3-stage refinement loop (L2) and a retry loop (L3–L6) to generate high-quality documentation:
+The extension orchestrates a sophisticated 9-stage agentic pipeline with validation gates and self-correction loops to generate high-quality documentation:
 
 ```mermaid
 stateDiagram-v2
