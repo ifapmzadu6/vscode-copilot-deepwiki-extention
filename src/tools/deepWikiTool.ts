@@ -1061,12 +1061,12 @@ Produce a coherent system overview from ALL L3 analyses.
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
 - **Core Responsibility**:
-  1. Create stable, reader-friendly groups of pages for the README TOC
-  2. Review component structure based on L3/L4 insights and suggest updates if needed
+  1. Review component structure based on L3/L4 insights and suggest updates if needed
+  2. Create stable, reader-friendly groups of pages for the README TOC
 
 ## Goal
-1. Group the generated pages (pageName values) into 3–8 groups
-2. Evaluate if the component list needs refinement based on L3 analysis and L4 architecture
+1. Evaluate if the component list needs refinement based on L3 analysis and L4 architecture
+2. Group the generated pages (pageName values) into 3–8 groups
 
 ## Input
 - Components list: \`${intermediateDir}/L2/component_list.json\`
@@ -1077,7 +1077,7 @@ Produce a coherent system overview from ALL L3 analyses.
 
 ## Workflow
 
-### Part 1: Component Review
+### Part 1: Component Review (Do First)
 1. Read all L3 analyses and L4 outputs.
 2. Check if L3/L4 revealed issues with component groupings:
    - **Split needed**: A component has multiple unrelated responsibilities
@@ -1093,7 +1093,7 @@ Produce a coherent system overview from ALL L3 analyses.
 7. Write to \`${intermediateDir}/L5/page_groups.json\`.
 
 ## Output
-1. \`${intermediateDir}/L5/component_list_update.json\` - **RAW JSON (no fences)**, array of updates (empty if none)
+1. \`${intermediateDir}/L5/component_list_update.json\` - **RAW JSON (no fences)**, array of updates (empty \`[]\` if none)
 2. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
 
 **Component update format** (write empty \`[]\` if no changes):
