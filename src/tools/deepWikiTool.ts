@@ -197,20 +197,26 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
 ## Role
 - **Your Stage**: L1 Analyzer (Pre-Discovery)
-- **Core Responsibility**: Capture project type, build system, and conditional/active code patterns
-- **Critical Success Factor**: Downstream agents must rely on this to avoid documenting inactive/generated code
+- **Core Responsibility**: Capture project type, build system, architecture, vocabulary, and conditional/active code patterns
+- **Critical Success Factor**: Downstream agents must rely on this to maintain consistent terminology, avoid documenting inactive/generated code, and understand the project's structure
 
 ## Goal
-Create a concise but accurate project context document for later stages.
+Create a comprehensive project context document that serves as the single source of truth for all downstream stages. This document ensures consistent terminology and accurate understanding of the codebase.
 ${existingDeepWikisNote}
 
 ## Workflow
-1. Detect project type, languages, build/entry points → write "## Overview"
-2. Identify target environments (runtime/platforms) → write "## Target Environments"
-3. Find conditional patterns/feature flags (e.g., \`#ifdef\`, \`process.env\`) → write "## Conditional Code Patterns"
-4. List generated/vendor/test/excluded code paths → write "## Generated/Excluded Code"
-5. Add any analysis notes that affect interpretation → write "## Notes for Analysis"
-6. Quick self-check: sections are filled and grounded in actual files.
+1. Detect project type, languages, build system → write "## Overview"
+2. Identify main entry points (main functions, index files, CLI commands) → write "## Entry Points"
+3. Detect architectural patterns (MVC, Clean Architecture, Pipeline, etc.) → write "## Architecture Pattern"
+4. **Extract project-specific vocabulary** (domain terms, abbreviations, project-specific concepts) → write "## Vocabulary"
+5. List key external dependencies and their purposes → write "## Key Dependencies"
+6. Identify coding conventions (naming, file organization) → write "## Code Conventions"
+7. List key abstractions (main classes, interfaces, types) → write "## Key Abstractions"
+8. Identify target environments (runtime/platforms) → write "## Target Environments"
+9. Find conditional patterns/feature flags (e.g., \`#ifdef\`, \`process.env\`) → write "## Conditional Code Patterns"
+10. List generated/vendor/test/excluded code paths → write "## Generated/Excluded Code"
+11. Add any analysis notes that affect interpretation → write "## Notes for Analysis"
+12. Quick self-check: all sections are filled and grounded in actual files.
 
 ## Output
 Write Markdown to \`${intermediateDir}/L1/project_context.md\` using this structure (example only; do not wrap the whole file in fences):
@@ -221,6 +227,41 @@ ${mdCodeBlock}markdown
 - **Project Type**: ...
 - **Languages**: ...
 - **Build System**: ...
+
+## Entry Points
+| Entry | File | Role |
+|-------|------|------|
+| Main | src/index.ts | Application entry point |
+| CLI | src/cli.ts | Command-line interface |
+
+## Architecture Pattern
+- **Pattern**: ... (e.g., MVC, Clean Architecture, Pipeline, Microservices)
+- **Evidence**: ... (files/structures that demonstrate this pattern)
+- **Key Layers/Stages**: ... (if applicable)
+
+## Vocabulary
+> **Purpose**: Define project-specific terms to ensure consistent terminology across all documentation.
+
+| Term | Aliases | Definition |
+|------|---------|------------|
+| ... | ... | ... |
+
+(Include: domain-specific terms, abbreviations, project-coined names, and any terms that have special meaning in this codebase)
+
+## Key Dependencies
+| Package | Purpose |
+|---------|---------|
+| ... | ... |
+
+## Code Conventions
+- **Naming**: ... (e.g., camelCase for functions, PascalCase for classes)
+- **File Organization**: ... (e.g., feature-based, layer-based)
+- **Notable Patterns**: ... (e.g., dependency injection, factory pattern)
+
+## Key Abstractions
+| Name | Type | Purpose |
+|------|------|---------|
+| ... | class/interface/type | ... |
 
 ## Target Environments
 | Environment | Description |
@@ -245,6 +286,7 @@ ${mdCodeBlock}
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
 3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
+4. **Vocabulary Accuracy**: For the Vocabulary section, only include terms that are actually used in the codebase. Verify each term by finding it in the source code.
 
 ` + getPipelineOverview('L1'),
                     token,
@@ -287,19 +329,26 @@ ${mdCodeBlock}
 - **Critical Success Factor**: Group files that truly work together as one unit
 
 ## Input
-- **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for project structure and build system info
+- **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` thoroughly. Pay special attention to:
+  - **Entry Points**: Start your exploration from these files
+  - **Architecture Pattern**: Use this to inform how you group components
+  - **Vocabulary**: Use these exact terms in component names and descriptions
+  - **Key Abstractions**: These often map directly to components
+  - **Generated/Excluded Code**: Skip these entirely
 - **Excluded Roots**: Read \`${intermediateDir}/L1/existing_deepwikis.md\` and exclude those directories entirely from analysis
 
 ## Goal
-Create an INITIAL draft of logical components based on **what the code does**, not just folders.
+Create an INITIAL draft of logical components based on **what the code does**, not just folders. Use the **Vocabulary** from L1 to ensure consistent naming.
 
 ## Workflow
-1. Read the L1 project context to understand the project structure (exclude generated/vendor code).
+1. Read the L1 project context thoroughly - especially Entry Points, Architecture Pattern, Vocabulary, and Key Abstractions.
 2. Identify excluded roots from \`${intermediateDir}/L1/existing_deepwikis.md\` and DO NOT read/include any files under those roots.
-3. Scan the project source files and **read their contents** to understand what each file does.
-4. Group files into **components** - files that work together to implement a feature or module.
-5. **Verify each file exists** before adding it to the files array.
-6. Before writing, quickly sanity-check that your JSON is valid and non-empty.
+3. Start exploration from the **Entry Points** identified in L1.
+4. Scan the project source files and **read their contents** to understand what each file does.
+5. Group files into **components** - files that work together to implement a feature or module.
+6. **Use Vocabulary terms** from L1 in your component names and descriptions for consistency.
+7. **Verify each file exists** before adding it to the files array.
+8. Before writing, quickly sanity-check that your JSON is valid and non-empty.
 
 ## Output
 Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_draft.json\`.
@@ -587,11 +636,16 @@ Use this exact bullet structure:
 ## Input
 - **Assigned Component**: ${componentStr}
 - **Source Code Files**: The original source files listed in the component
+- **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for:
+  - **Vocabulary**: Use these exact terms consistently in your analysis
+  - **Architecture Pattern**: Frame your analysis within this context
+  - **Key Abstractions**: Reference these when documenting relationships
 
 ## Workflow
-1. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-2. Read source code files for this component
-3. Token-stability workflow (do NOT write all at once):
+1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
+2. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+3. Read source code files for this component
+4. Token-stability workflow (do NOT write all at once):
    - Use \`${editToolNameForPrompt}\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
@@ -952,19 +1006,23 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
 Produce a coherent system overview from ALL L3 analyses.
 
 ## Input
-Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any necessary source files.
+- \`${intermediateDir}/L1/project_context.md\` - **Read first** for:
+  - **Vocabulary**: Use these exact terms consistently in your overview
+  - **Architecture Pattern**: Frame the system architecture within this context
+- Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any necessary source files.
 
 ## Workflow
-1. Read L3 analysis and confirm key responsibilities/links.
-2. Source verification (mandatory):
+1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context.
+2. Read L3 analysis and confirm key responsibilities/links.
+3. Source verification (mandatory):
    - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
    - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.
-3. Write \`${intermediateDir}/L4/overview.md\`:
+4. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
-4. Write \`${intermediateDir}/L4/relationships.md\`:
+5. Write \`${intermediateDir}/L4/relationships.md\`:
    - cross-component event/state causality map
    - include diagrams (see below)
-5. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
+6. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
 
 ## Diagrams
 - **Required**: at least one \`stateDiagram-v2\` for cross-component state/event flow
@@ -1168,19 +1226,23 @@ ${mdCodeBlock}
 ## Input
 - Assigned Component: ${JSON.stringify({ name: component.name, files: component.files, description: component.description })}
 - For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
+- **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for:
+  - **Vocabulary**: Use these exact terms consistently in your documentation
+  - **Architecture Pattern**: Frame explanations within this architectural context
 
 ## Workflow
-1. For EACH assigned component: Create \`${outputPath}/pages/{ComponentName}.md\` with the page title and Overview section
-2. Read the L3 analysis for that component
-3. Synthesize and consolidate L3 content into a reader-friendly page.
+1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
+2. For EACH assigned component: Create \`${outputPath}/pages/{ComponentName}.md\` with the page title and Overview section
+3. Read the L3 analysis for that component
+4. Synthesize and consolidate L3 content into a reader-friendly page.
    - You MAY read source code files to verify claims and evidence anchors, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
-4. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`${editToolNameForPrompt}\` to write immediately
-5. Generate an ASCII tree of ALL files from ALL components in this page → Use \`${editToolNameForPrompt}\` to write
-6. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
-7. If present, read validator feedback for your page(s) and apply it:
+5. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`${editToolNameForPrompt}\` to write immediately
+6. Generate an ASCII tree of ALL files from ALL components in this page → Use \`${editToolNameForPrompt}\` to write
+7. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
+8. If present, read validator feedback for your page(s) and apply it:
    - \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\`
    - Remove/rewrite unsupported claims and add missing evidence anchors.
-8. Token-stability workflow:
+9. Token-stability workflow:
    - Use \`${editToolNameForPrompt}\` after EACH major section.
    - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
@@ -1474,6 +1536,10 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - **Critical Success Factor**: First screen should answer "What is this? How is it organized? Where do I start?"
 
 ## Input
+- \`${intermediateDir}/L1/project_context.md\` - **Read first** for:
+  - **Vocabulary**: Use these exact terms consistently in the README
+  - **Architecture Pattern**: Frame the system description within this context
+  - **Entry Points**: Reference these when describing where to start
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - \`${intermediateDir}/L2/component_list.json\` (source of truth for pages; 1 component = 1 page)
@@ -1482,7 +1548,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Existing nested DeepWikis list: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
 ## Workflow
-Create \`${outputPath}/README.md\` with these sections in order:
+1. Read \`${intermediateDir}/L1/project_context.md\` first to understand vocabulary and architecture context.
+2. Create \`${outputPath}/README.md\` with these sections in order:
 
 ### Title (top)
 - Use a neutral title that reflects the whole repository/workspace (not a single subproject/component).
