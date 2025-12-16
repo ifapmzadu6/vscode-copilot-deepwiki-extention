@@ -88,7 +88,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 	        // Function to generate pipeline overview with current stage highlighted
 	        const getPipelineOverview = (currentStage: string) => `
 	## Pipeline Overview (short)
-	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-V Validate${currentStage === 'L3V' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5 Pages (1:1)${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
+	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5 Pages (1:1)${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
 	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
 	`;
 
@@ -129,7 +129,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
         try {
             // Pre-create intermediate level directories so all phases can reliably write artifacts.
-            for (const level of ['L1', 'L2', 'L3', 'L3V', 'L3R', 'L4', 'L5', 'L5V', 'L6', 'L7', 'L8', 'L9']) {
+            for (const level of ['L1', 'L2', 'L3', 'L3R', 'L4', 'L5', 'L5V', 'L6', 'L7', 'L8', 'L9']) {
                 const dirUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, level));
                 await vscode.workspace.fs.createDirectory(dirUri);
             }
@@ -779,125 +779,8 @@ ${mdCodeBlock}
                 await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
-                // L3 Validator: Check for missing files and retry if needed
-                // ---------------------------------------------------------
-                const l3ExpectedFiles = componentsToAnalyze.map((c) => {
-                    const originalIndex = componentList.findIndex(comp => comp.name === c.name);
-                    return {
-                        name: c.name,
-                        file: `${String(originalIndex + 1).padStart(3, '0')}_${c.name}_analysis.md`
-                    };
-                });
-                    const l3ValidationFailuresUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3V', 'validation_failures.json')
-                    );
-                    const l3ValidationReportUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3V', 'validation_report.md')
-                    );
-	                await this.runPhase(
-	                    `L3-V: Validator (Loop ${loopCount + 1})`,
-	                    'Validate L3 output files',
-	                    `# L3 Validator Agent
-
-## Role
-Quality gate for L3 outputs: ensure expected analysis files exist and are structurally rich enough to support L4/L5 without re-reading source code.
-
-## Expected Files
-Directory: \`${intermediateDir}/L3/\`
-Files to verify:
-${l3ExpectedFiles.map(f => `- \`${f.file}\` (Component: ${f.name})`).join('\n')}
-
-## Workflow
-1. List files in \`${intermediateDir}/L3/\`
-2. Compare against expected files above and identify missing files
-3. For each PRESENT file, run these checks and record pass/fail per component:
-   - **Required headings present**:
-     - \`## File Structure\`
-     - \`## Overview and Architecture\`
-     - \`## Key Logic\`
-     - \`## Causal Analysis\`
-     - \`## Edge Cases & Failure Modes\`
-     - \`## Integration Points & Dependencies\`
-     - \`## Diagrams\`
-   - **CEI density**:
-     - Count occurrences of \`- Claim:\` (must be \`>= 12\`)
-     - Count occurrences of \`- Evidence:\` (must be \`>= 24\`)
-     - Evidence anchors must include \`::\` (e.g., \`path/to/file.ts::Symbol\`)
-   - **Anchor density**:
-     - At least 10 concrete anchors in backticks matching \`*::*\` (e.g., \`path/to/file.ts::Symbol\`)
-   - **Diagram presence**:
-     - At least one Mermaid fence \`\`\`mermaid
-     - Mermaid content includes \`stateDiagram-v2\`
-   - **No obvious placeholders**:
-     - Reject if it still contains \`TODO\`, \`TBD\`, \`{...}\`, or repeated \`- ...\` placeholders as the majority of content.
-4. Always write a short report to \`${intermediateDir}/L3V/validation_report.md\`:
-   - Missing components
-   - Components that failed checks (which check failed, and observed counts)
-5. If ALL files exist AND pass sanity checks → Write empty array to \`${intermediateDir}/L3V/validation_failures.json\`
-6. If ANY files are missing OR fail sanity checks → Write JSON array of component names that must be retried to \`${intermediateDir}/L3V/validation_failures.json\`
-
-## Output
-Write to \`${intermediateDir}/L3V/validation_failures.json\`:
-- If all present: \`[]\`
-- If retry needed: \`["Component A", "Component B"]\`
-
-## Constraints
-1. Keep response brief (e.g., "Validation complete.")
-`,
-	                    token,
-	                    options.toolInvocationToken,
-                        [l3ValidationFailuresUri, l3ValidationReportUri],
-                        { maxAttempts: 3 }
-	                );
-
-	                // Check L3 validation result and retry failed components
-	                let l3FailedComponents: string[] = [];
-                    let l3FailuresListValid = false;
-	                try {
-	                    const content = await vscode.workspace.fs.readFile(l3ValidationFailuresUri);
-	                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
-	                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
-	                        l3FailedComponents = parsed;
-                            l3FailuresListValid = true;
-	                    } else {
-	                        logger.warn('DeepWiki', 'L3-V: validation_failures.json is not a string array; falling back to filesystem check.');
-	                    }
-	                } catch {
-	                    logger.warn('DeepWiki', 'L3-V: missing/invalid validation_failures.json; falling back to filesystem check.');
-	                } finally {
-                        try {
-                            await vscode.workspace.fs.delete(l3ValidationFailuresUri);
-                        } catch {
-                            // ignore delete failures
-                        }
-                    }
-
-                    if (!l3FailuresListValid) {
-                        const missingComponents: string[] = [];
-                        for (const expected of l3ExpectedFiles) {
-                            const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', expected.file));
-                            try {
-                                await vscode.workspace.fs.stat(uri);
-                            } catch {
-                                missingComponents.push(expected.name);
-                            }
-                        }
-                        l3FailedComponents = missingComponents;
-                        if (missingComponents.length === 0) {
-                            logger.warn('DeepWiki', 'L3-V: no missing analysis files detected; proceeding without L3 retries.');
-                        }
-                    }
-
-                if (l3FailedComponents.length > 0) {
-                    logger.log('DeepWiki', `L3 Validator found ${l3FailedComponents.length} missing files, retrying: ${l3FailedComponents.join(', ')}`);
-                    // Retry using the same task generator function
-                    const failedL3Components = componentsToAnalyze.filter(c => l3FailedComponents.includes(c.name));
-                    const l3RetryTasks = failedL3Components.map(createL3Task);
-                    await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Retry (Loop ${loopCount + 1})`, token);
-                }
-
-                // ---------------------------------------------------------
                 // L3-R: REVIEWER (Deeper review of each component analysis; parallel)
+                // NOTE: L3V was removed - L3R now handles file existence check and triggers retries
                 // ---------------------------------------------------------
                 const createL3RTask = (component: ComponentDef) => {
                     const componentStr = JSON.stringify(component);
@@ -922,26 +805,29 @@ Write to \`${intermediateDir}/L3V/validation_failures.json\`:
 - L3 analysis file: \`${intermediateDir}/L3/${analysisFile}\`
 
 ## Workflow
-1. Open the L3 analysis file and the component's source files.
-2. Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file (ignore all other text for claim extraction).
-3. Verify **ALL extracted claim lines** against ACTUAL SOURCE CODE (APIs, control flow, events, state changes). No sampling.
+1. **File existence check (FIRST)**:
+   - Check if \`${intermediateDir}/L3/${analysisFile}\` exists.
+   - If the file does NOT exist or is empty, immediately write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.name}"]\` and stop (no further steps).
+2. Open the L3 analysis file and the component's source files.
+3. Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file (ignore all other text for claim extraction).
+4. Verify **ALL extracted claim lines** against ACTUAL SOURCE CODE (APIs, control flow, events, state changes). No sampling.
    - Use the nearby \`- Evidence:\` anchors (e.g., \`path/to/file.ts::Symbol\`) to navigate quickly.
    - For each evidence anchor:
      - Confirm the file path exists.
      - Spot-check the symbol name appears in that file (string match is acceptable).
-4. If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim (do not guess; smallest possible edit).
-5. If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
-6. Diagram verification (MANDATORY):
+5. If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim (do not guess; smallest possible edit).
+6. If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
+7. Diagram verification (MANDATORY):
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
    - For EACH diagram, verify all referenced identifiers against source:
      - If the diagram names functions/classes/types/events/commands, confirm they exist (string match in the referenced file is acceptable).
      - If the diagram describes cross-file calls or state transitions, verify at least one concrete code path (entry point → call/emit → handler) supports it.
    - If a diagram cannot be verified, delete it or rewrite it into a smaller, verifiable diagram. No guesswork.
-7. Write a short review note to \`${intermediateDir}/L3R/${reviewFile}\`:
+8. Write a short review note to \`${intermediateDir}/L3R/${reviewFile}\`:
    - What you verified
    - What you changed (if any)
    - Remaining concerns (if any)
-8. If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`. Otherwise, do not create the file.
+9. If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`. Otherwise, do not create the file.
 
 ## Token-Stability Workflow (MANDATORY)
 - Do NOT try to verify everything in one go.
