@@ -1413,13 +1413,17 @@ For EACH existing page (where pageName == component name), perform the following
 - If issues were found, fix them in the page file using \`${editToolNameForPrompt}\`.
 - Only proceed to the next page AFTER writing the review result AND fixing issues.
 
-### Step 3: Final Summary
+### Step 3: Final Summary and Verdict
 - After ALL pages are reviewed, append a final summary to \`${intermediateDir}/L6/review_report.md\`:
   \`\`\`markdown
   ## Summary
   - Total pages reviewed: {count}
   - Pages with issues: {count}
   - Major issues requiring retry: {list or "None"}
+
+  ## Final Verdict
+  **Result**: {PASS / RETRY_REQUIRED}
+  **Reason**: {Brief explanation - e.g., "All pages verified successfully" or "Components X, Y need re-analysis due to..."}
   \`\`\`
 - Use \`${editToolNameForPrompt}\` to write this final section.
 
