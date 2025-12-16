@@ -1494,10 +1494,13 @@ Insert exactly:
 **B. System Context (C4Context) — REQUIRED**
 - 2–3 sentence preface, then diagram.
 - High-level only (5–7 nodes).
+- Must describe the whole system/repo: include the major subsystems/groups from \`${intermediateDir}/L5/page_groups.json\` (not just one subproject).
+- If the repo has multiple deliverables (e.g., extension + CLI + server), the diagram must include each deliverable as a top-level node (even if simplified).
 
 **C. Core State Transitions (stateDiagram-v2) — REQUIRED**
 - 2–3 sentence preface, then diagram.
 - Show main states and triggers only.
+- Must be system-wide: represent cross-subsystem transitions that span multiple groups (use \`${intermediateDir}/L4/relationships.md\` as the primary source).
 
 ### 2. Components
 Use \`${intermediateDir}/L5/page_groups.json\` to structure the README as **chapters** (one chapter per group, in the same order as page_groups).
@@ -1518,6 +1521,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ### 3. Quick self-check
 - Both diagrams present and render.
+- Diagrams describe the system as a whole (not a single component/group).
 - Components list matches component_list exactly (1 component = 1 page).
 - Grouped TOC matches page_groups exactly.
 - No links to intermediate files.
