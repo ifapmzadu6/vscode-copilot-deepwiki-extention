@@ -1173,7 +1173,7 @@ ${mdCodeBlock}
                             }
                         }
 
-                        // Write updated component list
+                        // Write updated component list to disk
                         const componentListUri = vscode.Uri.file(
                             path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
                         );
@@ -1182,77 +1182,21 @@ ${mdCodeBlock}
                             new TextEncoder().encode(JSON.stringify(updatedList, null, 2))
                         );
 
-                        // Update in-memory list
+                        // Update all in-memory references to component list
                         componentList = updatedList;
+                        componentsToAnalyze = [...updatedList];
+                        componentsForThisLoop.length = 0;
+                        componentsForThisLoop.push(...updatedList.map(c => c.name));
                         componentsUpdated = true;
+                        logger.log('DeepWiki', `L5-G: Updated component list (${updatedList.length} components)`);
 
-                        // Re-run L3 for affected components
+                        // Re-run L3 for affected components using existing createL3Task
                         const newComponentsToAnalyze = updatedList.filter(c => affectedComponentNames.has(c.name));
                         if (newComponentsToAnalyze.length > 0) {
                             logger.log('DeepWiki', `L5-G: Re-analyzing ${newComponentsToAnalyze.length} component(s): ${newComponentsToAnalyze.map(c => c.name).join(', ')}`);
-
-                            const l3RefactorTasks = newComponentsToAnalyze.map(component => {
-                                const componentStr = JSON.stringify(component);
-                                const originalIndex = updatedList.findIndex(c => c.name === component.name);
-                                const paddedIndex = String(originalIndex + 1).padStart(3, '0');
-                                const analysisUri = vscode.Uri.file(
-                                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', `${paddedIndex}_${component.name}_analysis.md`)
-                                );
-
-                                return async () => {
-                                    await this.runPhase(
-                                        `L3: Analyzer [${component.name}] (L5-G update)`,
-                                        `Re-analyze ${component.name} after L5-G update`,
-                                        `# Analyzer Agent (L3) - Re-analysis after L5-G Update
-
-## Context
-This component was created or modified by L5-G based on L3/L4 insights.
-
-## Role
-- **Your Stage**: L3 Analyzer (L5-G triggered re-run)
-- **Core Responsibility**: Deep causal analysis of one logical component
-
-## Component
-${mdCodeBlock}json
-${componentStr}
-${mdCodeBlock}
-
-## Input
-- Project context: \`${intermediateDir}/L1/project_context.md\`
-- L4 overview: \`${intermediateDir}/L4/overview.md\`
-
-## Workflow
-1. Read the project context for vocabulary and patterns.
-2. Read each source file in this component.
-3. Identify responsibilities, event/state flows, internal dependencies.
-4. Write analysis with Cause-Effect-Implication (CEI) blocks and diagrams.
-
-## Output
-Write to: \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-
-## Constraints
-1. **Scope**: Only write under \`.deepwiki/\`.
-2. **Chat Final Response**: Brief confirmation only.
-
-` + getPipelineOverview('L3'),
-                                        token,
-                                        options.toolInvocationToken,
-                                        [analysisUri],
-                                        { maxAttempts: 2 }
-                                    );
-                                };
-                            });
-
+                            const l3RefactorTasks = newComponentsToAnalyze.map(createL3Task);
                             await runWithConcurrencyLimit(l3RefactorTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (L5-G update)`, token);
                         }
-
-                        // Update componentsToAnalyze and componentsForThisLoop to use updated component list
-                        // This ensures L5 Writer and subsequent stages use the new components
-                        componentsToAnalyze = [...updatedList];
-                        const updatedComponentNames = updatedList.map(c => c.name);
-                        componentsForThisLoop.length = 0;
-                        componentsForThisLoop.push(...updatedComponentNames);
-                        logger.log('DeepWiki', `L5-G: Updated componentsToAnalyze with ${componentsToAnalyze.length} components for L5 Writer`);
                     } else {
                         logger.log('DeepWiki', 'L5-G: No component updates needed.');
                     }
