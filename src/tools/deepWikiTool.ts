@@ -1510,7 +1510,7 @@ For EACH group, create a chapter with this shape:
 - Pages list: include ALL pages in this group, each as:
   - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
   - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component (or a conservative summary from the page itself).
-- Optional (only if it adds real value): 1–3 repo-root source links (\`/src/...\`) to key entry points for this group (no intermediate links).
+- Do NOT add source-code links in the README. Keep navigation focused on the generated pages (\`pages/*.md\`); detailed code entry points belong inside each page if needed.
 
 ### 2.5 Existing DeepWikis (optional)
 If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short section listing links to those existing docs (link to their \`.deepwiki/README.md\` only; do not summarize their internals).
