@@ -1006,6 +1006,7 @@ Produce a coherent system overview from ALL L3 analyses.
 
                 // ---------------------------------------------------------
                 // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
+                // Also reviews component list and suggests updates if needed
                 // ---------------------------------------------------------
                 const pageGroupsExample = `
 [
@@ -1022,50 +1023,277 @@ Produce a coherent system overview from ALL L3 analyses.
 ]
 `;
 
+                const componentUpdateExample = `
+[
+  {
+    "action": "split",
+    "target": "Original_Component",
+    "into": [
+      { "name": "New_Component_A", "files": ["src/a.ts"], "description": "Description A" },
+      { "name": "New_Component_B", "files": ["src/b.ts"], "description": "Description B" }
+    ],
+    "reason": "L3 analysis revealed two unrelated responsibilities"
+  },
+  {
+    "action": "merge",
+    "targets": ["Component_X", "Component_Y"],
+    "into": { "name": "Combined_XY", "files": ["...all files..."], "description": "Combined description" },
+    "reason": "These are tightly coupled based on L4 relationships"
+  },
+  {
+    "action": "update",
+    "target": "Existing_Component",
+    "changes": { "files": ["missing.ts"], "description": "Updated if needed" },
+    "reason": "L3 found a missing file"
+  }
+]
+`;
+
+                const componentListUpdateUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'component_list_update.json')
+                );
+
                 await this.runPhase(
                     `L5-G: Page Grouper (Loop ${loopCount + 1})`,
-                    'Group pages for README navigation',
+                    'Group pages and review component structure',
                     `# Page Grouper Agent (L5-G)
 
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
-- **Core Responsibility**: Create stable, reader-friendly groups of pages for the README TOC and diagrams.
+- **Core Responsibility**:
+  1. Create stable, reader-friendly groups of pages for the README TOC
+  2. Review component structure based on L3/L4 insights and suggest updates if needed
 
 ## Goal
-Group the generated pages (pageName values) into 3–8 groups so the README navigation and diagrams don't drift.
+1. Group the generated pages (pageName values) into 3–8 groups
+2. Evaluate if the component list needs refinement based on L3 analysis and L4 architecture
 
 ## Input
-- Components list (source of truth for pages; 1 component = 1 page): \`${intermediateDir}/L2/component_list.json\`
-- L4 overview/relationships (optional signal for clustering):
+- Components list: \`${intermediateDir}/L2/component_list.json\`
+- L3 analyses: \`${intermediateDir}/L3/*_analysis.md\`
+- L4 overview/relationships:
   - \`${intermediateDir}/L4/overview.md\`
   - \`${intermediateDir}/L4/relationships.md\`
 
 ## Workflow
-1. Read \`${intermediateDir}/L2/component_list.json\` and collect the full set of component \`name\` values (these are the page names).
-2. Create 3–8 groups with clear, human-friendly names (avoid overly generic names like "Misc" unless unavoidable).
-3. Assign EVERY pageName to exactly one group.
-4. Keep groups balanced; avoid single-page groups unless that page is truly standalone/important.
-5. Provide a short rationale per group.
+
+### Part 1: Component Review
+1. Read all L3 analyses and L4 outputs.
+2. Check if L3/L4 revealed issues with component groupings:
+   - **Split needed**: A component has multiple unrelated responsibilities
+   - **Merge needed**: Two components are tightly coupled (per L4 relationships)
+   - **Files missing**: L3 discovered important files not in the component
+   - **Wrong grouping**: A file belongs to a different component
+3. If changes needed: Write update instructions to \`${intermediateDir}/L5/component_list_update.json\`
+4. If NO changes needed: Write empty array \`[]\` to the update file.
+
+### Part 2: Page Grouping
+5. Read \`${intermediateDir}/L2/component_list.json\` and collect component \`name\` values.
+6. Create 3–8 groups with clear names; assign every page to exactly one group.
+7. Write to \`${intermediateDir}/L5/page_groups.json\`.
 
 ## Output
-Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_groups.json\`.
+1. \`${intermediateDir}/L5/component_list_update.json\` - **RAW JSON (no fences)**, array of updates (empty if none)
+2. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
 
-**Format example (do not include fences in the file)**:
+**Component update format** (write empty \`[]\` if no changes):
+${mdCodeBlock}json
+${componentUpdateExample}
+${mdCodeBlock}
+
+**Page groups format**:
 ${mdCodeBlock}json
 ${pageGroupsExample}
 ${mdCodeBlock}
 
 ## Constraints
-1. Output must be a single valid JSON array.
-2. Each \`pages\` item must be an exact component \`name\` from \`${intermediateDir}/L2/component_list.json\` (no \`.md\` suffix).
-3. Every page must appear exactly once across all groups (no missing/duplicates).
+1. **Conservative updates**: Only propose component changes when L3/L4 clearly indicates a problem.
+2. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
+3. Every page must appear exactly once across all groups.
 4. **Scope**: Only write under \`.deepwiki/\`.
-5. **Chat Final Response**: One short confirmation line; no file contents.
+5. **Chat Final Response**: One short confirmation line.
 
 ` + getPipelineOverview('L5'),
                     token,
                     options.toolInvocationToken
                 );
+
+                // ---------------------------------------------------------
+                // Process component list updates from L5-G (if any)
+                // ---------------------------------------------------------
+                let componentsUpdated = false;
+                try {
+                    const updateContent = await vscode.workspace.fs.readFile(componentListUpdateUri);
+                    const updateStr = new TextDecoder().decode(updateContent).trim();
+
+                    interface ComponentUpdate {
+                        action: 'split' | 'merge' | 'update';
+                        target?: string;
+                        targets?: string[];
+                        into?: ComponentDef | ComponentDef[];
+                        changes?: Partial<ComponentDef>;
+                        reason: string;
+                    }
+
+                    const updates = this.parseJson<ComponentUpdate[]>(updateStr);
+
+                    if (Array.isArray(updates) && updates.length > 0) {
+                        logger.log('DeepWiki', `L5-G: Processing ${updates.length} component update(s)...`);
+
+                        const affectedComponentNames = new Set<string>();
+                        let updatedList = [...componentList];
+
+                        for (const update of updates) {
+                            if (update.action === 'split' && update.target && Array.isArray(update.into)) {
+                                const idx = updatedList.findIndex(c => c.name === update.target);
+                                if (idx !== -1) {
+                                    affectedComponentNames.add(update.target);
+                                    updatedList.splice(idx, 1, ...(update.into as ComponentDef[]));
+                                    (update.into as ComponentDef[]).forEach(c => affectedComponentNames.add(c.name));
+                                    logger.log('DeepWiki', `L5-G: Split "${update.target}" into ${(update.into as ComponentDef[]).map(c => c.name).join(', ')}`);
+                                }
+                            } else if (update.action === 'merge' && update.targets && update.into && !Array.isArray(update.into)) {
+                                update.targets.forEach(t => affectedComponentNames.add(t));
+                                updatedList = updatedList.filter(c => !update.targets!.includes(c.name));
+                                updatedList.push(update.into as ComponentDef);
+                                affectedComponentNames.add((update.into as ComponentDef).name);
+                                logger.log('DeepWiki', `L5-G: Merged ${update.targets.join(', ')} into "${(update.into as ComponentDef).name}"`);
+                            } else if (update.action === 'update' && update.target && update.changes) {
+                                const idx = updatedList.findIndex(c => c.name === update.target);
+                                if (idx !== -1) {
+                                    affectedComponentNames.add(update.target);
+                                    if (update.changes.files) {
+                                        updatedList[idx].files = [...new Set([...updatedList[idx].files, ...update.changes.files])];
+                                    }
+                                    if (update.changes.description) {
+                                        updatedList[idx].description = update.changes.description;
+                                    }
+                                    logger.log('DeepWiki', `L5-G: Updated "${update.target}"`);
+                                }
+                            }
+                        }
+
+                        // Write updated component list
+                        const componentListUri = vscode.Uri.file(
+                            path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                        );
+                        await vscode.workspace.fs.writeFile(
+                            componentListUri,
+                            new TextEncoder().encode(JSON.stringify(updatedList, null, 2))
+                        );
+
+                        // Update in-memory list
+                        componentList = updatedList;
+                        componentsUpdated = true;
+
+                        // Re-run L3 for affected components
+                        const newComponentsToAnalyze = updatedList.filter(c => affectedComponentNames.has(c.name));
+                        if (newComponentsToAnalyze.length > 0) {
+                            logger.log('DeepWiki', `L5-G: Re-analyzing ${newComponentsToAnalyze.length} component(s): ${newComponentsToAnalyze.map(c => c.name).join(', ')}`);
+
+                            const l3RefactorTasks = newComponentsToAnalyze.map(component => {
+                                const componentStr = JSON.stringify(component);
+                                const originalIndex = updatedList.findIndex(c => c.name === component.name);
+                                const paddedIndex = String(originalIndex + 1).padStart(3, '0');
+                                const analysisUri = vscode.Uri.file(
+                                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', `${paddedIndex}_${component.name}_analysis.md`)
+                                );
+
+                                return async () => {
+                                    await this.runPhase(
+                                        `L3: Analyzer [${component.name}] (L5-G update)`,
+                                        `Re-analyze ${component.name} after L5-G update`,
+                                        `# Analyzer Agent (L3) - Re-analysis after L5-G Update
+
+## Context
+This component was created or modified by L5-G based on L3/L4 insights.
+
+## Role
+- **Your Stage**: L3 Analyzer (L5-G triggered re-run)
+- **Core Responsibility**: Deep causal analysis of one logical component
+
+## Component
+${mdCodeBlock}json
+${componentStr}
+${mdCodeBlock}
+
+## Input
+- Project context: \`${intermediateDir}/L1/project_context.md\`
+- L4 overview: \`${intermediateDir}/L4/overview.md\`
+
+## Workflow
+1. Read the project context for vocabulary and patterns.
+2. Read each source file in this component.
+3. Identify responsibilities, event/state flows, internal dependencies.
+4. Write analysis with Cause-Effect-Implication (CEI) blocks and diagrams.
+
+## Output
+Write to: \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+
+## Constraints
+1. **Scope**: Only write under \`.deepwiki/\`.
+2. **Chat Final Response**: Brief confirmation only.
+
+` + getPipelineOverview('L3'),
+                                        token,
+                                        options.toolInvocationToken,
+                                        [analysisUri],
+                                        { maxAttempts: 2 }
+                                    );
+                                };
+                            });
+
+                            await runWithConcurrencyLimit(l3RefactorTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (L5-G update)`, token);
+
+                            // Update componentsForThisLoop with the new component names
+                            const updatedComponentNames = updatedList.map(c => c.name);
+                            componentsForThisLoop.length = 0;
+                            componentsForThisLoop.push(...updatedComponentNames);
+                        }
+                    } else {
+                        logger.log('DeepWiki', 'L5-G: No component updates needed.');
+                    }
+                } catch (e) {
+                    logger.log('DeepWiki', `L5-G: No component updates (${e instanceof Error ? e.message : 'file not found'})`);
+                }
+
+                // Re-run page grouper if components were updated
+                if (componentsUpdated) {
+                    logger.log('DeepWiki', 'L5-G: Re-running page grouper with updated component list...');
+                    await this.runPhase(
+                        `L5-G: Page Grouper (Loop ${loopCount + 1}, post-update)`,
+                        'Re-group pages after component update',
+                        `# Page Grouper Agent (L5-G) - Post-Update
+
+## Role
+Re-create page groups after component list was updated.
+
+## Input
+- Updated components list: \`${intermediateDir}/L2/component_list.json\`
+- L4 overview: \`${intermediateDir}/L4/overview.md\`
+
+## Workflow
+1. Read the updated component list.
+2. Create 3–8 groups with clear names; assign every page to exactly one group.
+
+## Output
+Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_groups.json\`.
+
+**Format**:
+${mdCodeBlock}json
+${pageGroupsExample}
+${mdCodeBlock}
+
+## Constraints
+1. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
+2. Every page must appear exactly once.
+3. **Scope**: Only write under \`.deepwiki/\`.
+
+` + getPipelineOverview('L5'),
+                        token,
+                        options.toolInvocationToken
+                    );
+                }
 
                 // ---------------------------------------------------------
                 // Level 5: WRITER (Write pages; 1 component = 1 page)
