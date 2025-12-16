@@ -1525,13 +1525,13 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 1. Write Markdown to \`${outputPath}/README.md\` (no fences around the whole file).
 2. Write a short build log to \`${intermediateDir}/L7/indexer_report.md\` (what you changed/validated; keep it brief).
 
-	## Constraints
-	1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
-	2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-	3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
-	4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
-	5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
-	6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or “what I validated” prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.
+## Constraints
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
+2. **Chat Final Response**: One short confirmation line. Do not include file contents.
+3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
+4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
+5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
+6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or "what I validated" prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.
 
 ` + getPipelineOverview('L7'),
                     token,
@@ -1570,12 +1570,12 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
    - Summary of removed/rewritten unverifiable claims
    - Any remaining known limitations (if any)
 
-	## Constraints
-	1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
-	2. **No guessing**: If you can't verify, remove or rewrite conservatively.
-	3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
-	4. **Chat Final Response**: One short confirmation line; no file contents.
-	5. **No Validation Results in README**: Do NOT add any “Verification”, “Validation”, “Fact-check”, or similar sections/notes to \`${outputPath}/README.md\`. Keep all verification results exclusively in \`${intermediateDir}/L8/factcheck_report.md\`.
+## Constraints
+1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
+2. **No guessing**: If you can't verify, remove or rewrite conservatively.
+3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
+4. **Chat Final Response**: One short confirmation line; no file contents.
+5. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Fact-check", or similar sections/notes to \`${outputPath}/README.md\`. Keep all verification results exclusively in \`${intermediateDir}/L8/factcheck_report.md\`.
 `,
                     token,
                     options.toolInvocationToken,
@@ -1610,11 +1610,11 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 3. Do not add new product claims; restrict yourself to cleanup, link fixes, and removing placeholders/unverifiable remnants.
 4. Write a short gate report to \`${intermediateDir}/L9/release_gate_report.md\` with what you changed/fixed.
 
-	## Constraints
-	1. **Scope**: Only modify files under \`.deepwiki/\`.
-	2. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
-	3. **Chat Final Response**: One short confirmation line; no file contents.
-	4. **No Validation Results in README**: Do NOT add any “Verification”, “Validation”, “Release Gate”, or similar report sections into \`${outputPath}/README.md\`. Keep gate details exclusively in \`${intermediateDir}/L9/release_gate_report.md\`.
+## Constraints
+1. **Scope**: Only modify files under \`.deepwiki/\`.
+2. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
+3. **Chat Final Response**: One short confirmation line; no file contents.
+4. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Release Gate", or similar report sections into \`${outputPath}/README.md\`. Keep gate details exclusively in \`${intermediateDir}/L9/release_gate_report.md\`.
 `,
                     token,
                     options.toolInvocationToken,
