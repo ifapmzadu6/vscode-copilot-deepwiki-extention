@@ -208,7 +208,7 @@ ${existingDeepWikisNote}
 1. Detect project type, languages, build system → write "## Overview"
 2. Identify main entry points (main functions, index files, CLI commands) → write "## Entry Points"
 3. Detect architectural patterns (MVC, Clean Architecture, Pipeline, etc.) → write "## Architecture Pattern"
-4. **Extract project-specific vocabulary** (domain terms, abbreviations, project-specific concepts) → write "## Vocabulary"
+4. **Extract project-specific vocabulary** (domain terms, abbreviations, project-specific concepts) → for each term, **read surrounding code broadly** to understand actual usage → write "## Vocabulary"
 5. List key external dependencies and their purposes → write "## Key Dependencies"
 6. Identify coding conventions (naming, file organization) → write "## Code Conventions"
 7. List key abstractions (main classes, interfaces, types) → write "## Key Abstractions"
@@ -240,11 +240,22 @@ ${mdCodeBlock}markdown
 - **Key Layers/Stages**: ... (if applicable)
 
 ## Vocabulary
-> **Purpose**: Define project-specific terms to ensure consistent terminology across all documentation.
+> **Purpose**: Define project-specific terms based on HOW they are actually used in this codebase.
 
-| Term | Aliases | Definition |
-|------|---------|------------|
+**Process for each term**:
+1. Find where the term is used (variable names, function names, type definitions, comments)
+2. **Read the surrounding code broadly** - not just the line where the term appears, but the entire function, class, or module to understand context
+3. Write a definition based on the observed behavior/usage, NOT general knowledge or dictionary meanings
+
+| Term | Aliases | Definition (based on actual usage in this codebase) |
+|------|---------|-----------------------------------------------------|
 | ... | ... | ... |
+
+**Rules**:
+- Definition must describe what the term means **in this specific codebase**, not its general/dictionary meaning
+- If a term is used differently than its common meaning, document the project-specific meaning
+- Do NOT guess or infer meanings - only document what you can observe from the code
+- Keep Term and Aliases in their original form as they appear in the code (do not translate)
 
 (Include: domain-specific terms, abbreviations, project-coined names, and any terms that have special meaning in this codebase)
 
@@ -286,7 +297,11 @@ ${mdCodeBlock}
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
 3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
-4. **Vocabulary Accuracy**: For the Vocabulary section, only include terms that are actually used in the codebase. Verify each term by finding it in the source code.
+4. **Vocabulary Accuracy**:
+   - Only include terms that are actually used in the codebase
+   - For each term, **read the surrounding code broadly** (entire functions, classes, or modules) to understand how it is used
+   - Write definitions based on observed usage in THIS codebase, not general/dictionary meanings
+   - Keep Term and Aliases in their original form (do not translate)
 
 ` + getPipelineOverview('L1'),
                     token,
