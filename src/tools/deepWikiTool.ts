@@ -1001,10 +1001,11 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
                 if (runL5Stages) {
                 logger.log('DeepWiki', `L5 Pages: ${componentsForThisLoop.length} components in this loop (1:1 mapping)`);
 
-                // ---------------------------------------------------------
-                // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
-                // ---------------------------------------------------------
-                const pageGroupsExample = `
+	                // ---------------------------------------------------------
+	                // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
+	                // ---------------------------------------------------------
+	                const pageGroupsUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5', 'page_groups.json'));
+	                const pageGroupsExample = `
 [
   {
     "groupName": "Authentication",
@@ -1019,10 +1020,73 @@ Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any 
 ]
 `;
 
-                await this.runPhase(
-                    `L5-G: Page Grouper (Loop ${loopCount + 1})`,
-                    'Group pages for README navigation',
-                    `# Page Grouper Agent (L5-G)
+	                const expectedPageNames = componentList.map(c => c.name);
+	                const expectedPageNameSet = new Set(expectedPageNames);
+	                const validatePageGroups = async (): Promise<{ ok: true } | { ok: false; reason: string }> => {
+	                    let raw: Uint8Array;
+	                    try {
+	                        raw = await vscode.workspace.fs.readFile(pageGroupsUri);
+	                    } catch {
+	                        return { ok: false, reason: 'page_groups.json is missing' };
+	                    }
+
+	                    let parsed: unknown;
+	                    try {
+	                        parsed = this.parseJson<unknown>(new TextDecoder().decode(raw));
+	                    } catch (e) {
+	                        const msg = e instanceof Error ? e.message : String(e);
+	                        return { ok: false, reason: `page_groups.json is invalid JSON: ${msg}` };
+	                    }
+
+	                    if (!Array.isArray(parsed)) {
+	                        return { ok: false, reason: 'page_groups.json must be a JSON array' };
+	                    }
+
+	                    const allPages: string[] = [];
+	                    for (const item of parsed) {
+	                        if (!item || typeof item !== 'object') {
+	                            return { ok: false, reason: 'Each group must be an object' };
+	                        }
+	                        const group = item as { groupName?: unknown; pages?: unknown; rationale?: unknown };
+	                        if (typeof group.groupName !== 'string' || group.groupName.trim() === '') {
+	                            return { ok: false, reason: 'Each group must have a non-empty string groupName' };
+	                        }
+	                        if (!Array.isArray(group.pages) || group.pages.length === 0 || !group.pages.every(p => typeof p === 'string' && p.length > 0)) {
+	                            return { ok: false, reason: `Group "${group.groupName}" must have a non-empty string[] pages` };
+	                        }
+	                        allPages.push(...(group.pages as string[]));
+	                    }
+
+	                    const seen = new Set<string>();
+	                    const duplicates = new Set<string>();
+	                    const unknown = new Set<string>();
+	                    for (const page of allPages) {
+	                        if (seen.has(page)) duplicates.add(page);
+	                        seen.add(page);
+	                        if (!expectedPageNameSet.has(page)) unknown.add(page);
+	                    }
+
+	                    const missing = expectedPageNames.filter(name => !seen.has(name));
+	                    if (unknown.size > 0) {
+	                        return { ok: false, reason: `Unknown pages in groups: ${Array.from(unknown).slice(0, 10).join(', ')}` };
+	                    }
+	                    if (duplicates.size > 0) {
+	                        return { ok: false, reason: `Duplicate pages in groups: ${Array.from(duplicates).slice(0, 10).join(', ')}` };
+	                    }
+	                    if (missing.length > 0) {
+	                        return { ok: false, reason: `Missing pages from groups: ${missing.slice(0, 10).join(', ')}` };
+	                    }
+
+	                    return { ok: true };
+	                };
+
+	                // Ensure the README navigation can be chaptered without an "ungrouped" bucket:
+	                // retry L5-G if page_groups.json doesn't cover all component pages exactly once.
+	                for (let groupingAttempt = 1; groupingAttempt <= 3; groupingAttempt++) {
+	                    await this.runPhase(
+	                        `L5-G: Page Grouper (Loop ${loopCount + 1}, attempt ${groupingAttempt}/3)`,
+	                        'Group pages for README navigation',
+	                        `# Page Grouper Agent (L5-G)
 
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
@@ -1056,17 +1120,34 @@ ${mdCodeBlock}
 1. Output must be a single valid JSON array.
 2. Each \`pages\` item must be an exact component \`name\` from \`${intermediateDir}/L2/component_list.json\` (no \`.md\` suffix).
 3. Every page must appear exactly once across all groups (no missing/duplicates).
-4. **Scope**: Only write under \`.deepwiki/\`.
-5. **Chat Final Response**: One short confirmation line; no file contents.
+4. If you are unsure where a page belongs, still assign it to the best-fitting group (rename the group if needed). Do not leave any page ungrouped.
+5. Do NOT create an "Ungrouped" or "Other" section in the README via omission; the grouping file must be fully covering.
+6. **Scope**: Only write under \`.deepwiki/\`.
+7. **Chat Final Response**: One short confirmation line; no file contents.
 
-` + getPipelineOverview('L5'),
-                    token,
-                    options.toolInvocationToken
-                );
+		` + getPipelineOverview('L5'),
+	                        token,
+	                        options.toolInvocationToken,
+	                        [pageGroupsUri]
+	                    );
 
-                // ---------------------------------------------------------
-                // Level 5: WRITER (Write pages; 1 component = 1 page)
-                // ---------------------------------------------------------
+	                    const pageGroupsValidation = await validatePageGroups();
+	                    if (pageGroupsValidation.ok) break;
+
+	                    logger.warn('DeepWiki', `L5-G output invalid (${groupingAttempt}/3): ${pageGroupsValidation.reason}`);
+	                    if (groupingAttempt === 3) {
+	                        throw new Error(`L5-G failed: ${pageGroupsValidation.reason}`);
+	                    }
+	                    try {
+	                        await vscode.workspace.fs.delete(pageGroupsUri);
+	                    } catch {
+	                        // ignore
+	                    }
+	                }
+
+	                // ---------------------------------------------------------
+	                // Level 5: WRITER (Write pages; 1 component = 1 page)
+	                // ---------------------------------------------------------
                 const pageTemplate = `
 > **Note**: This documentation was auto-generated by an LLM. While we strive for accuracy, please refer to the source code for authoritative information.
 
