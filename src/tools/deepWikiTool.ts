@@ -1501,6 +1501,7 @@ Insert exactly:
 
 ### 2. Components
 Use \`${intermediateDir}/L5/page_groups.json\` to structure the README as **chapters** (one chapter per group, in the same order as page_groups).
+If any component page name from \`${intermediateDir}/L2/component_list.json\` is missing from \`${intermediateDir}/L5/page_groups.json\` (or appears twice / is unknown), FIX \`${intermediateDir}/L5/page_groups.json\` first so it covers every pageName exactly once, then generate the README from the corrected groups. Do NOT create an "Ungrouped"/"Other" bucket in the README.
 For EACH group, create a chapter with this shape:
 - Chapter heading: \`#### <GroupName>\`
 - Chapter description: 3–6 sentences explaining:
