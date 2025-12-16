@@ -27,7 +27,6 @@ stateDiagram-v2
     L1: L1 Project Context
     L2: L2 Discoverer
     L3: L3 Analyzer (Parallel)
-	    L3V: L3-V Validator
 	    L3R: L3-R Reviewer
 	    L4: L4 Architect
 	    L5G: L5-G Page Grouper
@@ -40,7 +39,7 @@ stateDiagram-v2
     Done: Final Docs
 
     L1 --> L2
-    
+
     state L2 {
         [*] --> Draft
         Draft --> Review
@@ -48,13 +47,11 @@ stateDiagram-v2
         Refine --> [*]: Valid JSON
         Refine --> Draft: Invalid JSON
     }
-    
+
     L2 --> L3
-    
-    L3 --> L3V
-    L3V --> L3: Files Missing
-    L3V --> L3R: Outputs OK
-    L3R --> L3: Needs Re-analysis
+
+    L3 --> L3R
+    L3R --> L3: Files Missing / Needs Re-analysis
 	    L3R --> L4: Quality OK
 	    
 	    L4 --> L5G
@@ -93,7 +90,7 @@ Identifies and groups files into logical components. Uses L1 context to understa
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and produces analysis artifacts for later synthesis.
 -   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`).
 
-**L3-V Validator**: After analysis completes, validates that all expected output files exist. If files are missing, triggers automatic retry for failed components using the same analysis logic.
+**L3-R Reviewer**: After analysis completes, reviews each component's analysis for correctness. Verifies claims and evidence anchors against actual source code. If the analysis file is missing or fundamentally broken, triggers automatic retry for the failed component.
 
 ### 4. Level 4: ARCHITECT
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
@@ -176,8 +173,6 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   ├── 001_AuthModule_analysis.md
     │   ├── 002_Utils_analysis.md
     │   └── ...
-    ├── L3V/                # L3 validator outputs
-    │   └── validation_failures.json  # (temporary, lists failed components for retry)
     ├── L3R/                # L3 review gate outputs
     │   ├── 001_Component_review.md
     │   ├── 002_Component_review.md
