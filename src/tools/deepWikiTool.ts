@@ -1078,23 +1078,8 @@ ${mdCodeBlock}
 ## Summary
 {Description of what this page covers}
 
-### Claims
-- Claim: ...
-- Claim: ...
-
-### Evidence (Anchors)
-- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports summary claim X
-- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports summary claim Y
-
 ## Use Cases
 {Description of how and when to use these components}
-
-### Claims
-- Claim: ...
-- Claim: ...
-
-### Evidence (Anchors)
-- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports use case claim X
 
 ## Internal Mechanics Overview
 ${mdCodeBlock}mermaid
@@ -1111,16 +1096,6 @@ ${mdCodeBlock}
 ${mdCodeBlock}mermaid
 %% Sequence diagram or State diagram detailing the internal logic
 ${mdCodeBlock}
-
-### Claims
-- Claim: ...
-- Claim: ...
-
-### Claims → Evidence → Implication (CEI)
-- Claim: ...
-  - Evidence: [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — why this supports the claim
-  - Evidence: [\`path/to/file.ts\`](/path/to/file.ts)::OtherSymbol — why this supports the claim
-  - Implication: what this means for behavior/architecture/integration
 
 ### Element-Level Mechanics (when applicable)
 If you split "Internal Mechanics Details" into multiple elements (e.g., components/modules/services), use subsections like:
@@ -1140,18 +1115,8 @@ stateDiagram-v2
     [*] --> ...
 ${mdCodeBlock}
 
-##### Evidence (Anchors)
-- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports this element’s mechanics claim
-
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
-
-### Claims
-- Claim: ...
-- Claim: ...
-
-### Evidence (Anchors)
-- [\`path/to/file.ts\`](/path/to/file.ts)::Symbol — supports external interface claim X
 	`; // The template ends here
                 // Task generator function for L5 writing (shared by initial and retry)
                 const createL5Task = (component: ComponentDef) => {
@@ -1180,16 +1145,12 @@ ${mdCodeBlock}
 2. For EACH assigned component: Create \`${outputPath}/pages/{ComponentName}.md\` with the page title and Overview section
 3. Read the L3 analysis for that component
 4. Synthesize and consolidate L3 content into a reader-friendly page.
-   - You MAY read source code files to verify claims and evidence anchors, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
+   - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
 5. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`${editToolNameForPrompt}\` to write immediately
 6. Generate an ASCII tree of ALL files from ALL components in this page → Use \`${editToolNameForPrompt}\` to write
-7. **Grounding requirement**: Do NOT add new claims beyond what is supported by L3; if unsure, omit the claim rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
-8. If present, read validator feedback for your page(s) and apply it:
-   - \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\`
-   - Remove/rewrite unsupported claims and add missing evidence anchors.
-9. Token-stability workflow:
+7. **Grounding requirement**: Do NOT add new statements beyond what is supported by L3; if unsure, omit rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
+8. Token-stability workflow:
    - Use \`${editToolNameForPrompt}\` after EACH major section.
-   - If you are running out of space, keep \`### Claims\` and \`### Evidence (Anchors)\` first; reduce narrative text.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
 
 **Consolidation Guidelines**:
@@ -1200,21 +1161,6 @@ ${mdCodeBlock}
 
 **Causal Explanation**:
 When describing Internal Mechanics, explain the CAUSAL FLOW (e.g., "Because X happens, Y triggers Z").
-
-**Claims (MUST USE \`- Claim:\` LINES)**:
-- Every major section must include a \`### Claims\` subsection with \`- Claim:\` lines.
-- L5-V will ONLY validate claims that appear on \`- Claim:\` lines. Any important statement not written as a claim line may be deleted as unsupported.
-
-**Claims → Evidence → Implication (CEI)**:
-For key mechanics (especially "## Internal Mechanics Details"), add a short CEI list:
-- Claim: ...
-  - Evidence: \`path/to/file.ts::Symbol\` — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` — why this supports the claim
-  - Implication: what this means for behavior/architecture/integration
-
-**Evidence Anchors**:
-For every major section, include a "### Evidence (Anchors)" subsection with concrete \`path::Symbol\` anchors.
-These anchors must be verifiable in the page’s components’ L3 analyses. If you cannot provide verifiable anchors, DELETE or narrow the claim.
 
 **Source Links (Allowed)**:
 - You MAY include Markdown links to source files, preferably repo-root relative (GitHub-style), e.g. \`[\`src/foo.ts\`](/src/foo.ts)\`.
@@ -1264,7 +1210,7 @@ Write files to \`${outputPath}/pages/\`.
                     `# L5 Validator Agent
 
 ## Role
-Quality gate for L5 outputs: ensure expected page files exist AND that claims are grounded in L3 via evidence anchors.
+Quality gate for L5 outputs: ensure expected page files exist.
 
 ## Expected Files
 Directory: \`${outputPath}/pages/\`
@@ -1276,43 +1222,11 @@ ${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
 2. Compare against expected files above
 3. If ALL files exist → Write empty array to \`${intermediateDir}/L5V/page_validation_failures.json\`
 4. If ANY files are MISSING → Write JSON array of missing page names to \`${intermediateDir}/L5V/page_validation_failures.json\`
-5. Evidence grounding (reverse synthesis):
-   - Pages are 1:1 with components: pageName == componentName.
-   - Read \`${intermediateDir}/L2/component_list.json\` to map componentName → source files.
-   - For each page, read the relevant L3 analysis file in \`${intermediateDir}/L3/\`.
-   - Read the page Markdown and extract ONLY lines that start with \`- Claim:\` (ignore all other text for claim extraction).
-   - Associate each claim with its nearest preceding section heading (e.g., Summary / Use Cases / Internal Mechanics Details / External Interface).
-   - For each extracted claim, find support in L3 and record at least 2 evidence anchors in the form \`path/to/file.ts::SymbolName\`.
-   - Source verification (mandatory):
-     - For each evidence anchor’s file path, confirm the file exists in the workspace.
-     - Spot-check that the referenced symbol name appears in that file (string match is acceptable).
-   - If a claim cannot be supported, mark it as unsupported.
-   - Ensure each major section contains a "### Evidence (Anchors)" subsection. If missing, treat as a failure.
-   - Ensure each major section contains a "### Claims" subsection with \`- Claim:\` lines. If missing or empty, treat as a failure.
-6. Write an evidence map to \`${intermediateDir}/L5V/evidence_map.json\` as RAW JSON (no fences).
-7. For any page with unsupported claims or missing evidence sections:
-   - Write feedback to \`${intermediateDir}/L5V/evidence_feedback_{pageName}.md\` describing what to delete/rewrite and which anchors are required.
-   - Add that pageName to \`${intermediateDir}/L5V/evidence_validation_failures.json\` (raw JSON array of page names; no fences).
-8. If all pages are supported and evidence sections are present, write \`[]\` to \`${intermediateDir}/L5V/evidence_validation_failures.json\`.
 
 ## Output
 Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - If all present: \`[]\`
 - If missing: \`["Page A", "Page B"]\`
-
-Write to \`${intermediateDir}/L5V/evidence_map.json\` (RAW JSON; no fences). This is an intermediate artifact; it may reference L3 files.
-- Array of objects:
-  - \`pageName\`
-  - \`section\`
-  - \`claim\`
-  - \`verdict\`: \`"supported" | "weak" | "unsupported"\`
-  - \`evidence\`: array of objects:
-    - \`l3File\`: string (e.g. \`001_Component_analysis.md\`)
-    - \`anchor\`: string (\`path::Symbol\`)
-
-Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
-- If all supported: \`[]\`
-- If failures: \`["Page A", "Page B"]\`
 
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
@@ -1336,25 +1250,10 @@ Write to \`${intermediateDir}/L5V/evidence_validation_failures.json\`:
                     await vscode.workspace.fs.delete(l5FailuresUri);
                 } catch { /* no failures file or invalid */ }
 
-                const l5EvidenceFailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5V', 'evidence_validation_failures.json'));
-                let l5EvidenceFailedPages: string[] = [];
-                try {
-                    const content = await vscode.workspace.fs.readFile(l5EvidenceFailuresUri);
-                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
-                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
-                        l5EvidenceFailedPages = parsed;
-                    } else {
-                        logger.warn('DeepWiki', 'L5-V: evidence_validation_failures.json is not a string array; retrying all pages for safety.');
-                        l5EvidenceFailedPages = componentsToAnalyze.map(c => c.name);
-                    }
-                    await vscode.workspace.fs.delete(l5EvidenceFailuresUri);
-                } catch { /* no failures file or invalid */ }
-
-                const l5RetryPages = Array.from(new Set([...l5FailedPages, ...l5EvidenceFailedPages]));
-                if (l5RetryPages.length > 0) {
-                    logger.log('DeepWiki', `L5 Validator requested retry for ${l5RetryPages.length} page(s): ${l5RetryPages.join(', ')}`);
+                if (l5FailedPages.length > 0) {
+                    logger.log('DeepWiki', `L5 Validator requested retry for ${l5FailedPages.length} page(s): ${l5FailedPages.join(', ')}`);
                     // Retry using the same task generator function
-                    const failedComponents = componentsToAnalyze.filter(c => l5RetryPages.includes(c.name));
+                    const failedComponents = componentsToAnalyze.filter(c => l5FailedPages.includes(c.name));
                     const l5RetryTasks = failedComponents.map(createL5Task);
                     await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
@@ -1386,9 +1285,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Input
 - Read generated pages in \`${outputPath}/pages/\`
-- Read relevant L3 analysis files in \`${intermediateDir}/L3/\` for each page’s components
+- Read relevant L3 analysis files in \`${intermediateDir}/L3/\` for each page's components
 - Read \`${intermediateDir}/L2/component_list.json\` to map pageName ↔ component ↔ source files (pageName == component name)
-- Read evidence mapping (reverse synthesis), if present: \`${intermediateDir}/L5V/evidence_map.json\`
 
 ## Workflow (Incremental Write Pattern - MANDATORY)
 
@@ -1430,7 +1328,6 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
         - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
         - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
-        - **Evidence Map Gate**: If \`${intermediateDir}/L5V/evidence_map.json\` marks a claim as \`unsupported\`, DELETE or rewrite that claim so it becomes supported (do not keep unsupported claims).
         - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
         - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
         - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
@@ -1445,8 +1342,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - Placeholders: {None found / Removed: ...}
         - Element use cases: {OK / Added / N/A}
         - Element diagrams: {OK / Added / N/A}
-        - Accuracy issues: {None / Removed claims: ...}
-        - Evidence gate: {OK / Removed unsupported: ...}
+        - Accuracy issues: {None / Removed: ...}
         - Links: {OK / Fixed: ...}
         - Formatting: {OK / Fixed: ...}
         - Intermediate links: {None / Removed: ...}
