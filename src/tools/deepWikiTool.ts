@@ -2,7 +2,87 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
-import { runTasksSequentially } from '../utils/concurrency';
+
+/**
+ * Execute an array of async tasks sequentially.
+ * Failed tasks are retried once after all initial tasks complete.
+ */
+async function runTasksSequentially<T>(
+    tasks: (() => Promise<T>)[],
+    taskGroupName: string,
+    cancellationToken?: vscode.CancellationToken
+): Promise<T[]> {
+    if (tasks.length === 0) {
+        logger.log('Tasks', `${taskGroupName}: No tasks to execute`);
+        return [];
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+        throw new vscode.CancellationError();
+    }
+
+    logger.log('Tasks', `${taskGroupName}: Starting ${tasks.length} tasks sequentially`);
+
+    const results: T[] = new Array(tasks.length);
+    const failedIndices: number[] = [];
+    let completedCount = 0;
+    const startTime = Date.now();
+
+    for (let i = 0; i < tasks.length; i++) {
+        if (cancellationToken?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+
+        const taskStartTime = Date.now();
+        logger.log('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Starting`);
+
+        try {
+            results[i] = await tasks[i]();
+            completedCount++;
+            const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+            logger.log('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Completed in ${taskDuration}s`);
+        } catch (error) {
+            if (error instanceof vscode.CancellationError) {
+                throw error;
+            }
+            const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+            logger.warn('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Failed after ${taskDuration}s, will retry later - ${String(error)}`);
+            failedIndices.push(i);
+        }
+    }
+
+    if (failedIndices.length > 0) {
+        logger.log('Tasks', `${taskGroupName}: Retrying ${failedIndices.length} failed tasks...`);
+
+        for (const taskIndex of failedIndices) {
+            if (cancellationToken?.isCancellationRequested) {
+                throw new vscode.CancellationError();
+            }
+
+            const taskStartTime = Date.now();
+            logger.log('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retrying...`);
+
+            try {
+                results[taskIndex] = await tasks[taskIndex]();
+                completedCount++;
+                const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+                logger.log('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry succeeded in ${taskDuration}s`);
+            } catch (error) {
+                if (error instanceof vscode.CancellationError) {
+                    throw error;
+                }
+                const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+                logger.error('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry failed after ${taskDuration}s`, error);
+            }
+        }
+    }
+
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
+    const finalFailedCount = tasks.length - completedCount;
+    logger.log('Tasks', `${taskGroupName}: All ${tasks.length} tasks settled in ${totalDuration}s (${completedCount} passed, ${finalFailedCount} failed)`);
+
+    return results;
+}
 
 /**
  * DeepWiki Language Model Tool (Sequential Agentic Pipeline - Component Based)
@@ -1039,17 +1119,7 @@ Produce a coherent system overview from ALL L3 analyses.
 ]
 `;
 
-                // Save current project context and component list to detect changes after L5-G
-                let projectContextBeforeL5G = '';
-                try {
-                    const projectContextUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
-                    );
-                    const contextContent = await vscode.workspace.fs.readFile(projectContextUri);
-                    projectContextBeforeL5G = new TextDecoder().decode(contextContent);
-                } catch {
-                    // Ignore if file doesn't exist
-                }
+                // Save current component list to detect changes after L5-G
                 const componentListBeforeL5G = JSON.stringify(componentList);
 
                 await this.runPhase(
@@ -1129,28 +1199,8 @@ ${mdCodeBlock}
                 );
 
                 // ---------------------------------------------------------
-                // Check if L5-G modified project_context.md or component_list.json
+                // Check if L5-G modified component_list.json
                 // ---------------------------------------------------------
-                let projectContextModified = false;
-                let componentListModified = false;
-
-                // Check project_context.md changes
-                try {
-                    const projectContextUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
-                    );
-                    const updatedContextContent = await vscode.workspace.fs.readFile(projectContextUri);
-                    const updatedContext = new TextDecoder().decode(updatedContextContent);
-
-                    if (projectContextBeforeL5G && updatedContext !== projectContextBeforeL5G) {
-                        logger.log('DeepWiki', 'L5-G: Project context was modified based on L3/L4 insights.');
-                        projectContextModified = true;
-                    }
-                } catch (e) {
-                    logger.log('DeepWiki', `L5-G: Could not check project context changes (${e instanceof Error ? e.message : 'error'})`);
-                }
-
-                // Check component_list.json changes
                 try {
                     const componentListUri = vscode.Uri.file(
                         path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
@@ -1159,24 +1209,14 @@ ${mdCodeBlock}
                     const updatedList = this.parseJson<ComponentDef[]>(new TextDecoder().decode(updatedContent));
 
                     if (Array.isArray(updatedList) && JSON.stringify(updatedList) !== componentListBeforeL5G) {
-                        logger.log('DeepWiki', `L5-G: Component list was modified (${updatedList.length} components).`);
+                        logger.log('DeepWiki', `L5-G: Component list was modified (${updatedList.length} components). Restarting from L3...`);
                         componentList = updatedList;
                         componentsToAnalyze = [...updatedList];
-                        componentListModified = true;
+                        loopCount++;
+                        continue; // Restart loop from L3 with updated components
                     }
                 } catch (e) {
                     logger.log('DeepWiki', `L5-G: Could not check component list changes (${e instanceof Error ? e.message : 'error'})`);
-                }
-
-                // If either was modified, restart from L3
-                if (projectContextModified || componentListModified) {
-                    const modifiedItems = [
-                        projectContextModified ? 'project_context.md' : '',
-                        componentListModified ? 'component_list.json' : ''
-                    ].filter(Boolean).join(', ');
-                    logger.log('DeepWiki', `L5-G: ${modifiedItems} modified. Restarting from L3...`);
-                    loopCount++;
-                    continue; // Restart loop from L3 with updated context/components
                 }
 
                 // ---------------------------------------------------------
@@ -1582,7 +1622,8 @@ Insert exactly:
 
 **C. Core State Transitions (stateDiagram-v2) - REQUIRED**
 - 2-3 sentence preface, then diagram.
-- Show main states and triggers only.
+- Show main states and triggers only (5-10 states max).
+- **No deep nesting**: Avoid \`state X { ... }\` composite states. Keep the diagram flat for readability.
 - Must be system-wide: represent cross-subsystem transitions that span multiple groups (use \`${intermediateDir}/L4/relationships.md\` as the primary source).
 
 ### 2. Components
@@ -1916,9 +1957,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
         mdLines.push('');
 
         const mdPath = path.join(workspaceRoot, intermediateDir, 'L1', 'existing_deepwikis.md');
-        const jsonPath = path.join(workspaceRoot, intermediateDir, 'L1', 'existing_deepwikis.json');
         await vscode.workspace.fs.writeFile(vscode.Uri.file(mdPath), new TextEncoder().encode(mdLines.join('\n')));
-        await vscode.workspace.fs.writeFile(vscode.Uri.file(jsonPath), new TextEncoder().encode(JSON.stringify(items, null, 2) + '\n'));
 
         return items;
     }

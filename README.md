@@ -7,7 +7,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust 9-stage (L1-L9) pipeline where each agent builds upon the previous one's output. Includes validation gates (L3-R, L5-V) that trigger targeted retries.
--   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. **L3 Analyzer directly fixes project context** when it discovers inaccuracies during analysis. L5-G can update both **project context and component groupings** based on L3/L4 insights (restarting from L3). L6 can request re-analysis for fundamental issues (max 5 loops).
+-   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. **L3 Analyzer directly fixes project context** when it discovers inaccuracies during analysis. L5-G can update **project context** (used by L5 Writer) and **component groupings** (restarting from L3 if changed). L6 can request re-analysis for fundamental issues (max 5 loops).
 -   **Sequential Processing**: Runs sub-agents sequentially to ensure accurate context propagation (e.g., L3 Analyzer can fix project context for subsequent analyzers). **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
@@ -56,7 +56,7 @@ stateDiagram-v2
     L3R --> L4: Quality OK
 
     L4 --> L5G
-    L5G --> L3: Context/Components Updated
+    L5G --> L3: Components Updated
     L5G --> L5: No Changes
     L5 --> L5V
     L5V --> L5: Files Missing
@@ -101,9 +101,9 @@ Synthesizes a high-level system overview and maps relationships between componen
 
 ### 5. Level 5-G: PAGE GROUPER (Component Review & README Navigation)
 Reviews and updates the project context and component structure based on L3/L4 analysis insights, then groups pages for the README table of contents.
--   **Project Context Review**: Evaluates if L3/L4 analysis revealed remaining inaccuracies in `project_context.md`. **Directly edits** to fix issues.
+-   **Project Context Review**: Evaluates if L3/L4 analysis revealed remaining inaccuracies in `project_context.md`. **Directly edits** to fix issues (L5 Writer will use the updated context).
 -   **Component List Review**: Evaluates if L3/L4 analysis revealed issues with component groupings (split needed, merge needed, files missing, wrong grouping). **Directly edits** `component_list.json` to fix issues.
--   **Restart Loop**: If project context or component list is modified, the pipeline **restarts from L3** with the updated context/components.
+-   **Restart Loop**: If component list is modified, the pipeline **restarts from L3** with the updated components.
 -   **Page Grouping**: Groups all pages into 3–8 reader-friendly groups for the README table of contents (`intermediate/L5/page_groups.json`).
 
 ### 6. Level 5: WRITER

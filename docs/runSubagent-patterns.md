@@ -86,10 +86,39 @@ CONSTRAINT:
 Run sub-agents sequentially to ensure context propagation (e.g., one agent can fix shared context files for subsequent agents). Failed tasks are automatically retried.
 
 ```typescript
-import { runTasksSequentially } from './utils/concurrency';
+// Helper function for sequential execution with retry
+async function runTasksSequentially<T>(
+    tasks: (() => Promise<T>)[],
+    taskGroupName: string,
+    token?: vscode.CancellationToken
+): Promise<T[]> {
+    const results: T[] = [];
+    const failedIndices: number[] = [];
 
-// 1. Create task functions
-const tasks = components.map((component, index) => {
+    // First pass
+    for (let i = 0; i < tasks.length; i++) {
+        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        try {
+            results[i] = await tasks[i]();
+        } catch (error) {
+            if (error instanceof vscode.CancellationError) throw error;
+            failedIndices.push(i);
+        }
+    }
+
+    // Retry failed tasks once
+    for (const idx of failedIndices) {
+        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        try {
+            results[idx] = await tasks[idx]();
+        } catch { /* logged */ }
+    }
+
+    return results;
+}
+
+// Usage
+const tasks = components.map((component) => {
     return () => vscode.lm.invokeTool('runSubagent', {
         input: {
             description: `Analyze ${component.name}`,
@@ -98,7 +127,6 @@ const tasks = components.map((component, index) => {
     }, token);
 });
 
-// 2. Run sequentially (each agent can update shared files for the next)
 await runTasksSequentially(tasks, 'Analysis', token);
 ```
 
