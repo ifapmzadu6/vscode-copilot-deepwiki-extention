@@ -8,7 +8,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust 9-stage (L1-L9) pipeline where each agent builds upon the previous one's output. Includes validation gates (L3-R, L5-V) that trigger targeted retries.
 -   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. **L3 Analyzer directly fixes project context** when it discovers inaccuracies during analysis. L5-G can update both **project context and component groupings** based on L3/L4 insights (restarting from L3). L6 can request re-analysis for fundamental issues (max 5 loops).
--   **Parallel Processing**: Runs sub-agents with a conservative concurrency limit (default is 1) to reduce rate limiting risk. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
+-   **Sequential Processing**: Runs sub-agents sequentially to ensure accurate context propagation (e.g., L3 Analyzer can fix project context for subsequent analyzers). **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
 -   **Fire-and-Forget**: Agents work directly on the file system, using intermediate files for seamless communication, minimizing chat output.
@@ -26,11 +26,11 @@ stateDiagram-v2
 
     L1: L1 Project Context
     L2: L2 Discoverer
-    L3: L3 Analyzer (Parallel)
+    L3: L3 Analyzer
     L3R: L3-R Reviewer
     L4: L4 Architect
     L5G: L5-G Page Grouper
-    L5: L5 Writer (Parallel)
+    L5: L5 Writer
     L5V: L5-V Validator
     L6: L6 Reviewer
     L7: L7 Indexer
@@ -88,7 +88,7 @@ Identifies and groups files into logical components. Uses L1 context to understa
 -   **L2-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
-### 3. Level 3: ANALYZER (Parallel)
+### 3. Level 3: ANALYZER
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and produces analysis artifacts for later synthesis.
 -   **Project Context Correction**: While analyzing source code, if the analyzer discovers inaccuracies in `project_context.md` (wrong vocabulary definitions, architecture mismatches, missing abstractions), it **directly fixes** the project context file. This ensures subsequent analyzers work with accurate context.
 -   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`).
@@ -106,7 +106,7 @@ Reviews and updates the project context and component structure based on L3/L4 a
 -   **Restart Loop**: If project context or component list is modified, the pipeline **restarts from L3** with the updated context/components.
 -   **Page Grouping**: Groups all pages into 3–8 reader-friendly groups for the README table of contents (`intermediate/L5/page_groups.json`).
 
-### 6. Level 5: WRITER (Parallel)
+### 6. Level 5: WRITER
 Generates the final documentation pages using a stable 1:1 mapping (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
 -   **Grounding via File Structure**: Each page includes a source tree / file structure section listing the source files used to justify claims.
 

@@ -2,11 +2,11 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
-import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
+import { runTasksSequentially } from '../utils/concurrency';
 
 /**
- * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
- * 
+ * DeepWiki Language Model Tool (Sequential Agentic Pipeline - Component Based)
+ *
  * Orchestrates a pipeline that documents code by "Logical Components".
  * Includes a "Critical Failure Loop" where the L6 Reviewer can request re-analysis (L3/L5)
  * for components with fundamental issues.
@@ -789,7 +789,7 @@ ${mdCodeBlock}
 
                 // Initial L3 analysis
                 const l3Tasks = componentsToAnalyze.map(createL3Task);
-                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`, token);
+                await runTasksSequentially(l3Tasks, `L3 Analysis (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // L3-R: REVIEWER (Deeper review of each component analysis; parallel)
@@ -906,7 +906,7 @@ ${mdCodeBlock}
                 };
 
                 const l3rTasks = componentsToAnalyze.map(createL3RTask);
-                await runWithConcurrencyLimit(l3rTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (Loop ${loopCount + 1})`, token);
+                await runTasksSequentially(l3rTasks, `L3 Review (Loop ${loopCount + 1})`, token);
 
                 const l3rRetryPattern = new vscode.RelativePattern(workspaceFolder, `${intermediateDir}/L3R/*_retry.json`);
                 const l3rRetryUris = await vscode.workspace.findFiles(l3rRetryPattern);
@@ -933,10 +933,10 @@ ${mdCodeBlock}
                     const retryComponents = componentsToAnalyze.filter(c => l3rRetryNames.includes(c.name));
                     if (retryComponents.length > 0) {
                         const l3RetryTasks = retryComponents.map(createL3Task);
-                        await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
+                        await runTasksSequentially(l3RetryTasks, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
                         // Re-run L3-R only for the re-analyzed components once (do not request further retries).
                         const l3rSecondPassTasks = retryComponents.map(createL3RTask);
-                        await runWithConcurrencyLimit(l3rSecondPassTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
+                        await runTasksSequentially(l3rSecondPassTasks, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
                     }
                 }
                 }
@@ -1307,7 +1307,7 @@ Write files to \`${outputPath}/pages/\`.
 
                 // Initial L5 writing
                 const l5Tasks = componentsToAnalyze.map(createL5Task);
-                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
+                await runTasksSequentially(l5Tasks, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // L5 Validator: Check for missing page files and retry if needed
@@ -1367,7 +1367,7 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
                     // Retry using the same task generator function
                     const failedComponents = componentsToAnalyze.filter(c => l5FailedPages.includes(c.name));
                     const l5RetryTasks = failedComponents.map(createL5Task);
-                    await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
+                    await runTasksSequentially(l5RetryTasks, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
                 }
 

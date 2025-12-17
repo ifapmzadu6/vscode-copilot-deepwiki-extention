@@ -82,31 +82,28 @@ CONSTRAINT:
 
 ## 3. Advanced Patterns
 
-### A. Parallel Processing with Staggered Start and Retry
-You can run multiple sub-agents in parallel to speed up tasks like analyzing many files. To avoid API rate limiting, use **staggered starts** and **automatic retry**.
+### A. Sequential Processing with Auto-Retry
+Run sub-agents sequentially to ensure context propagation (e.g., one agent can fix shared context files for subsequent agents). Failed tasks are automatically retried.
 
 ```typescript
-import { runWithConcurrencyLimit } from './utils/concurrency';
+import { runTasksSequentially } from './utils/concurrency';
 
-// 1. Split tasks into chunks
-const fileChunks = [['file1.ts', 'file2.ts'], ['file3.ts', 'file4.ts'], ['file5.ts']];
-
-// 2. Create task functions
-const tasks = fileChunks.map((chunk, index) => {
+// 1. Create task functions
+const tasks = components.map((component, index) => {
     return () => vscode.lm.invokeTool('runSubagent', {
         input: {
-            description: `Analyze chunk ${index}`,
-            prompt: `Analyze these files: ${JSON.stringify(chunk)}...`
+            description: `Analyze ${component.name}`,
+            prompt: `Analyze this component: ${JSON.stringify(component)}...`
         }
     }, token);
 });
 
-// 3. Run with concurrency limit (max 2 parallel, 5s staggered start, auto-retry on failure)
-await runWithConcurrencyLimit(tasks, 2, 'Analysis');
+// 2. Run sequentially (each agent can update shared files for the next)
+await runTasksSequentially(tasks, 'Analysis', token);
 ```
 
 **Features:**
-- **Staggered Start**: Workers start with 5-second delays to avoid simultaneous API requests
+- **Context Propagation**: Each agent can fix shared context files (e.g., `project_context.md`) for subsequent agents
 - **Auto-Retry**: Failed tasks are automatically retried once after all initial tasks complete
 
 ### B. Self-Correction Loop (Draft -> Review -> Refine)
