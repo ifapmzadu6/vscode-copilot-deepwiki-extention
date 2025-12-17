@@ -664,22 +664,28 @@ Use this exact bullet structure:
 
 ## Workflow
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
-2. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-3. Read source code files for this component
-4. Token-stability workflow (do NOT write all at once):
+2. **Project Context Correction** (IMPORTANT): While reading project context, if you notice inaccuracies based on the source code you're analyzing:
+   - **Vocabulary errors**: A term's definition doesn't match actual code usage
+   - **Architecture mismatch**: The described pattern differs from what you observe
+   - **Missing abstractions**: Important types/classes exist but aren't listed
+   - **Wrong dependencies**: Dependencies described incorrectly
+   → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix the issue immediately, then continue your analysis
+3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+4. Read source code files for this component
+5. Token-stability workflow (do NOT write all at once):
    - Use \`${editToolNameForPrompt}\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
-4. Priority order (highest → lowest):
+6. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
-5. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
+7. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
-6. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
+8. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
@@ -763,23 +769,16 @@ ${mdCodeBlock}mermaid
 stateDiagram-v2
     [*] --> Idle
 ${mdCodeBlock}
-
-## Project Context Issues (if any)
-If during analysis you discover that \`${intermediateDir}/L1/project_context.md\` contains inaccuracies, add this section:
-| Issue Type | Section | Problem | Suggested Fix |
-|------------|---------|---------|---------------|
-| vocabulary | Vocabulary | "Term X" defined as "..." but code shows it means "..." | Update definition to "..." |
-| architecture | Architecture Pattern | Described as MVC but actually Pipeline | Update pattern description |
-| abstraction | Key Abstractions | Missing important type "Y" | Add "Y" to the table |
 ${mdCodeBlock}
 - Do not wrap the entire file in Markdown fences.
 - Mermaid diagrams must be in \`\`\`mermaid fences.
 - Avoid large raw code pastes; reference symbols/paths instead.
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed. You may edit \`${intermediateDir}/L1/project_context.md\` if you find inaccuracies.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.${mermaidValidationInstruction}
+3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
+4. **Project Context Correction**: If you find inaccuracies in project_context.md, fix them directly using \`${editToolNameForPrompt}\` (do not just report them).${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L3'),
                         token,
@@ -942,95 +941,8 @@ ${mdCodeBlock}
                 }
                 }
 
-                // ---------------------------------------------------------
-                // L3-PC: PROJECT CONTEXT UPDATE (After L3-R)
-                // Collect project context issues from L3 analyses and update if needed
-                // ---------------------------------------------------------
-                if (runL3Stage) {
-                    const l3AnalysisPattern = new vscode.RelativePattern(workspaceFolder, `${intermediateDir}/L3/*_analysis.md`);
-                    const l3AnalysisUris = await vscode.workspace.findFiles(l3AnalysisPattern);
-
-                    // Check if any L3 analysis reports project context issues
-                    let hasProjectContextIssues = false;
-                    for (const uri of l3AnalysisUris) {
-                        try {
-                            const content = await vscode.workspace.fs.readFile(uri);
-                            const text = new TextDecoder().decode(content);
-                            if (text.includes('## Project Context Issues') && text.includes('| Issue Type |')) {
-                                hasProjectContextIssues = true;
-                                break;
-                            }
-                        } catch {
-                            // Ignore read errors
-                        }
-                    }
-
-                    if (hasProjectContextIssues) {
-                        logger.log('DeepWiki', 'L3-PC: Project context issues found in L3 analyses. Running update phase...');
-                        const projectContextUri = vscode.Uri.file(
-                            path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
-                        );
-
-                        // Save current project context to detect changes
-                        let projectContextBeforeL3PC = '';
-                        try {
-                            const contextContent = await vscode.workspace.fs.readFile(projectContextUri);
-                            projectContextBeforeL3PC = new TextDecoder().decode(contextContent);
-                        } catch {
-                            // Ignore if file doesn't exist
-                        }
-
-                        await this.runPhase(
-                            `L3-PC: Project Context Update (Loop ${loopCount + 1})`,
-                            'Update project context based on L3 findings',
-                            `# Project Context Update Agent (L3-PC)
-
-## Role
-- **Your Stage**: L3-PC (Project Context Correction)
-- **Core Responsibility**: Review and fix project_context.md based on issues discovered during L3 analysis
-
-## Goal
-Update \`${intermediateDir}/L1/project_context.md\` to fix inaccuracies discovered by L3 analyzers.
-
-## Input
-- Current project context: \`${intermediateDir}/L1/project_context.md\`
-- L3 analyses with issues: \`${intermediateDir}/L3/*_analysis.md\` (look for "## Project Context Issues" sections)
-
-## Workflow
-1. Read \`${intermediateDir}/L1/project_context.md\`
-2. Read all L3 analysis files and collect "## Project Context Issues" sections
-3. For each reported issue:
-   - Verify the issue by reading relevant source code
-   - If confirmed, apply the suggested fix to project_context.md
-4. Use \`${editToolNameForPrompt}\` to update project_context.md
-5. Remove the "## Project Context Issues" sections from L3 analysis files (they've been processed)
-
-## Constraints
-1. **Conservative updates**: Only fix issues that are clearly confirmed by source code
-2. **Preserve structure**: Keep the existing Markdown structure of project_context.md
-3. **Scope**: Only write under \`.deepwiki/\`
-4. **Chat Final Response**: One short confirmation line
-
-` + getPipelineOverview('L3'),
-                            token,
-                            options.toolInvocationToken
-                        );
-
-                        // Check if project context was modified - if so, restart from L3
-                        try {
-                            const updatedContextContent = await vscode.workspace.fs.readFile(projectContextUri);
-                            const updatedContext = new TextDecoder().decode(updatedContextContent);
-
-                            if (projectContextBeforeL3PC && updatedContext !== projectContextBeforeL3PC) {
-                                logger.log('DeepWiki', 'L3-PC: Project context was updated. Restarting from L3 to improve analysis accuracy...');
-                                loopCount++;
-                                continue; // Restart loop from L3 with updated project context
-                            }
-                        } catch {
-                            // Ignore
-                        }
-                    }
-                }
+                // Note: L3-PC step was removed because L3 Analyzer now directly edits project_context.md
+                // when it discovers inaccuracies during analysis.
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
