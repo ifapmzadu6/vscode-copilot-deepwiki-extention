@@ -6,6 +6,12 @@ export interface IDeepWikiParameters {
      */
     fileEditToolName: string;
     /**
+     * Optional name of the Mermaid syntax validator tool available to the subagents.
+     * If provided, prompts will instruct subagents to validate Mermaid diagrams using this tool.
+     * If omitted, no Mermaid validation instructions are included.
+     */
+    mermaidValidatorToolName?: string;
+    /**
      * Resume/start the pipeline from a specific stage.
      * If set to anything other than "L1", earlier stages are skipped and required artifacts must already exist.
      */

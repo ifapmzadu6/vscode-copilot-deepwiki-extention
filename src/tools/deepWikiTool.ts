@@ -111,6 +111,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             ]);
         }
 
+        // Optional Mermaid validator tool name (empty string means no validation instructions)
+        const mermaidValidatorToolName = sanitizeToolNameForPrompt(params.mermaidValidatorToolName ?? '');
+        const mermaidValidationInstruction = mermaidValidatorToolName.length > 0
+            ? `\n- **Mermaid Validation**: After writing any Mermaid diagram, ALWAYS validate its syntax using \`${mermaidValidatorToolName}\`. Fix any syntax errors before proceeding.`
+            : '';
+
         // Define ComponentDef interface globally within invoke scope
         interface ComponentDef { name: string; files: string[]; description: string }
 
@@ -765,7 +771,7 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L3'),
                         token,
@@ -982,7 +988,7 @@ Produce a coherent system overview from ALL L3 analyses.
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
+3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L4'),
                     token,
@@ -1225,7 +1231,7 @@ Write files to \`${outputPath}/pages/\`.
 3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
 4. **Do NOT include raw source code or implementation details.**
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references. If you include signatures, keep them short (no bodies).
-6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory. If filenames contain spaces, wrap link targets in angle brackets, e.g. \`[Page Name](<Page Name.md>)\`.
+6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory. If filenames contain spaces, wrap link targets in angle brackets, e.g. \`[Page Name](<Page Name.md>)\`.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L5'),
                         token,
@@ -1420,7 +1426,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L6'),
                     token,
@@ -1549,7 +1555,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
 4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
-6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or "what I validated" prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.
+6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or "what I validated" prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L7'),
                     token,

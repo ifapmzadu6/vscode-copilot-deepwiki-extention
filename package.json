@@ -33,7 +33,7 @@
         ],
         "toolReferenceName": "createDeepWiki",
         "displayName": "Create DeepWiki",
-        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using autonomous sub-agents. It orchestrates a Surveyor, Analyst, and Writer agent to plan, analyze, and document the codebase.",
+        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using autonomous sub-agents. It orchestrates a 9-stage pipeline (L1-L9) to plan, analyze, and document the codebase. Required parameter: fileEditToolName (the file edit tool name for subagents). Optional parameters: mermaidValidatorToolName (Mermaid syntax validator tool - if provided, subagents will validate all Mermaid diagrams), outputPath (defaults to .deepwiki), startFromStage (resume from a specific stage).",
         "userDescription": "Generate DeepWiki documentation for the current workspace.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
@@ -47,6 +47,10 @@
 		          "fileEditToolName": {
 		            "type": "string",
 		            "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions), e.g. 'apply_patch' or 'replace_string_in_file'. If omitted, the extension will auto-detect when possible."
+		          },
+		          "mermaidValidatorToolName": {
+		            "type": "string",
+		            "description": "Optional name of the Mermaid syntax validator tool available to subagents, e.g. 'mcp__mermaid__validate'. If provided, prompts will instruct subagents to validate Mermaid diagrams using this tool. If omitted, no Mermaid validation instructions are included."
 		          },
 		          "startFromStage": {
 		            "type": "string",
