@@ -1006,6 +1006,7 @@ Produce a coherent system overview from ALL L3 analyses.
 
                 // ---------------------------------------------------------
                 // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
+                // Also reviews and directly updates component list if needed
                 // ---------------------------------------------------------
                 const pageGroupsExample = `
 [
@@ -1022,50 +1023,90 @@ Produce a coherent system overview from ALL L3 analyses.
 ]
 `;
 
+                // Save current component list to detect changes after L5-G
+                const componentListBeforeL5G = JSON.stringify(componentList);
+
                 await this.runPhase(
                     `L5-G: Page Grouper (Loop ${loopCount + 1})`,
-                    'Group pages for README navigation',
+                    'Group pages and review component structure',
                     `# Page Grouper Agent (L5-G)
 
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
-- **Core Responsibility**: Create stable, reader-friendly groups of pages for the README TOC and diagrams.
+- **Core Responsibility**:
+  1. Review and update component structure based on L3/L4 insights
+  2. Create stable, reader-friendly groups of pages for the README TOC
 
 ## Goal
-Group the generated pages (pageName values) into 3–8 groups so the README navigation and diagrams don't drift.
+1. Evaluate and fix component list if L3/L4 analysis revealed issues
+2. Group the generated pages (pageName values) into 3–8 groups
 
 ## Input
-- Components list (source of truth for pages; 1 component = 1 page): \`${intermediateDir}/L2/component_list.json\`
-- L4 overview/relationships (optional signal for clustering):
+- Components list: \`${intermediateDir}/L2/component_list.json\`
+- L3 analyses: \`${intermediateDir}/L3/*_analysis.md\`
+- L4 overview/relationships:
   - \`${intermediateDir}/L4/overview.md\`
   - \`${intermediateDir}/L4/relationships.md\`
 
 ## Workflow
-1. Read \`${intermediateDir}/L2/component_list.json\` and collect the full set of component \`name\` values (these are the page names).
-2. Create 3–8 groups with clear, human-friendly names (avoid overly generic names like "Misc" unless unavoidable).
-3. Assign EVERY pageName to exactly one group.
-4. Keep groups balanced; avoid single-page groups unless that page is truly standalone/important.
-5. Provide a short rationale per group.
+
+### Part 1: Component Review (Do First)
+1. Read all L3 analyses and L4 outputs.
+2. Check if L3/L4 revealed issues with component groupings:
+   - **Split needed**: A component has multiple unrelated responsibilities
+   - **Merge needed**: Two components are tightly coupled (per L4 relationships)
+   - **Files missing**: L3 discovered important files not in the component
+   - **Wrong grouping**: A file belongs to a different component
+3. If changes needed: **Directly edit** \`${intermediateDir}/L2/component_list.json\` to fix the issues.
+4. If NO changes needed: Leave component_list.json unchanged.
+
+### Part 2: Page Grouping
+5. Read \`${intermediateDir}/L2/component_list.json\` (use the updated version if you modified it).
+6. Create 3–8 groups with clear names; assign every page to exactly one group.
+7. Write to \`${intermediateDir}/L5/page_groups.json\`.
 
 ## Output
-Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_groups.json\`.
+1. \`${intermediateDir}/L2/component_list.json\` - Edit directly if changes needed (keep valid JSON format)
+2. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
 
-**Format example (do not include fences in the file)**:
+**Page groups format**:
 ${mdCodeBlock}json
 ${pageGroupsExample}
 ${mdCodeBlock}
 
 ## Constraints
-1. Output must be a single valid JSON array.
-2. Each \`pages\` item must be an exact component \`name\` from \`${intermediateDir}/L2/component_list.json\` (no \`.md\` suffix).
-3. Every page must appear exactly once across all groups (no missing/duplicates).
-4. **Scope**: Only write under \`.deepwiki/\`.
-5. **Chat Final Response**: One short confirmation line; no file contents.
+1. **Conservative updates**: Only modify component list when L3/L4 clearly indicates a problem.
+2. **Valid JSON**: component_list.json must remain a valid JSON array of {name, files, description}.
+3. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
+4. Every page must appear exactly once across all groups.
+5. **Scope**: Only write under \`.deepwiki/\`.
+6. **Chat Final Response**: One short confirmation line.
 
 ` + getPipelineOverview('L5'),
                     token,
                     options.toolInvocationToken
                 );
+
+                // ---------------------------------------------------------
+                // Check if L5-G modified component_list.json
+                // ---------------------------------------------------------
+                try {
+                    const componentListUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                    );
+                    const updatedContent = await vscode.workspace.fs.readFile(componentListUri);
+                    const updatedList = this.parseJson<ComponentDef[]>(new TextDecoder().decode(updatedContent));
+
+                    if (Array.isArray(updatedList) && JSON.stringify(updatedList) !== componentListBeforeL5G) {
+                        logger.log('DeepWiki', `L5-G: Component list was modified (${updatedList.length} components). Restarting from L3...`);
+                        componentList = updatedList;
+                        componentsToAnalyze = [...updatedList];
+                        loopCount++;
+                        continue; // Restart loop from L3 with updated components
+                    }
+                } catch (e) {
+                    logger.log('DeepWiki', `L5-G: Could not check component list changes (${e instanceof Error ? e.message : 'error'})`);
+                }
 
                 // ---------------------------------------------------------
                 // Level 5: WRITER (Write pages; 1 component = 1 page)
