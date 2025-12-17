@@ -7,7 +7,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust 9-stage (L1-L9) pipeline where each agent builds upon the previous one's output. Includes validation gates (L3-R, L5-V) that trigger targeted retries.
--   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3/L5 have validators that trigger targeted retries for missing outputs, and L6 can request re-analysis for fundamental issues (max 5 loops).
+-   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. L5-G can update component groupings based on L3/L4 insights (restarting from L3). L6 can request re-analysis for fundamental issues (max 5 loops).
 -   **Parallel Processing**: Runs sub-agents with a conservative concurrency limit (default is 1) to reduce rate limiting risk. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
@@ -27,12 +27,12 @@ stateDiagram-v2
     L1: L1 Project Context
     L2: L2 Discoverer
     L3: L3 Analyzer (Parallel)
-	    L3R: L3-R Reviewer
-	    L4: L4 Architect
-	    L5G: L5-G Page Grouper
-	    L5: L5 Writer (Parallel)
-	    L5V: L5-V Validator
-	    L6: L6 Reviewer
+    L3R: L3-R Reviewer
+    L4: L4 Architect
+    L5G: L5-G Page Grouper
+    L5: L5 Writer (Parallel)
+    L5V: L5-V Validator
+    L6: L6 Reviewer
     L7: L7 Indexer
     L8: L8 Final QA (README)
     L9: L9 Final QA (Release Gate)
@@ -52,17 +52,18 @@ stateDiagram-v2
 
     L3 --> L3R
     L3R --> L3: Files Missing / Needs Re-analysis
-	    L3R --> L4: Quality OK
-	    
-	    L4 --> L5G
-	    L5G --> L5
-	    L5 --> L5V
-	    L5V --> L5: Files Missing
-	    L5V --> L6: All Files Present
-    
+    L3R --> L4: Quality OK
+
+    L4 --> L5G
+    L5G --> L3: Component List Updated
+    L5G --> L5: No Changes
+    L5 --> L5V
+    L5V --> L5: Files Missing
+    L5V --> L6: All Files Present
+
     L6 --> L3: Critical Issues Found
     L6 --> L7: Quality OK
-    
+
     L7 --> L8
     L8 --> L9
     L9 --> Done
@@ -96,14 +97,17 @@ Deeply analyzes the logic, patterns, and responsibilities of each component. Foc
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
-### 5. Level 5: WRITER (Parallel)
+### 5. Level 5-G: PAGE GROUPER (Component Review & README Navigation)
+Reviews and updates the component structure based on L3/L4 analysis insights, then groups pages for the README table of contents.
+-   **Component List Review**: Evaluates if L3/L4 analysis revealed issues with component groupings (split needed, merge needed, files missing, wrong grouping). **Directly edits** `component_list.json` to fix issues.
+-   **Restart Loop**: If component list is modified, the pipeline **restarts from L3** with the updated components.
+-   **Page Grouping**: Groups all pages into 3–8 reader-friendly groups for the README table of contents (`intermediate/L5/page_groups.json`).
+
+### 6. Level 5: WRITER (Parallel)
 Generates the final documentation pages using a stable 1:1 mapping (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
 -   **Grounding via File Structure**: Each page includes a source tree / file structure section listing the source files used to justify claims.
 
 **L5-V Validator**: After writing completes, validates that all expected page files exist. If files are missing, triggers automatic retry for failed pages using the same writing logic.
-
-### 6. Level 5-G: PAGE GROUPER (README Navigation)
-Groups all pages into 3–8 reader-friendly groups for the README table of contents (`intermediate/L5/page_groups.json`). This is information architecture only (does not change page generation).
 
 ### 7. Level 6: PAGE REVIEWER & RETRY LOOP
 Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, connectivity, formatting).
