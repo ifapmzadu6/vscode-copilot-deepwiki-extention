@@ -1182,64 +1182,18 @@ ${mdCodeBlock}
                             new TextEncoder().encode(JSON.stringify(updatedList, null, 2))
                         );
 
-                        // Update all in-memory references to component list
+                        // Update in-memory component list and trigger re-analysis from L3
+                        // (same pattern as L6 retry: set componentsToAnalyze and continue loop)
                         componentList = updatedList;
                         componentsToAnalyze = [...updatedList];
-                        componentsForThisLoop.length = 0;
-                        componentsForThisLoop.push(...updatedList.map(c => c.name));
-                        componentsUpdated = true;
-                        logger.log('DeepWiki', `L5-G: Updated component list (${updatedList.length} components)`);
-
-                        // Re-run L3 for affected components using existing createL3Task
-                        const newComponentsToAnalyze = updatedList.filter(c => affectedComponentNames.has(c.name));
-                        if (newComponentsToAnalyze.length > 0) {
-                            logger.log('DeepWiki', `L5-G: Re-analyzing ${newComponentsToAnalyze.length} component(s): ${newComponentsToAnalyze.map(c => c.name).join(', ')}`);
-                            const l3RefactorTasks = newComponentsToAnalyze.map(createL3Task);
-                            await runWithConcurrencyLimit(l3RefactorTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (L5-G update)`, token);
-                        }
+                        logger.log('DeepWiki', `L5-G: Component list updated (${updatedList.length} components). Restarting from L3...`);
+                        loopCount++;
+                        continue; // Restart loop from L3 with updated components
                     } else {
                         logger.log('DeepWiki', 'L5-G: No component updates needed.');
                     }
                 } catch (e) {
                     logger.log('DeepWiki', `L5-G: No component updates (${e instanceof Error ? e.message : 'file not found'})`);
-                }
-
-                // Re-run page grouper if components were updated
-                if (componentsUpdated) {
-                    logger.log('DeepWiki', 'L5-G: Re-running page grouper with updated component list...');
-                    await this.runPhase(
-                        `L5-G: Page Grouper (Loop ${loopCount + 1}, post-update)`,
-                        'Re-group pages after component update',
-                        `# Page Grouper Agent (L5-G) - Post-Update
-
-## Role
-Re-create page groups after component list was updated.
-
-## Input
-- Updated components list: \`${intermediateDir}/L2/component_list.json\`
-- L4 overview: \`${intermediateDir}/L4/overview.md\`
-
-## Workflow
-1. Read the updated component list.
-2. Create 3–8 groups with clear names; assign every page to exactly one group.
-
-## Output
-Write FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L5/page_groups.json\`.
-
-**Format**:
-${mdCodeBlock}json
-${pageGroupsExample}
-${mdCodeBlock}
-
-## Constraints
-1. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
-2. Every page must appear exactly once.
-3. **Scope**: Only write under \`.deepwiki/\`.
-
-` + getPipelineOverview('L5'),
-                        token,
-                        options.toolInvocationToken
-                    );
                 }
 
                 // ---------------------------------------------------------
