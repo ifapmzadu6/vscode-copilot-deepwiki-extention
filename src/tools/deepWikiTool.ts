@@ -763,6 +763,14 @@ ${mdCodeBlock}mermaid
 stateDiagram-v2
     [*] --> Idle
 ${mdCodeBlock}
+
+## Project Context Issues (if any)
+If during analysis you discover that \`${intermediateDir}/L1/project_context.md\` contains inaccuracies, add this section:
+| Issue Type | Section | Problem | Suggested Fix |
+|------------|---------|---------|---------------|
+| vocabulary | Vocabulary | "Term X" defined as "..." but code shows it means "..." | Update definition to "..." |
+| architecture | Architecture Pattern | Described as MVC but actually Pipeline | Update pattern description |
+| abstraction | Key Abstractions | Missing important type "Y" | Add "Y" to the table |
 ${mdCodeBlock}
 - Do not wrap the entire file in Markdown fences.
 - Mermaid diagrams must be in \`\`\`mermaid fences.
@@ -935,6 +943,96 @@ ${mdCodeBlock}
                 }
 
                 // ---------------------------------------------------------
+                // L3-PC: PROJECT CONTEXT UPDATE (After L3-R)
+                // Collect project context issues from L3 analyses and update if needed
+                // ---------------------------------------------------------
+                if (runL3Stage) {
+                    const l3AnalysisPattern = new vscode.RelativePattern(workspaceFolder, `${intermediateDir}/L3/*_analysis.md`);
+                    const l3AnalysisUris = await vscode.workspace.findFiles(l3AnalysisPattern);
+
+                    // Check if any L3 analysis reports project context issues
+                    let hasProjectContextIssues = false;
+                    for (const uri of l3AnalysisUris) {
+                        try {
+                            const content = await vscode.workspace.fs.readFile(uri);
+                            const text = new TextDecoder().decode(content);
+                            if (text.includes('## Project Context Issues') && text.includes('| Issue Type |')) {
+                                hasProjectContextIssues = true;
+                                break;
+                            }
+                        } catch {
+                            // Ignore read errors
+                        }
+                    }
+
+                    if (hasProjectContextIssues) {
+                        logger.log('DeepWiki', 'L3-PC: Project context issues found in L3 analyses. Running update phase...');
+                        const projectContextUri = vscode.Uri.file(
+                            path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
+                        );
+
+                        // Save current project context to detect changes
+                        let projectContextBeforeL3PC = '';
+                        try {
+                            const contextContent = await vscode.workspace.fs.readFile(projectContextUri);
+                            projectContextBeforeL3PC = new TextDecoder().decode(contextContent);
+                        } catch {
+                            // Ignore if file doesn't exist
+                        }
+
+                        await this.runPhase(
+                            `L3-PC: Project Context Update (Loop ${loopCount + 1})`,
+                            'Update project context based on L3 findings',
+                            `# Project Context Update Agent (L3-PC)
+
+## Role
+- **Your Stage**: L3-PC (Project Context Correction)
+- **Core Responsibility**: Review and fix project_context.md based on issues discovered during L3 analysis
+
+## Goal
+Update \`${intermediateDir}/L1/project_context.md\` to fix inaccuracies discovered by L3 analyzers.
+
+## Input
+- Current project context: \`${intermediateDir}/L1/project_context.md\`
+- L3 analyses with issues: \`${intermediateDir}/L3/*_analysis.md\` (look for "## Project Context Issues" sections)
+
+## Workflow
+1. Read \`${intermediateDir}/L1/project_context.md\`
+2. Read all L3 analysis files and collect "## Project Context Issues" sections
+3. For each reported issue:
+   - Verify the issue by reading relevant source code
+   - If confirmed, apply the suggested fix to project_context.md
+4. Use \`${editToolNameForPrompt}\` to update project_context.md
+5. Remove the "## Project Context Issues" sections from L3 analysis files (they've been processed)
+
+## Constraints
+1. **Conservative updates**: Only fix issues that are clearly confirmed by source code
+2. **Preserve structure**: Keep the existing Markdown structure of project_context.md
+3. **Scope**: Only write under \`.deepwiki/\`
+4. **Chat Final Response**: One short confirmation line
+
+` + getPipelineOverview('L3'),
+                            token,
+                            options.toolInvocationToken
+                        );
+
+                        // Check if project context was modified - if so, restart from L3
+                        try {
+                            const updatedContextContent = await vscode.workspace.fs.readFile(projectContextUri);
+                            const updatedContext = new TextDecoder().decode(updatedContextContent);
+
+                            if (projectContextBeforeL3PC && updatedContext !== projectContextBeforeL3PC) {
+                                logger.log('DeepWiki', 'L3-PC: Project context was updated. Restarting from L3 to improve analysis accuracy...');
+                                loopCount++;
+                                continue; // Restart loop from L3 with updated project context
+                            }
+                        } catch {
+                            // Ignore
+                        }
+                    }
+                }
+
+                // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
                 // Input: All L3 analysis files (even from previous loops)
                 // ---------------------------------------------------------
@@ -1029,25 +1127,38 @@ Produce a coherent system overview from ALL L3 analyses.
 ]
 `;
 
-                // Save current component list to detect changes after L5-G
+                // Save current project context and component list to detect changes after L5-G
+                let projectContextBeforeL5G = '';
+                try {
+                    const projectContextUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
+                    );
+                    const contextContent = await vscode.workspace.fs.readFile(projectContextUri);
+                    projectContextBeforeL5G = new TextDecoder().decode(contextContent);
+                } catch {
+                    // Ignore if file doesn't exist
+                }
                 const componentListBeforeL5G = JSON.stringify(componentList);
 
                 await this.runPhase(
                     `L5-G: Page Grouper (Loop ${loopCount + 1})`,
-                    'Group pages and review component structure',
+                    'Group pages and review project context, component structure',
                     `# Page Grouper Agent (L5-G)
 
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
 - **Core Responsibility**:
-  1. Review and update component structure based on L3/L4 insights
-  2. Create stable, reader-friendly groups of pages for the README TOC
+  1. Review and update project context if L3/L4 analysis revealed inaccuracies
+  2. Review and update component structure based on L3/L4 insights
+  3. Create stable, reader-friendly groups of pages for the README TOC
 
 ## Goal
-1. Evaluate and fix component list if L3/L4 analysis revealed issues
-2. Group the generated pages (pageName values) into 3–8 groups
+1. Correct project context if L3/L4 analysis revealed inaccuracies
+2. Evaluate and fix component list if L3/L4 analysis revealed issues
+3. Group the generated pages (pageName values) into 3–8 groups
 
 ## Input
+- Project context: \`${intermediateDir}/L1/project_context.md\`
 - Components list: \`${intermediateDir}/L2/component_list.json\`
 - L3 analyses: \`${intermediateDir}/L3/*_analysis.md\`
 - L4 overview/relationships:
@@ -1056,7 +1167,18 @@ Produce a coherent system overview from ALL L3 analyses.
 
 ## Workflow
 
-### Part 1: Component Review (Do First)
+### Part 0: Project Context Review (Do First)
+1. Read \`${intermediateDir}/L1/project_context.md\` and all L3 analyses.
+2. Check if L3/L4 revealed inaccuracies in project context:
+   - **Vocabulary errors**: A term's definition doesn't match how it's actually used in code
+   - **Architecture mismatch**: The described pattern doesn't match what L3/L4 discovered
+   - **Missing key abstractions**: Important types/classes discovered in L3 but not listed
+   - **Wrong dependencies**: Dependencies described incorrectly or missing important ones
+   - **Entry points incorrect**: Main entry points changed or were misidentified
+3. If inaccuracies found: **Directly edit** \`${intermediateDir}/L1/project_context.md\` to fix the issues.
+4. If NO inaccuracies found: Leave project_context.md unchanged.
+
+### Part 1: Component Review
 1. Read all L3 analyses and L4 outputs.
 2. Check if L3/L4 revealed issues with component groupings:
    - **Split needed**: A component has multiple unrelated responsibilities
@@ -1072,8 +1194,9 @@ Produce a coherent system overview from ALL L3 analyses.
 7. Write to \`${intermediateDir}/L5/page_groups.json\`.
 
 ## Output
-1. \`${intermediateDir}/L2/component_list.json\` - Edit directly if changes needed (keep valid JSON format)
-2. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
+1. \`${intermediateDir}/L1/project_context.md\` - Edit directly if inaccuracies found (keep Markdown format)
+2. \`${intermediateDir}/L2/component_list.json\` - Edit directly if changes needed (keep valid JSON format)
+3. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
 
 **Page groups format**:
 ${mdCodeBlock}json
@@ -1081,8 +1204,8 @@ ${pageGroupsExample}
 ${mdCodeBlock}
 
 ## Constraints
-1. **Conservative updates**: Only modify component list when L3/L4 clearly indicates a problem.
-2. **Valid JSON**: component_list.json must remain a valid JSON array of {name, files, description}.
+1. **Conservative updates**: Only modify project_context.md or component_list.json when L3/L4 clearly indicates a problem.
+2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {name, files, description}.
 3. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
 4. Every page must appear exactly once across all groups.
 5. **Scope**: Only write under \`.deepwiki/\`.
@@ -1094,8 +1217,28 @@ ${mdCodeBlock}
                 );
 
                 // ---------------------------------------------------------
-                // Check if L5-G modified component_list.json
+                // Check if L5-G modified project_context.md or component_list.json
                 // ---------------------------------------------------------
+                let projectContextModified = false;
+                let componentListModified = false;
+
+                // Check project_context.md changes
+                try {
+                    const projectContextUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1', 'project_context.md')
+                    );
+                    const updatedContextContent = await vscode.workspace.fs.readFile(projectContextUri);
+                    const updatedContext = new TextDecoder().decode(updatedContextContent);
+
+                    if (projectContextBeforeL5G && updatedContext !== projectContextBeforeL5G) {
+                        logger.log('DeepWiki', 'L5-G: Project context was modified based on L3/L4 insights.');
+                        projectContextModified = true;
+                    }
+                } catch (e) {
+                    logger.log('DeepWiki', `L5-G: Could not check project context changes (${e instanceof Error ? e.message : 'error'})`);
+                }
+
+                // Check component_list.json changes
                 try {
                     const componentListUri = vscode.Uri.file(
                         path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
@@ -1104,14 +1247,24 @@ ${mdCodeBlock}
                     const updatedList = this.parseJson<ComponentDef[]>(new TextDecoder().decode(updatedContent));
 
                     if (Array.isArray(updatedList) && JSON.stringify(updatedList) !== componentListBeforeL5G) {
-                        logger.log('DeepWiki', `L5-G: Component list was modified (${updatedList.length} components). Restarting from L3...`);
+                        logger.log('DeepWiki', `L5-G: Component list was modified (${updatedList.length} components).`);
                         componentList = updatedList;
                         componentsToAnalyze = [...updatedList];
-                        loopCount++;
-                        continue; // Restart loop from L3 with updated components
+                        componentListModified = true;
                     }
                 } catch (e) {
                     logger.log('DeepWiki', `L5-G: Could not check component list changes (${e instanceof Error ? e.message : 'error'})`);
+                }
+
+                // If either was modified, restart from L3
+                if (projectContextModified || componentListModified) {
+                    const modifiedItems = [
+                        projectContextModified ? 'project_context.md' : '',
+                        componentListModified ? 'component_list.json' : ''
+                    ].filter(Boolean).join(', ');
+                    logger.log('DeepWiki', `L5-G: ${modifiedItems} modified. Restarting from L3...`);
+                    loopCount++;
+                    continue; // Restart loop from L3 with updated context/components
                 }
 
                 // ---------------------------------------------------------

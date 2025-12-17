@@ -7,7 +7,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
 -   **Multi-Stage Pipeline**: Follows a robust 9-stage (L1-L9) pipeline where each agent builds upon the previous one's output. Includes validation gates (L3-R, L5-V) that trigger targeted retries.
--   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. L5-G can update component groupings based on L3/L4 insights (restarting from L3). L6 can request re-analysis for fundamental issues (max 5 loops).
+-   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. **L3-PC updates project context** if L3 analyzers discover inaccuracies (restarting L3 for improved accuracy). L5-G can update both **project context and component groupings** based on L3/L4 insights (restarting from L3). L6 can request re-analysis for fundamental issues (max 5 loops).
 -   **Parallel Processing**: Runs sub-agents with a conservative concurrency limit (default is 1) to reduce rate limiting risk. **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
 -   **Focus on Causality**: Agents are instructed to explain the "Why" and "How", detailing internal mechanics and external interfaces with causal reasoning.
@@ -28,6 +28,7 @@ stateDiagram-v2
     L2: L2 Discoverer
     L3: L3 Analyzer (Parallel)
     L3R: L3-R Reviewer
+    L3PC: L3-PC Context Update
     L4: L4 Architect
     L5G: L5-G Page Grouper
     L5: L5 Writer (Parallel)
@@ -52,10 +53,13 @@ stateDiagram-v2
 
     L3 --> L3R
     L3R --> L3: Files Missing / Needs Re-analysis
-    L3R --> L4: Quality OK
+    L3R --> L3PC: Quality OK
+
+    L3PC --> L3: Context Updated
+    L3PC --> L4: No Changes
 
     L4 --> L5G
-    L5G --> L3: Component List Updated
+    L5G --> L3: Context/Components Updated
     L5G --> L5: No Changes
     L5 --> L5V
     L5V --> L5: Files Missing
