@@ -82,31 +82,56 @@ CONSTRAINT:
 
 ## 3. Advanced Patterns
 
-### A. Parallel Processing with Staggered Start and Retry
-You can run multiple sub-agents in parallel to speed up tasks like analyzing many files. To avoid API rate limiting, use **staggered starts** and **automatic retry**.
+### A. Sequential Processing with Auto-Retry
+Run sub-agents sequentially to ensure context propagation (e.g., one agent can fix shared context files for subsequent agents). Failed tasks are automatically retried.
 
 ```typescript
-import { runWithConcurrencyLimit } from './utils/concurrency';
+// Helper function for sequential execution with retry
+async function runTasksSequentially<T>(
+    tasks: (() => Promise<T>)[],
+    taskGroupName: string,
+    token?: vscode.CancellationToken
+): Promise<T[]> {
+    const results: T[] = [];
+    const failedIndices: number[] = [];
 
-// 1. Split tasks into chunks
-const fileChunks = [['file1.ts', 'file2.ts'], ['file3.ts', 'file4.ts'], ['file5.ts']];
+    // First pass
+    for (let i = 0; i < tasks.length; i++) {
+        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        try {
+            results[i] = await tasks[i]();
+        } catch (error) {
+            if (error instanceof vscode.CancellationError) throw error;
+            failedIndices.push(i);
+        }
+    }
 
-// 2. Create task functions
-const tasks = fileChunks.map((chunk, index) => {
+    // Retry failed tasks once
+    for (const idx of failedIndices) {
+        if (token?.isCancellationRequested) throw new vscode.CancellationError();
+        try {
+            results[idx] = await tasks[idx]();
+        } catch { /* logged */ }
+    }
+
+    return results;
+}
+
+// Usage
+const tasks = components.map((component) => {
     return () => vscode.lm.invokeTool('runSubagent', {
         input: {
-            description: `Analyze chunk ${index}`,
-            prompt: `Analyze these files: ${JSON.stringify(chunk)}...`
+            description: `Analyze ${component.name}`,
+            prompt: `Analyze this component: ${JSON.stringify(component)}...`
         }
     }, token);
 });
 
-// 3. Run with concurrency limit (max 2 parallel, 5s staggered start, auto-retry on failure)
-await runWithConcurrencyLimit(tasks, 2, 'Analysis');
+await runTasksSequentially(tasks, 'Analysis', token);
 ```
 
 **Features:**
-- **Staggered Start**: Workers start with 5-second delays to avoid simultaneous API requests
+- **Context Propagation**: Each agent can fix shared context files (e.g., `project_context.md`) for subsequent agents
 - **Auto-Retry**: Failed tasks are automatically retried once after all initial tasks complete
 
 ### B. Self-Correction Loop (Draft -> Review -> Refine)

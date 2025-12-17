@@ -2,11 +2,91 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { IDeepWikiParameters } from '../types';
 import { logger } from '../utils/logger';
-import { runWithConcurrencyLimit, DEFAULT_MAX_CONCURRENCY } from '../utils/concurrency';
 
 /**
- * DeepWiki Language Model Tool (5-Stage Parallel Agentic Pipeline - Component Based)
- * 
+ * Execute an array of async tasks sequentially.
+ * Failed tasks are retried once after all initial tasks complete.
+ */
+async function runTasksSequentially<T>(
+    tasks: (() => Promise<T>)[],
+    taskGroupName: string,
+    cancellationToken?: vscode.CancellationToken
+): Promise<T[]> {
+    if (tasks.length === 0) {
+        logger.log('Tasks', `${taskGroupName}: No tasks to execute`);
+        return [];
+    }
+
+    if (cancellationToken?.isCancellationRequested) {
+        throw new vscode.CancellationError();
+    }
+
+    logger.log('Tasks', `${taskGroupName}: Starting ${tasks.length} tasks sequentially`);
+
+    const results: T[] = new Array(tasks.length);
+    const failedIndices: number[] = [];
+    let completedCount = 0;
+    const startTime = Date.now();
+
+    for (let i = 0; i < tasks.length; i++) {
+        if (cancellationToken?.isCancellationRequested) {
+            throw new vscode.CancellationError();
+        }
+
+        const taskStartTime = Date.now();
+        logger.log('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Starting`);
+
+        try {
+            results[i] = await tasks[i]();
+            completedCount++;
+            const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+            logger.log('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Completed in ${taskDuration}s`);
+        } catch (error) {
+            if (error instanceof vscode.CancellationError) {
+                throw error;
+            }
+            const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+            logger.warn('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Failed after ${taskDuration}s, will retry later - ${String(error)}`);
+            failedIndices.push(i);
+        }
+    }
+
+    if (failedIndices.length > 0) {
+        logger.log('Tasks', `${taskGroupName}: Retrying ${failedIndices.length} failed tasks...`);
+
+        for (const taskIndex of failedIndices) {
+            if (cancellationToken?.isCancellationRequested) {
+                throw new vscode.CancellationError();
+            }
+
+            const taskStartTime = Date.now();
+            logger.log('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retrying...`);
+
+            try {
+                results[taskIndex] = await tasks[taskIndex]();
+                completedCount++;
+                const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+                logger.log('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry succeeded in ${taskDuration}s`);
+            } catch (error) {
+                if (error instanceof vscode.CancellationError) {
+                    throw error;
+                }
+                const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
+                logger.error('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry failed after ${taskDuration}s`, error);
+            }
+        }
+    }
+
+    const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
+    const finalFailedCount = tasks.length - completedCount;
+    logger.log('Tasks', `${taskGroupName}: All ${tasks.length} tasks settled in ${totalDuration}s (${completedCount} passed, ${finalFailedCount} failed)`);
+
+    return results;
+}
+
+/**
+ * DeepWiki Language Model Tool (Sequential Agentic Pipeline - Component Based)
+ *
  * Orchestrates a pipeline that documents code by "Logical Components".
  * Includes a "Critical Failure Loop" where the L6 Reviewer can request re-analysis (L3/L5)
  * for components with fundamental issues.
@@ -664,22 +744,28 @@ Use this exact bullet structure:
 
 ## Workflow
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
-2. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
-3. Read source code files for this component
-4. Token-stability workflow (do NOT write all at once):
+2. **Project Context Correction** (IMPORTANT): While reading project context, if you notice inaccuracies based on the source code you're analyzing:
+   - **Vocabulary errors**: A term's definition doesn't match actual code usage
+   - **Architecture mismatch**: The described pattern differs from what you observe
+   - **Missing abstractions**: Important types/classes exist but aren't listed
+   - **Wrong dependencies**: Dependencies described incorrectly
+   → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix the issue immediately, then continue your analysis
+3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+4. Read source code files for this component
+5. Token-stability workflow (do NOT write all at once):
    - Use \`${editToolNameForPrompt}\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
-4. Priority order (highest → lowest):
+6. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
-5. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
+7. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
-6. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
+8. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
@@ -769,9 +855,10 @@ ${mdCodeBlock}
 - Avoid large raw code pastes; reference symbols/paths instead.
 
 ## Constraints
-1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed. You may edit \`${intermediateDir}/L1/project_context.md\` if you find inaccuracies.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.${mermaidValidationInstruction}
+3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
+4. **Project Context Correction**: If you find inaccuracies in project_context.md, fix them directly using \`${editToolNameForPrompt}\` (do not just report them).${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L3'),
                         token,
@@ -782,7 +869,7 @@ ${mdCodeBlock}
 
                 // Initial L3 analysis
                 const l3Tasks = componentsToAnalyze.map(createL3Task);
-                await runWithConcurrencyLimit(l3Tasks, DEFAULT_MAX_CONCURRENCY, `L3 Analysis (Loop ${loopCount + 1})`, token);
+                await runTasksSequentially(l3Tasks, `L3 Analysis (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // L3-R: REVIEWER (Deeper review of each component analysis; parallel)
@@ -899,7 +986,7 @@ ${mdCodeBlock}
                 };
 
                 const l3rTasks = componentsToAnalyze.map(createL3RTask);
-                await runWithConcurrencyLimit(l3rTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (Loop ${loopCount + 1})`, token);
+                await runTasksSequentially(l3rTasks, `L3 Review (Loop ${loopCount + 1})`, token);
 
                 const l3rRetryPattern = new vscode.RelativePattern(workspaceFolder, `${intermediateDir}/L3R/*_retry.json`);
                 const l3rRetryUris = await vscode.workspace.findFiles(l3rRetryPattern);
@@ -926,13 +1013,16 @@ ${mdCodeBlock}
                     const retryComponents = componentsToAnalyze.filter(c => l3rRetryNames.includes(c.name));
                     if (retryComponents.length > 0) {
                         const l3RetryTasks = retryComponents.map(createL3Task);
-                        await runWithConcurrencyLimit(l3RetryTasks, DEFAULT_MAX_CONCURRENCY, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
+                        await runTasksSequentially(l3RetryTasks, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
                         // Re-run L3-R only for the re-analyzed components once (do not request further retries).
                         const l3rSecondPassTasks = retryComponents.map(createL3RTask);
-                        await runWithConcurrencyLimit(l3rSecondPassTasks, DEFAULT_MAX_CONCURRENCY, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
+                        await runTasksSequentially(l3rSecondPassTasks, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
                     }
                 }
                 }
+
+                // Note: L3-PC step was removed because L3 Analyzer now directly edits project_context.md
+                // when it discovers inaccuracies during analysis.
 
                 // ---------------------------------------------------------
                 // Level 4: ARCHITECT (Runs in every loop to keep overview up to date)
@@ -1034,20 +1124,23 @@ Produce a coherent system overview from ALL L3 analyses.
 
                 await this.runPhase(
                     `L5-G: Page Grouper (Loop ${loopCount + 1})`,
-                    'Group pages and review component structure',
+                    'Group pages and review project context, component structure',
                     `# Page Grouper Agent (L5-G)
 
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
 - **Core Responsibility**:
-  1. Review and update component structure based on L3/L4 insights
-  2. Create stable, reader-friendly groups of pages for the README TOC
+  1. Review and update project context if L3/L4 analysis revealed inaccuracies
+  2. Review and update component structure based on L3/L4 insights
+  3. Create stable, reader-friendly groups of pages for the README TOC
 
 ## Goal
-1. Evaluate and fix component list if L3/L4 analysis revealed issues
-2. Group the generated pages (pageName values) into 3–8 groups
+1. Correct project context if L3/L4 analysis revealed inaccuracies
+2. Evaluate and fix component list if L3/L4 analysis revealed issues
+3. Group the generated pages (pageName values) into 3–8 groups
 
 ## Input
+- Project context: \`${intermediateDir}/L1/project_context.md\`
 - Components list: \`${intermediateDir}/L2/component_list.json\`
 - L3 analyses: \`${intermediateDir}/L3/*_analysis.md\`
 - L4 overview/relationships:
@@ -1056,7 +1149,18 @@ Produce a coherent system overview from ALL L3 analyses.
 
 ## Workflow
 
-### Part 1: Component Review (Do First)
+### Part 0: Project Context Review (Do First)
+1. Read \`${intermediateDir}/L1/project_context.md\` and all L3 analyses.
+2. Check if L3/L4 revealed inaccuracies in project context:
+   - **Vocabulary errors**: A term's definition doesn't match how it's actually used in code
+   - **Architecture mismatch**: The described pattern doesn't match what L3/L4 discovered
+   - **Missing key abstractions**: Important types/classes discovered in L3 but not listed
+   - **Wrong dependencies**: Dependencies described incorrectly or missing important ones
+   - **Entry points incorrect**: Main entry points changed or were misidentified
+3. If inaccuracies found: **Directly edit** \`${intermediateDir}/L1/project_context.md\` to fix the issues.
+4. If NO inaccuracies found: Leave project_context.md unchanged.
+
+### Part 1: Component Review
 1. Read all L3 analyses and L4 outputs.
 2. Check if L3/L4 revealed issues with component groupings:
    - **Split needed**: A component has multiple unrelated responsibilities
@@ -1072,8 +1176,9 @@ Produce a coherent system overview from ALL L3 analyses.
 7. Write to \`${intermediateDir}/L5/page_groups.json\`.
 
 ## Output
-1. \`${intermediateDir}/L2/component_list.json\` - Edit directly if changes needed (keep valid JSON format)
-2. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
+1. \`${intermediateDir}/L1/project_context.md\` - Edit directly if inaccuracies found (keep Markdown format)
+2. \`${intermediateDir}/L2/component_list.json\` - Edit directly if changes needed (keep valid JSON format)
+3. \`${intermediateDir}/L5/page_groups.json\` - **RAW JSON (no fences)**, page groupings
 
 **Page groups format**:
 ${mdCodeBlock}json
@@ -1081,8 +1186,8 @@ ${pageGroupsExample}
 ${mdCodeBlock}
 
 ## Constraints
-1. **Conservative updates**: Only modify component list when L3/L4 clearly indicates a problem.
-2. **Valid JSON**: component_list.json must remain a valid JSON array of {name, files, description}.
+1. **Conservative updates**: Only modify project_context.md or component_list.json when L3/L4 clearly indicates a problem.
+2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {name, files, description}.
 3. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
 4. Every page must appear exactly once across all groups.
 5. **Scope**: Only write under \`.deepwiki/\`.
@@ -1242,7 +1347,7 @@ Write files to \`${outputPath}/pages/\`.
 
                 // Initial L5 writing
                 const l5Tasks = componentsToAnalyze.map(createL5Task);
-                await runWithConcurrencyLimit(l5Tasks, DEFAULT_MAX_CONCURRENCY, `L5 Writing (Loop ${loopCount + 1})`, token);
+                await runTasksSequentially(l5Tasks, `L5 Writing (Loop ${loopCount + 1})`, token);
 
                 // ---------------------------------------------------------
                 // L5 Validator: Check for missing page files and retry if needed
@@ -1302,7 +1407,7 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
                     // Retry using the same task generator function
                     const failedComponents = componentsToAnalyze.filter(c => l5FailedPages.includes(c.name));
                     const l5RetryTasks = failedComponents.map(createL5Task);
-                    await runWithConcurrencyLimit(l5RetryTasks, DEFAULT_MAX_CONCURRENCY, `L5 Retry (Loop ${loopCount + 1})`, token);
+                    await runTasksSequentially(l5RetryTasks, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
                 }
 
@@ -1517,7 +1622,8 @@ Insert exactly:
 
 **C. Core State Transitions (stateDiagram-v2) - REQUIRED**
 - 2-3 sentence preface, then diagram.
-- Show main states and triggers only.
+- Show main states and triggers only (5-10 states max).
+- **No deep nesting**: Avoid \`state X { ... }\` composite states. Keep the diagram flat for readability.
 - Must be system-wide: represent cross-subsystem transitions that span multiple groups (use \`${intermediateDir}/L4/relationships.md\` as the primary source).
 
 ### 2. Components
@@ -1851,9 +1957,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
         mdLines.push('');
 
         const mdPath = path.join(workspaceRoot, intermediateDir, 'L1', 'existing_deepwikis.md');
-        const jsonPath = path.join(workspaceRoot, intermediateDir, 'L1', 'existing_deepwikis.json');
         await vscode.workspace.fs.writeFile(vscode.Uri.file(mdPath), new TextEncoder().encode(mdLines.join('\n')));
-        await vscode.workspace.fs.writeFile(vscode.Uri.file(jsonPath), new TextEncoder().encode(JSON.stringify(items, null, 2) + '\n'));
 
         return items;
     }
