@@ -416,8 +416,8 @@ ${mdCodeBlock}
 ]
 `;
             if (startStageIndex <= stageOrder.indexOf('L2')) {
-                const componentDraftUri = vscode.Uri.file(
-                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_draft.json')
+                const componentListUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
                 );
                 await this.runPhase(
                     'L2-A: Drafter',
@@ -452,7 +452,7 @@ Create an INITIAL draft of logical components based on **what the code does**, n
 8. Before writing, quickly sanity-check that your JSON is valid and non-empty.
 
 ## Output
-Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_draft.json\`.
+Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_list.json\`.
 
 **Format (raw JSON; no backticks, no fences)**:
 Example:
@@ -470,7 +470,7 @@ ${jsonExample}
 ` + getPipelineOverview('L2-A'),
                     token,
                     options.toolInvocationToken,
-                    [componentDraftUri],
+                    [componentListUri],
                     { maxAttempts: 3 }
                 );
 
@@ -479,19 +479,20 @@ ${jsonExample}
                 const maxL2Retries = 6;
                 let isL2Success = false;
 
+                const componentReviewUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'review_report.md')
+                );
+
                 while (l1RetryCount < maxL2Retries) {
                     logger.log('DeepWiki', `L2 Review/Refine Loop: ${l1RetryCount + 1}/${maxL2Retries}`);
 
                 const retryContextL2 = l1RetryCount > 0
-                    ? `\n\n**CONTEXT**: Previous attempt failed to produce valid JSON. Please review more carefully and ensure valid format.`
+                    ? `\n\n**CONTEXT**: Previous attempt had issues. Please review the revised component list carefully.`
                     : '';
 
 	                // ---------------------------------------------------------
 	                // Level 1-B: COMPONENT REVIEWER (Critique Only)
 	                // ---------------------------------------------------------
-                    const componentReviewUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'review_report.md')
-                    );
 	                await this.runPhase(
 	                    `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
 	                    'Critique component grouping',
@@ -499,14 +500,14 @@ ${jsonExample}
 
 ## Role
 - **Your Stage**: L2-B Reviewer (Discovery Phase - Quality Gate)
-- **Core Responsibility**: Critique L2-A's draft; identify issues but do NOT edit the draft JSON
+- **Core Responsibility**: Critique the component list; identify issues but do NOT edit the JSON
 - **Critical Success Factor**: Verify files exist and groupings make functional sense
 
 ## Goal
-CRITIQUE the draft. Do NOT fix it yourself.
+CRITIQUE the component list. Do NOT fix it yourself.
 
 ## Input
-- Read \`${intermediateDir}/L2/component_draft.json\`
+- Read \`${intermediateDir}/L2/component_list.json\`
 - **Reference**: Use file listing tools and **read file contents** to verify groupings.
 - **Excluded Roots**: Read \`${intermediateDir}/L1/existing_deepwikis.md\` and treat those directories as out of scope.
 
@@ -515,12 +516,14 @@ CRITIQUE the draft. Do NOT fix it yourself.
    - Are files that work together grouped together?
    - Are unrelated files incorrectly grouped just because they share a directory?
 2. **Verification**: Read sample files to verify they actually belong together.
-3. **File Existence Check**: Verify ALL file paths in the draft actually exist. Flag any non-existent files.
+3. **File Existence Check**: Verify ALL file paths in the component list actually exist. Flag any non-existent files.
 4. **Scope Check**: If any file path is under an excluded root, flag it as out-of-scope and request removal.
 5. Check for missing core files or included noise.${retryContextL2}
 
 ## Output
-Write a critique report to \`${intermediateDir}/L2/review_report.md\` (point out what to change and why).
+Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
+- If there are issues to fix, list them clearly.
+- **If the component list passes all checks with no issues**, write \`APPROVED\` as the first line of the report.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
@@ -533,12 +536,38 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\` (point out
 	                    { maxAttempts: 3 }
 	                );
 
+                // ---------------------------------------------------------
+                // Check review result
+                // ---------------------------------------------------------
+                const reviewContent = new TextDecoder().decode(
+                    await vscode.workspace.fs.readFile(componentReviewUri)
+                );
+                const isApproved = reviewContent.trim().toUpperCase().startsWith('APPROVED');
+
+                if (isApproved) {
+                    // Review passed - validate JSON and exit
+                    const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
+                    try {
+                        const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
+                        const contentStr = new TextDecoder().decode(fileListContent);
+                        componentList = this.parseJson<ComponentDef[]>(contentStr);
+
+                        if (!Array.isArray(componentList) || componentList.length === 0) {
+                            throw new Error('Parsed JSON is not a valid array or is empty.');
+                        }
+
+                        logger.log('DeepWiki', `L2 Success: Review approved. Identified ${componentList.length} logical components.`);
+                        isL2Success = true;
+                        break;
+                    } catch (e) {
+                        logger.error('DeepWiki', `L2 JSON validation failed despite approval: ${e}`);
+                        // Continue to refiner to fix JSON issues
+                    }
+                }
+
 	                // ---------------------------------------------------------
 	                // Level 1-C: COMPONENT REFINER (Fix & Finalize)
 	                // ---------------------------------------------------------
-                    const componentListUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
-                    );
 	                await this.runPhase(
 	                    `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
 	                    'Refine component list based on review',
@@ -546,20 +575,20 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\` (point out
 
 ## Role
 - **Your Stage**: L2-C Refiner (Discovery Phase - Final Output)
-- **Core Responsibility**: Merge L2-A draft with L2-B feedback into validated JSON
+- **Core Responsibility**: Apply L2-B feedback to the component list and produce validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
 
 ## Goal
-Create the FINAL component list.
+Refine the component list based on review feedback.
 
 ## Input
-- Draft: \`${intermediateDir}/L2/component_draft.json\`
+- Component List: \`${intermediateDir}/L2/component_list.json\`
 - Review: \`${intermediateDir}/L2/review_report.md\`
 - Excluded Roots: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
 ## Workflow
-1. Read the Draft and the Review Report.
-2. Apply the suggested fixes to the component list.
+1. Read the Component List and the Review Report.
+2. Apply the suggested fixes from the review to the component list.
 3. Remove any file paths that fall under excluded roots (already documented elsewhere).
 4. Ensure: (a) no missing core files, (b) no duplicates, (c) each component has a clear purpose.
 5. Produce valid JSON.${retryContextL2}
@@ -582,7 +611,7 @@ Create the FINAL component list.
 	                );
 
                 // ---------------------------------------------------------
-                // Check JSON validity
+                // Check JSON validity after refinement
                 // ---------------------------------------------------------
                 const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
                 try {
@@ -594,13 +623,12 @@ Create the FINAL component list.
                         throw new Error('Parsed JSON is not a valid array or is empty.');
                     }
 
-                    logger.log('DeepWiki', `L2 Success: Identified ${componentList.length} logical components.`);
-                    isL2Success = true;
-                    break; // Exit loop on success
+                    logger.log('DeepWiki', `L2 Refinement produced valid JSON with ${componentList.length} components. Re-reviewing...`);
+                    // Continue loop to re-review the refined result
                 } catch (e) {
                     logger.error('DeepWiki', `L2 Attempt ${l1RetryCount + 1} Failed: ${e}`);
-                    l1RetryCount++;
                 }
+                l1RetryCount++;
                 }
 
                 if (!isL2Success) {
