@@ -86,7 +86,7 @@ Identifies and groups files into logical components. Uses L1 context to understa
 -   **L2-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L1 project context.
 -   **L2-B Reviewer**: Critiques the draft and writes a review report (`review_report.md`). **Verifies against the ACTUAL file system structure.**
 -   **L2-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
-    -   *Self-Correction Loop*: L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
+    -   *Self-Correction Loop*: L2-C refinements are **always re-reviewed by L2-B** to ensure quality. L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
 ### 3. Level 3: ANALYZER
 Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and produces analysis artifacts for later synthesis.
@@ -138,11 +138,16 @@ Final integrity pass over generated docs: removes intermediate references/placeh
 3.  Type: `@workspace #createDeepWiki`
 4.  The tool will orchestrate agents to generate documentation in the `.deepwiki` folder.
 
-### Resume / Start From Stage
+### Tool Parameters
 
-You can resume from a specific stage by passing tool input:
-- `startFromStage`: one of `L1`..`L9` (default: `L1`)
-- `outputPath`: output directory (default: `.deepwiki`)
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `fileEditToolName` | **Yes** | Name of the file edit tool available to subagents (e.g., `apply_patch`, `replace_string_in_file`). |
+| `outputPath` | No | Output directory (default: `.deepwiki`). |
+| `startFromStage` | No | Resume from a specific stage: `L1`..`L9` (default: `L1`). |
+| `mermaidValidatorToolName` | No | Name of a Mermaid syntax validator tool (e.g., `mcp__mermaid__validate`). If provided, subagents will validate all Mermaid diagrams using this tool. |
+
+### Resume / Start From Stage
 
 When `startFromStage` is not `L1`, earlier stages are skipped and existing artifacts under `outputPath` are reused (no cleanup).
 
