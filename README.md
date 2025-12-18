@@ -75,11 +75,12 @@ stateDiagram-v2
 Analyzes the project structure, build system, and conditional code patterns before component discovery:
 -   **Project Type**: Identifies languages, frameworks, and project structure
 -   **Build System**: Detects Makefile, CMake, npm, Cargo, Gradle, etc.
+-   **External Interfaces**: Documents input interfaces (CLI, API, config files), output interfaces (generated files, responses), and external system integrations (databases, APIs, services). This establishes system boundaries early for all downstream stages.
 -   **Conditional Patterns**: Finds `#ifdef`, `process.env` checks, feature flags
 -   **Excluded Code**: Identifies vendor/, generated/, third_party/ paths
 -   **Output**: `project_context.md` for downstream agents to reference
 
-This phase enables DeepWiki to be aware of build configurations and feature flags.
+This phase enables DeepWiki to be aware of build configurations, feature flags, and system boundaries.
 
 ### 2. Level 2: DISCOVERER (Component Grouping & Refinement)
 Identifies and groups files into logical components. Uses L1 context to understand project structure. This stage uses a 3-step internal process:
@@ -121,7 +122,8 @@ Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, c
 ### 8. Level 7: Indexer
 Compiles the landing page (`README.md`) with:
 -   **One-Line Summary**: Single sentence describing the entire system
--   **System Context**: C4Context diagram showing external interactions
+-   **System Context**: C4Context diagram showing external actors/systems that interact with the target system (users, APIs, databases, etc.). This establishes the system boundary clearly.
+-   **External Interfaces**: Brief listing of input interfaces (CLI, API, config), output interfaces (generated files, responses), and dependencies (external services). Helps readers understand system boundaries before exploring internals.
 -   **Core State Transitions**: stateDiagram-v2 showing the fundamental state machine
 -   **Components (Chapters)**: Grouped chapters with descriptions and links to all generated pages
 
