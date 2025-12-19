@@ -294,15 +294,16 @@ ${existingDeepWikisNote}
 1. Detect project type, languages, build system → write "## Overview"
 2. Identify main entry points (main functions, index files, CLI commands) → write "## Entry Points"
 3. Detect architectural patterns (MVC, Clean Architecture, Pipeline, etc.) → write "## Architecture Pattern"
-4. **Extract project-specific vocabulary** (domain terms, abbreviations, project-specific concepts) → for each term, **read surrounding code broadly** to understand actual usage → write "## Vocabulary"
-5. List key external dependencies and their purposes → write "## Key Dependencies"
-6. Identify coding conventions (naming, file organization) → write "## Code Conventions"
-7. List key abstractions (main classes, interfaces, types) → write "## Key Abstractions"
-8. Identify target environments (runtime/platforms) → write "## Target Environments"
-9. Find conditional patterns/feature flags (e.g., \`#ifdef\`, \`process.env\`) → write "## Conditional Code Patterns"
-10. List generated/vendor/test/excluded code paths → write "## Generated/Excluded Code"
-11. Add any analysis notes that affect interpretation → write "## Notes for Analysis"
-12. Quick self-check: all sections are filled and grounded in actual files.
+4. **Identify external interfaces** (how the system interacts with the outside world) → write "## External Interfaces"
+5. **Extract project-specific vocabulary** (domain terms, abbreviations, project-specific concepts) → for each term, **read surrounding code broadly** to understand actual usage → write "## Vocabulary"
+6. List key external dependencies and their purposes → write "## Key Dependencies"
+7. Identify coding conventions (naming, file organization) → write "## Code Conventions"
+8. List key abstractions (main classes, interfaces, types) → write "## Key Abstractions"
+9. Identify target environments (runtime/platforms) → write "## Target Environments"
+10. Find conditional patterns/feature flags (e.g., \`#ifdef\`, \`process.env\`) → write "## Conditional Code Patterns"
+11. List generated/vendor/test/excluded code paths → write "## Generated/Excluded Code"
+12. Add any analysis notes that affect interpretation → write "## Notes for Analysis"
+13. Quick self-check: all sections are filled and grounded in actual files.
 
 ## Output
 Write Markdown to \`${intermediateDir}/L1/project_context.md\` using this structure (example only; do not wrap the whole file in fences):
@@ -324,6 +325,24 @@ ${mdCodeBlock}markdown
 - **Pattern**: ... (e.g., MVC, Clean Architecture, Pipeline, Microservices)
 - **Evidence**: ... (files/structures that demonstrate this pattern)
 - **Key Layers/Stages**: ... (if applicable)
+
+## External Interfaces
+> **Purpose**: Document how the system interacts with external actors and systems. This helps readers understand system boundaries before exploring internal components.
+
+### Input Interfaces (how external actors provide data/commands to the system)
+| Interface | Type | Description |
+|-----------|------|-------------|
+| ... | CLI / API / Config / UI / Message Queue / etc. | ... |
+
+### Output Interfaces (how the system delivers results to external actors)
+| Interface | Type | Description |
+|-----------|------|-------------|
+| ... | File / API Response / Database Write / Event / etc. | ... |
+
+### External System Integrations
+| System | Type | Purpose |
+|--------|------|---------|
+| ... | Database / API / Service / File System / etc. | ... |
 
 ## Vocabulary
 > **Purpose**: Define project-specific terms based on HOW they are actually used in this codebase.
@@ -1645,10 +1664,20 @@ Insert exactly:
 **B. System Context (C4Context) - REQUIRED**
 - 2-3 sentence preface, then diagram.
 - High-level only (5-7 nodes).
+- **External actors/systems are REQUIRED**: The diagram MUST show what external entities interact with this system (users, external APIs, databases, file systems, other services, etc.). This is the primary purpose of a C4 Context diagram.
+- Place the target system(s) in the center, surrounded by external actors and systems that interact with it.
 - Must describe the whole system/repo: include the major subsystems/groups from \`${intermediateDir}/L5/page_groups.json\` (not just one subproject).
 - If the repo has multiple deliverables (e.g., extension + CLI + server), the diagram must include each deliverable as a top-level node (even if simplified).
 
-**C. Core State Transitions (stateDiagram-v2) - REQUIRED**
+**C. External Interfaces - REQUIRED**
+After the System Context diagram, add a brief section (3-6 bullet points) listing the primary external interfaces:
+- **Input interfaces**: How external actors provide data/commands to the system (CLI args, API endpoints, config files, UI, message queues, etc.)
+- **Output interfaces**: How the system delivers results to external actors (files generated, API responses, database writes, notifications, etc.)
+- **Dependencies**: External systems/services the system relies on (databases, third-party APIs, runtime environments, etc.)
+- **Source**: Use \`${intermediateDir}/L1/project_context.md\` (## External Interfaces section) as the primary reference, supplemented by L3/L4 analysis.
+This section helps readers understand the system boundaries before diving into internal components.
+
+**D. Core State Transitions (stateDiagram-v2) - REQUIRED**
 - 2-3 sentence preface, then diagram.
 - Show main states and triggers only (5-10 states max).
 - **No deep nesting**: Avoid \`state X { ... }\` composite states. Keep the diagram flat for readability.
@@ -1673,6 +1702,8 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ### 3. Quick self-check
 - Both diagrams present and render.
+- **System Context diagram includes external actors/systems** (not just internal components). A reader should immediately understand what interacts with this system from outside.
+- **External Interfaces section is present** with Input/Output/Dependencies clearly listed.
 - Diagrams describe the system as a whole (not a single component/group).
 - Title + one-line summary reflect the whole repo (sanity check: can a reader infer at least 2-3 top groups' purposes from them? If not, rewrite to be broader).
 - Components list matches component_list exactly (1 component = 1 page).
