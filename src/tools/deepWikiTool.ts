@@ -470,6 +470,25 @@ Create an INITIAL draft of logical components based on **what the code does**, n
 7. **Verify each file exists** before adding it to the files array.
 8. Before writing, quickly sanity-check that your JSON is valid and non-empty.
 
+## Granularity Guidelines (CRITICAL)
+**IMPORTANT**: Follow these guidelines to ensure appropriate component granularity:
+
+1. **Prefer fine-grained components**: Create more, smaller components rather than fewer, larger ones.
+   - A component should represent ONE cohesive concept (e.g., "Authentication", "User API", "Config Loader")
+   - If a component has more than 10-15 files, consider splitting it by sub-feature or responsibility
+
+2. **One responsibility per component**: Each component should have a SINGLE clear purpose.
+   - BAD: "API" containing auth, users, payments, etc.
+   - GOOD: "Auth_API", "Users_API", "Payments_API" as separate components
+
+3. **Avoid over-grouping by directory**: Don't combine unrelated files just because they share a parent folder.
+   - Files in src/utils/ might belong to DIFFERENT components based on what they support
+
+4. **Target component count**: For a medium-sized project (50-200 source files):
+   - Expect 30-80 components typically
+   - If you're generating fewer than 20 components for a large project, you're likely over-grouping
+   - Each significant feature, module, or subsystem should have its own component(s)
+
 ## Output
 Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_list.json\`.
 
@@ -538,6 +557,13 @@ CRITIQUE the component list. Do NOT fix it yourself.
 3. **File Existence Check**: Verify ALL file paths in the component list actually exist. Flag any non-existent files.
 4. **Scope Check**: If any file path is under an excluded root, flag it as out-of-scope and request removal.
 5. Check for missing core files or included noise.${retryContextL2}
+
+## Granularity Review (CRITICAL)
+- **DO NOT suggest merging components** unless they have the EXACT SAME responsibility
+- If a component seems too large (>10-15 files), suggest SPLITTING it
+- Coupling between components is NORMAL and expected - do NOT suggest merging coupled components
+- Prefer more, smaller components over fewer, larger ones
+- If the component count seems low for the project size, suggest adding more fine-grained components
 
 ## Output
 Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
@@ -611,6 +637,13 @@ Refine the component list based on review feedback.
 3. Remove any file paths that fall under excluded roots (already documented elsewhere).
 4. Ensure: (a) no missing core files, (b) no duplicates, (c) each component has a clear purpose.
 5. Produce valid JSON.${retryContextL2}
+
+## Granularity Guidelines (CRITICAL)
+- **NEVER reduce the number of components** unless L2-B explicitly identified a duplicate component
+- If L2-B suggests splitting a large component, DO split it into multiple smaller components
+- Tight coupling is NOT a reason to merge - keep components separate
+- Each component should focus on ONE responsibility - if unsure, keep them separate
+- More pages is better than fewer pages for documentation completeness
 
 ## Output
 - Write the FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L2/component_list.json\`.
@@ -1210,12 +1243,19 @@ Produce a coherent system overview from ALL L3 analyses.
 ### Part 1: Component Review
 1. Read all L3 analyses and L4 outputs.
 2. Check if L3/L4 revealed issues with component groupings:
-   - **Split needed**: A component has multiple unrelated responsibilities
-   - **Merge needed**: Two components are tightly coupled (per L4 relationships)
+   - **Split needed**: A component has multiple unrelated responsibilities → SPLIT IT (preferred action)
+   - **Merge needed**: ONLY merge if two components are almost identical in purpose (very rare!)
    - **Files missing**: L3 discovered important files not in the component
    - **Wrong grouping**: A file belongs to a different component
 3. If changes needed: **Directly edit** \`${intermediateDir}/L2/component_list.json\` to fix the issues.
 4. If NO changes needed: Leave component_list.json unchanged.
+
+**CRITICAL - Granularity Preservation**:
+- **DO NOT reduce the number of components unless absolutely necessary**
+- Prefer SPLITTING over MERGING - more pages is better than fewer pages
+- Tight coupling between components is NORMAL - it does NOT justify merging them
+- A component calling another component is NOT a reason to merge
+- Only merge if two components have the EXACT SAME responsibility (very rare)
 
 ### Part 2: Page Grouping
 5. Read \`${intermediateDir}/L2/component_list.json\` (use the updated version if you modified it).
