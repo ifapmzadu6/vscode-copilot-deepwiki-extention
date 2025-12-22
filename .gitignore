@@ -163,3 +163,9 @@ vscode_defs.d.ts
 
 # VSIX package files
 *.vsix
+
+# gemini-cli settings
+.gemini/
+
+# GitHub App credentials
+gha-creds-*.json
