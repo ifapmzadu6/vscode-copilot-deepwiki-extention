@@ -489,6 +489,10 @@ Create an INITIAL draft of logical components based on **what the code does**, n
    - If you're generating fewer than 20 components for a large project, you're likely over-grouping
    - Each significant feature, module, or subsystem should have its own component(s)
 
+5. **Coverage**: Ensure ALL significant source files are included in at least one component. Don't leave orphaned files.
+
+6. **Intra-file components**: A single file CAN appear in multiple components if it contains multiple independent abstractions (e.g., a file with unrelated utility classes or multiple feature implementations). Create separate components for each distinct responsibility within such files.
+
 ## Output
 Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_list.json\`.
 
@@ -556,7 +560,9 @@ CRITIQUE the component list. Do NOT fix it yourself.
 2. **Verification**: Read sample files to verify they actually belong together.
 3. **File Existence Check**: Verify ALL file paths in the component list actually exist. Flag any non-existent files.
 4. **Scope Check**: If any file path is under an excluded root, flag it as out-of-scope and request removal.
-5. Check for missing core files or included noise.${retryContextL2}
+5. Check for missing core files or included noise.
+6. **Coverage Check**: Scan the project's source directories and verify that all significant source files are included in at least one component. Flag any orphaned files that should be covered.
+7. **Intra-file Component Detection**: When reading files, check if a single file contains multiple **independent, high-level abstractions** (e.g., multiple unrelated classes, separate feature implementations, or distinct utility groups). If so, suggest splitting these into separate components - the same file CAN appear in multiple components if it contains multiple distinct responsibilities.${retryContextL2}
 
 ## Granularity Review (CRITICAL)
 - **DO NOT suggest merging components** unless they have the EXACT SAME responsibility
@@ -635,7 +641,7 @@ Refine the component list based on review feedback.
 1. Read the Component List and the Review Report.
 2. Apply the suggested fixes from the review to the component list.
 3. Remove any file paths that fall under excluded roots (already documented elsewhere).
-4. Ensure: (a) no missing core files, (b) no duplicates, (c) each component has a clear purpose.
+4. Ensure: (a) no missing core files, (b) no duplicate component names, (c) each component has a clear purpose. Note: The same file CAN appear in multiple components.
 5. Produce valid JSON.${retryContextL2}
 
 ## Granularity Guidelines (CRITICAL)
@@ -644,6 +650,8 @@ Refine the component list based on review feedback.
 - Tight coupling is NOT a reason to merge - keep components separate
 - Each component should focus on ONE responsibility - if unsure, keep them separate
 - More pages is better than fewer pages for documentation completeness
+- **Coverage**: If L2-B flags orphaned files, add them to appropriate components or create new components for them
+- **Intra-file components**: The same file CAN appear in multiple components if it contains distinct responsibilities. Do NOT remove a file from one component just because it appears in another
 
 ## Output
 - Write the FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L2/component_list.json\`.
