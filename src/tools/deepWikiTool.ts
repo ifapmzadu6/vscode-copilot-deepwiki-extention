@@ -562,7 +562,8 @@ CRITIQUE the component list. Do NOT fix it yourself.
 4. **Scope Check**: If any file path is under an excluded root, flag it as out-of-scope and request removal.
 5. Check for missing core files or included noise.
 6. **Coverage Check**: Scan the project's source directories and verify that all significant source files are included in at least one component. Flag any orphaned files that should be covered.
-7. **Intra-file Component Detection**: When reading files, check if a single file contains multiple **independent, high-level abstractions** (e.g., multiple unrelated classes, separate feature implementations, or distinct utility groups). If so, suggest splitting these into separate components - the same file CAN appear in multiple components if it contains multiple distinct responsibilities.${retryContextL2}
+7. **Intra-file Component Detection**: When reading files, check if a single file contains multiple **independent, high-level abstractions** (e.g., multiple unrelated classes, separate feature implementations, or distinct utility groups). If so, suggest splitting these into separate components - the same file CAN appear in multiple components if it contains multiple distinct responsibilities.
+8. **Granularity Consistency Check**: When you identify intra-file components in one file, check **similar files** (e.g., other files in the same directory or with similar structure) at the same granularity level. If one utils file is split by class/function group, verify other utils files are analyzed with the same granularity - inconsistent granularity often leads to missing components.${retryContextL2}
 
 ## Granularity Review (CRITICAL)
 - **DO NOT suggest merging components** unless they have the EXACT SAME responsibility
