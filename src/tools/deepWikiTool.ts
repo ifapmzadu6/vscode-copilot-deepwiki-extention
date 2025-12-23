@@ -1285,7 +1285,7 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Conservative updates**: Only modify project_context.md or component_list.json when L3/L4 clearly indicates a problem.
-2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {name, files, description}.
+2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {name, displayTitle?, files, description}. Preserve existing \`displayTitle\` values if present.
 3. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
 4. Every page must appear exactly once across all groups.
 5. **Scope**: Only write under \`.deepwiki/\`.
@@ -1572,7 +1572,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
      - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component names so the pipeline can regenerate them.`}
 
 3. **Page-by-Page Review (Incremental)**
-   For EACH existing page (where pageName == component name), perform the following sub-steps IN ORDER:
+   For EACH existing page (filename derived from \`name\`, H1 heading from \`displayTitle\` or \`name\`), perform the following sub-steps IN ORDER:
 
    a. **Read and Check**
       - Read the page file
