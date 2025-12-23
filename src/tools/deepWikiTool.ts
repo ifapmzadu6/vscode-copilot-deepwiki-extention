@@ -198,7 +198,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             : '';
 
         // Define ComponentDef interface globally within invoke scope
-        interface ComponentDef { name: string; files: string[]; description: string }
+        // - name: used for file naming (immutable once set)
+        // - displayTitle: optional user-facing title for page headings and links (can be changed mid-pipeline)
+        interface ComponentDef { name: string; displayTitle?: string; files: string[]; description: string }
 
         const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
             const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePathFromWorkspace));
@@ -1382,7 +1384,9 @@ ${mdCodeBlock}
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
 ## Input
-- Assigned Component: ${JSON.stringify({ name: component.name, files: component.files, description: component.description })}
+- Assigned Component: ${JSON.stringify({ name: component.name, displayTitle: component.displayTitle, files: component.files, description: component.description })}
+  - \`name\`: Used for file naming (e.g., \`pages/{name}.md\`) - DO NOT change
+  - \`displayTitle\`: If present, use this as the page's H1 heading instead of \`name\`
 - For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for:
   - **Vocabulary**: Use these exact terms consistently in your documentation
@@ -1390,7 +1394,7 @@ ${mdCodeBlock}
 
 ## Workflow
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
-2. For EACH assigned component: Create \`${outputPath}/pages/{ComponentName}.md\` with the page title and Overview section
+2. For EACH assigned component: Create \`${outputPath}/pages/{name}.md\` (use \`name\` for filename, but use \`displayTitle\` if present for the H1 heading)
 3. Read the L3 analysis for that component
 4. Synthesize and consolidate L3 content into a reader-friendly page.
    - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
@@ -1534,7 +1538,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Input
 - Read generated pages in \`${outputPath}/pages/\`
 - Read relevant L3 analysis files in \`${intermediateDir}/L3/\` for each page's components
-- Read \`${intermediateDir}/L2/component_list.json\` to map pageName ↔ component ↔ source files (pageName == component name)
+- Read \`${intermediateDir}/L2/component_list.json\` to map pageName ↔ component ↔ source files
+  - \`name\`: Used for file naming (e.g., \`pages/{name}.md\`)
+  - \`displayTitle\`: If present, the page's H1 heading should match this instead of \`name\`
 
 ## Workflow (Incremental Write Pattern - MANDATORY)
 
@@ -1571,6 +1577,10 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    a. **Read and Check**
       - Read the page file
       - Check ALL of the following:
+        - **Page Title Clarity**: Check if the page's H1 heading (derived from \`name\` or \`displayTitle\`) is clear and user-friendly.
+          - If the current title is unclear, too technical, or could be improved: add/update \`displayTitle\` in \`${intermediateDir}/L2/component_list.json\` for that component.
+          - Update the page's H1 heading to match the new \`displayTitle\`.
+          - Example: If \`name\` is "Auth_OAuth2_PKCE" but a clearer title would be "OAuth2 認証 (PKCE)", set \`displayTitle\` to "OAuth2 認証 (PKCE)".
         - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
         - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
         - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
@@ -1586,6 +1596,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         \`\`\`markdown
         ### {PageName}.md
         - Status: {OK / Issues Found}
+        - Title: {OK / Updated displayTitle to "..."}
         - File Structure: {OK / Fixed / N/A}
         - Placeholders: {None found / Removed: ...}
         - Element use cases: {OK / Added / N/A}
@@ -1689,6 +1700,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - \`${intermediateDir}/L2/component_list.json\` (source of truth for pages; 1 component = 1 page)
+  - \`name\`: Used for file path (e.g., \`pages/{name}.md\`)
+  - \`displayTitle\`: If present, use this as link text instead of \`name\`
 - \`${intermediateDir}/L5/page_groups.json\` (source of truth for README grouping; created by L5-G)
 - All files under \`${outputPath}/pages/\`
 - Existing nested DeepWikis list: \`${intermediateDir}/L1/existing_deepwikis.md\`
@@ -1742,7 +1755,8 @@ For EACH group, create a chapter with this shape:
   - How it relates to other groups at a high level (1-2 sentences max)
   - Where a new reader should start (name 1-2 pages as the recommended entry points)
 - Pages list: include ALL pages in this group, each as:
-  - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
+  - Link text: Use \`displayTitle\` if present, otherwise use \`name\`
+  - Link target: Always use \`name\` for the file path (e.g., \`[DisplayTitle](pages/Name.md)\` or \`[DisplayTitle](<pages/Name With Spaces.md>)\`)
   - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component (or a conservative summary from the page itself).
 - Do NOT add source-code links in the README. Keep navigation focused on the generated pages (\`pages/*.md\`); detailed code entry points belong inside each page if needed.
 
