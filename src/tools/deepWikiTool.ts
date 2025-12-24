@@ -1456,6 +1456,55 @@ If you split "## Internal Mechanics Details" into element subsections (e.g., \`#
 **Element-Level Use Cases**:
 If you split "## Internal Mechanics Details" into element subsections, include a short use case explanation inside each element subsection (under "##### Use Cases").
 
+## Content Quality Requirements
+
+### Minimum Content Depth
+To ensure pages are detailed and useful, each section must meet these minimum requirements:
+
+**## Summary** (2-3 substantial paragraphs minimum):
+- **Paragraph 1 (3-5 sentences)**: What this component/module does, its primary purpose and responsibility in the system
+- **Paragraph 2 (3-5 sentences)**: Key architectural decisions, design patterns used, and why they were chosen
+- **Paragraph 3 (2-4 sentences)**: High-level context of where this fits in the overall system
+
+**## Use Cases** (3-5 concrete use cases minimum):
+- Each use case must include:
+  - When/why to use this (triggering conditions, context)
+  - Step-by-step workflow or example scenario (3-5 steps)
+  - Expected outcomes and side effects
+- Use cases should cover common scenarios, edge cases, and "when NOT to use" guidance
+
+**## Internal Mechanics Details** (substantial content):
+- Explain not just WHAT the code does, but WHY it does it that way
+- For each major component/module/class:
+  - Purpose and responsibility (2-3 sentences)
+  - How it works internally (causal flow with specific function/method names)
+  - State management approach (if applicable)
+  - Key algorithms or logic patterns (2-4 sentences each)
+- Include at least 1-2 code flow examples tracing through actual function calls
+- Minimum 4-6 substantial paragraphs for this section overall
+
+**## External Interface** (comprehensive API documentation):
+- For each public method/function/event:
+  - Purpose and when to call it (2-3 sentences)
+  - Parameters with types and descriptions
+  - Return value and its meaning
+  - Side effects or state changes it triggers
+  - Related methods or typical call sequences
+- Use tables for quick reference, but add prose explanations after tables
+
+**Element-Level Subsections** (if splitting Internal Mechanics):
+- Each element must have consistent level of detail
+- If one element gets 3 paragraphs of explanation, ALL elements should get 2-4 paragraphs
+- Each element must include: use cases (3+ bullets), mechanics (2-3 paragraphs), state diagram
+
+### Consistency Guidelines
+**Granularity**: All components/modules/elements at the same hierarchical level should receive similar depth of coverage:
+- If explaining one service with 3 methods in detail, explain ALL services with similar detail
+- If one element has a 5-step workflow explanation, others should have 3-7 step explanations (similar scale)
+- Avoid mixing high-level summaries with low-level implementation details in the same section
+
+**Completeness**: Do NOT skip sections or use placeholders. Every section in the template must be filled with actual content.
+
 ### Template
 ` + pageTemplate + `
 
@@ -1622,6 +1671,17 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
         - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
         - **Intermediate Links**: Check for any references to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.)
+        - **Content Depth**: Verify each section meets minimum content requirements:
+          - Summary: 2-3 substantial paragraphs (check paragraph count and sentence count)
+          - Use Cases: 3-5 concrete use cases with detailed explanations (not just bullet points)
+          - Internal Mechanics Details: 4-6 substantial paragraphs minimum, with specific function/method names and causal explanations
+          - External Interface: Detailed explanation for each API, not just tables
+          - If a section is too shallow (e.g., only 1-2 sentences, vague descriptions, missing details), this is a MAJOR ISSUE requiring retry
+        - **Granularity Consistency**: Verify consistent level of detail across all elements:
+          - If the page has multiple components/modules/elements, check that they all receive similar depth of coverage
+          - Count paragraphs/sentences for each element - they should be within similar range (e.g., if one element has 3 paragraphs, others should have 2-4)
+          - Check that all elements have similar structure (use cases, mechanics explanation, diagrams)
+          - Mixing 1-sentence summaries with 5-paragraph detailed explanations is inconsistent and requires retry
 
    b. **Write Review Result (IMMEDIATELY after each page check)**
       - **IMMEDIATELY** append this page's review result to \`${intermediateDir}/L6/review_report.md\`:
@@ -1637,12 +1697,18 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - Links: {OK / Fixed: ...}
         - Formatting: {OK / Fixed: ...}
         - Intermediate links: {None / Removed: ...}
+        - Content depth: {OK / INSUFFICIENT - specify which sections are too shallow}
+        - Granularity consistency: {OK / INCONSISTENT - specify which elements have uneven detail}
         \`\`\`
       - Use \`${editToolNameForPrompt}\` to write this section NOW.
 
    c. **Fix Issues (if any)**
-      - If issues were found, fix them in the page file using \`${editToolNameForPrompt}\`.
-      - Only proceed to the next page AFTER writing the review result AND fixing issues.
+      - **Minor issues** (formatting, broken links, missing diagrams, placeholders): Fix directly in the page file using \`${editToolNameForPrompt}\`.
+      - **Major issues** requiring retry (add component id to retry list):
+        - Content depth: Multiple sections are too shallow (e.g., Summary has only 1 paragraph, Use Cases has only 1-2 items, Internal Mechanics has only 1-2 paragraphs)
+        - Granularity consistency: Significant imbalance in detail level (e.g., one element has 5 paragraphs, another has 1 sentence)
+        - Fundamental accuracy problems that cannot be fixed by simple edits
+      - Only proceed to the next page AFTER writing the review result AND fixing minor issues (or noting major issues for retry).
 
 4. **Final Summary and Verdict**
    - After ALL pages are reviewed, append a final summary to \`${intermediateDir}/L6/review_report.md\`:
