@@ -514,7 +514,7 @@ ${jsonExample}
 ## Constraints
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
+3. **Chat Final Response**: Keep your chat reply to 1-2 sentences MAXIMUM (e.g., "Draft written with X components."). NEVER include JSON, file lists, or file contents in your chat response - write them only to the output file.
 4. **Naming**: Use filename-safe values for \`id\` (no \`/\`, no spaces). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\`.
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
@@ -572,7 +572,7 @@ CRITIQUE the component list. Do NOT fix it yourself.
 5. Check for missing core files or included noise.
 6. **Coverage Check**: Scan the project's source directories and verify that all significant source files are included in at least one component. Flag any orphaned files that should be covered.
 7. **Intra-file Component Detection**: When reading files, check if a single file contains multiple **independent, high-level abstractions** (e.g., multiple unrelated classes, separate feature implementations, or distinct utility groups). If so, suggest splitting these into separate components - the same file CAN appear in multiple components if it contains multiple distinct responsibilities.
-8. **Granularity Consistency Check**: When you identify intra-file components in one file, check **similar files** (e.g., other files in the same directory or with similar structure) at the same granularity level. If one utils file is split by class/function group, verify other utils files are analyzed with the same granularity - inconsistent granularity often leads to missing components.${retryContextL2}
+8. **Granularity Consistency Check**: When you identify intra-file components in one file, **spot-check 2-3 similar files** (e.g., other files in the same directory) at the same granularity level. If one utils file is split by class/function group, verify a few other utils files are analyzed similarly - but do NOT exhaustively check every file.${retryContextL2}
 
 ## Granularity Review (CRITICAL)
 - **DO NOT suggest merging components** unless they have the EXACT SAME responsibility
@@ -582,13 +582,16 @@ CRITIQUE the component list. Do NOT fix it yourself.
 - If the component count seems low for the project size, suggest adding more fine-grained components
 
 ## Output
-Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
-- If there are issues to fix, list them clearly.
+Write a **concise** critique report to \`${intermediateDir}/L2/review_report.md\`:
 - **If the component list passes all checks with no issues**, write \`APPROVED\` as the first line of the report.
+- If there are issues to fix, list them clearly but **briefly** (one line per issue, max 20 issues).
+- **DO NOT include file contents, code snippets, or detailed file analysis in the report** - only list the issue and suggested fix.
+- Keep the entire report under 100 lines.
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Output Size**: The review report must be concise - focus on actionable issues only, not comprehensive analysis.
 
 ` + getPipelineOverview('L2-B'),
 	                    token,
@@ -670,7 +673,7 @@ Refine the component list based on review feedback.
 ## Constraints
 1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-3. **Chat Final Response**: Keep your chat reply brief (e.g., "List finalized."). Do not include JSON or file contents.
+3. **Chat Final Response**: Keep your chat reply to 1-2 sentences MAXIMUM (e.g., "List finalized with X components."). NEVER include JSON, file lists, or file contents in your chat response - write them only to the output file.
 4. **ID/Name**: The \`id\` must be filename-safe (no \`/\`, no spaces). Use \`_\` as a separator. Set \`id\` and \`name\` to the same value (L4 may refine \`name\` later).
 
 ` + getPipelineOverview('L2-C'),
