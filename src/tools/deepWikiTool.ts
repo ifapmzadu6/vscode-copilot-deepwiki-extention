@@ -172,6 +172,31 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
 	`;
 
+            // Deep Thinking Protocol: Enhances subagent reasoning by utilizing the "scratchpad" pattern.
+            // Subagent text output before tool calls is discarded from user view but remains in context,
+            // allowing detailed internal reasoning without cluttering the final output.
+            const getDeepThinkingProtocol = () => `
+
+## Deep Thinking Protocol (IMPORTANT)
+Your text output before each tool call is invisible to users but remains in YOUR context. Use this as a "scratchpad" to maximize reasoning quality:
+
+### Before EACH Tool Call
+1. **Situation Analysis**: Describe current state and what you're trying to accomplish
+2. **Hypotheses** (generate 3): List three possible approaches or interpretations
+3. **Decision**: Choose the best hypothesis and explain why
+
+### After EACH Tool Result
+1. **Reflection**: Was your hypothesis correct? What did you learn?
+2. **Adjustment**: How does this change your next action?
+
+### Final Output
+- Keep your final chat response brief and polished (e.g., "Task completed.")
+- All detailed reasoning stays in your pre-tool-call text (which is discarded from user view)
+- Do NOT include your thinking process in files you write
+
+This protocol improves accuracy by forcing explicit reasoning before actions.
+
+`;
 
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
@@ -287,7 +312,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 - **Your Stage**: L1 Analyzer (Pre-Discovery)
 - **Core Responsibility**: Capture project type, build system, architecture, vocabulary, and conditional/active code patterns
 - **Critical Success Factor**: Downstream agents must rely on this to maintain consistent terminology, avoid documenting inactive/generated code, and understand the project's structure
-
+` + getDeepThinkingProtocol() + `
 ## Goal
 Create a comprehensive project context document that serves as the single source of truth for all downstream stages. This document ensures consistent terminology and accurate understanding of the codebase.
 ${existingDeepWikisNote}
@@ -450,7 +475,7 @@ ${mdCodeBlock}
 - **Your Stage**: L2-A Drafter (Discovery Phase - First Pass)
 - **Core Responsibility**: Propose an initial logical component grouping based on functionality
 - **Critical Success Factor**: Group files that truly work together as one unit
-
+` + getDeepThinkingProtocol() + `
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` thoroughly. Pay special attention to:
   - **Entry Points**: Start your exploration from these files
@@ -559,7 +584,7 @@ ${jsonExample}
 - **Your Stage**: L2-B Reviewer (Discovery Phase - Quality Gate)
 - **Core Responsibility**: Critique the component list; identify issues but do NOT edit the JSON
 - **Critical Success Factor**: Verify files exist and groupings make functional sense
-
+` + getDeepThinkingProtocol() + `
 ## Goal
 CRITIQUE the component list. Do NOT fix it yourself.
 
@@ -645,7 +670,7 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
 - **Your Stage**: L2-C Refiner (Discovery Phase - Final Output)
 - **Core Responsibility**: Apply L2-B feedback to the component list and produce validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
-
+` + getDeepThinkingProtocol() + `
 ## Goal
 Refine the component list based on review feedback, applying fixes **ONE AT A TIME** to avoid output size limits.
 
@@ -826,7 +851,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 - **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace event/state causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
-
+` + getDeepThinkingProtocol() + `
 ## Reasoning Style (Priority)
 - **Causal-chain-first**: Prioritize explaining causality over summarization.
 - Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
@@ -1006,7 +1031,7 @@ ${mdCodeBlock}
 - **Your Stage**: L3-R Reviewer (Quality Gate)
 - **Core Responsibility**: Review the L3 analysis for correctness and usefulness before L4 synthesis.
 - **Critical Success Factor**: Catch wrong/invented statements early so they don't propagate.
-
+` + getDeepThinkingProtocol() + `
 ## Input
 - **Assigned Component**: ${componentStr}
 - Component list (source of truth): \`${intermediateDir}/L2/component_list.json\`
@@ -1157,7 +1182,7 @@ ${mdCodeBlock}
 - **Your Stage**: L4 Architect (Analysis Loop)
 - **Core Responsibility**: Synthesize system-level architecture and cross-component causality
 - **Critical Success Factor**: Indexer depends on your clarity and correctness
-
+` + getDeepThinkingProtocol() + `
 ## Goal
 1. Produce a coherent system overview from ALL L3 analyses.
 2. Review and refine component \`name\` values for clarity and consistency.
@@ -1270,7 +1295,7 @@ ${mdCodeBlock}
   1. Review and update project context if L3/L4 analysis revealed inaccuracies
   2. Review and update component structure based on L3/L4 insights
   3. Create stable, reader-friendly groups of pages for the README TOC
-
+` + getDeepThinkingProtocol() + `
 ## Goal
 1. Correct project context if L3/L4 analysis revealed inaccuracies
 2. Evaluate and fix component list if L3/L4 analysis revealed issues
@@ -1429,7 +1454,7 @@ ${mdCodeBlock}
 - **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
 - **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
-
+` + getDeepThinkingProtocol() + `
 ## Input
 - Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files, description: component.description })}
   - \`id\`: Internal identifier (use to find L3 analysis file: \`{index}_{id}_analysis.md\`)
@@ -1560,7 +1585,7 @@ Write files to \`${outputPath}/pages/\`.
 
 ## Role
 Quality gate for L5 outputs: ensure expected page files exist.
-
+` + getDeepThinkingProtocol() + `
 ## Expected Files
 Directory: \`${outputPath}/pages/\`
 Files to verify (filename derived from \`name\`, report missing by \`id\`):
@@ -1628,7 +1653,7 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
 - **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
 - **Critical Success Factor**: You are the last line of defense before final output - be thorough
-
+` + getDeepThinkingProtocol() + `
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
 
@@ -1804,7 +1829,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - **Your Stage**: L7 Indexer
 - **Core Responsibility**: Synthesize L4/L5 outputs into a high-quality landing README
 - **Critical Success Factor**: First screen should answer "What is this? How is it organized? Where do I start?"
-
+` + getDeepThinkingProtocol() + `
 ## Input
 - \`${intermediateDir}/L1/project_context.md\` - **Read first** for:
   - **Vocabulary**: Use these exact terms consistently in the README
@@ -1920,7 +1945,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 - **Your Stage**: L8 Final QA (README-only)
 - **Core Responsibility**: Ensure \`${outputPath}/README.md\` contains no unverifiable claims.
 - **Critical Success Factor**: README is the entry point; it must not hallucinate.
-
+` + getDeepThinkingProtocol() + `
 ## Input
 - \`${outputPath}/README.md\`
 - All files under \`${outputPath}/pages/\`
@@ -1962,7 +1987,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Role
 - **Your Stage**: L9 Final QA (Release Gate)
 - **Core Responsibility**: Enforce final output invariants right before completion.
-
+` + getDeepThinkingProtocol() + `
 ## Input
 - \`${outputPath}/README.md\`
 - \`${outputPath}/pages/*.md\`
