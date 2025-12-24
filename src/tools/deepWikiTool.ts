@@ -403,7 +403,7 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST write section-by-section with \`${editToolNameForPrompt}\`. Writing all at once will fail.
 4. **Vocabulary Accuracy**:
    - Only include terms that are actually used in the codebase
    - For each term, **read the surrounding code broadly** (entire functions, classes, or modules) to understand how it is used
@@ -461,17 +461,22 @@ ${mdCodeBlock}
 - **Excluded Roots**: Read \`${intermediateDir}/L1/existing_deepwikis.md\` and exclude those directories entirely from analysis
 
 ## Goal
-Create an INITIAL draft of logical components based on **what the code does**, not just folders. Use the **Vocabulary** from L1 to ensure consistent naming.
+Build the component list **incrementally, ONE component at a time**. Each iteration: read existing JSON, add ONE new component, save. This prevents output size limits.
 
-## Workflow
+## Workflow (INCREMENTAL - CRITICAL)
 1. Read the L1 project context thoroughly - especially Entry Points, Architecture Pattern, Vocabulary, and Key Abstractions.
 2. Identify excluded roots from \`${intermediateDir}/L1/existing_deepwikis.md\` and DO NOT read/include any files under those roots.
-3. Start exploration from the **Entry Points** identified in L1.
-4. Scan the project source files and **read their contents** to understand what each file does.
-5. Group files into **components** - files that work together to implement a feature or module.
+3. Read \`${intermediateDir}/L2/component_list.json\` using file read tools:
+   - If it doesn't exist or is empty, start with an empty array \`[]\`
+   - If it exists, parse the existing components and note which files are already covered
+4. Start exploration from the **Entry Points** identified in L1. Identify which source files are NOT YET covered by any existing component.
+5. From the uncovered files, **read their contents** to understand what each file does, then identify ONE cohesive component (files that work together).
 6. **Use Vocabulary terms** from L1 in your component names and descriptions for consistency.
 7. **Verify each file exists** before adding it to the files array.
-8. Before writing, quickly sanity-check that your JSON is valid and non-empty.
+8. **Add ONLY that ONE component** (with \`id\`, \`name\`, \`files\`, \`description\`) to the array and use \`${editToolNameForPrompt}\` to write immediately.
+9. **Repeat steps 3-8** until all significant source files are covered.
+
+**IMPORTANT**: Add components ONE AT A TIME. Do NOT try to output all components at once.
 
 ## Granularity Guidelines (CRITICAL)
 **IMPORTANT**: Follow these guidelines to ensure appropriate component granularity:
@@ -514,9 +519,10 @@ ${jsonExample}
 ## Constraints
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "Added N components, total M."). Do not include JSON or file contents.
 4. **Naming**: Use filename-safe values for \`id\` (no \`/\`, no spaces). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\`.
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
+6. **Incremental Writes (CRITICAL)**: File write/create operations have output size limits. Read/search operations are unlimited, but you MUST write incrementally - add ONE component, save, repeat. Writing all at once will fail.
 
 ` + getPipelineOverview('L2-A'),
                     token,
@@ -589,6 +595,7 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but write the review report incrementally if it is long.
 
 ` + getPipelineOverview('L2-B'),
 	                    token,
@@ -640,19 +647,26 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
 
 ## Goal
-Refine the component list based on review feedback.
+Refine the component list based on review feedback, applying fixes **ONE AT A TIME** to avoid output size limits.
 
 ## Input
 - Component List: \`${intermediateDir}/L2/component_list.json\`
 - Review: \`${intermediateDir}/L2/review_report.md\`
 - Excluded Roots: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
-## Workflow
-1. Read the Component List and the Review Report.
-2. Apply the suggested fixes from the review to the component list.
-3. Remove any file paths that fall under excluded roots (already documented elsewhere).
-4. Ensure: (a) no missing core files, (b) no duplicate \`id\` values, (c) each component has a clear purpose. Note: The same file CAN appear in multiple components.
-5. Produce valid JSON with \`id\`, \`name\`, \`files\`, and \`description\` for each component.${retryContextL2}
+## Workflow (INCREMENTAL - CRITICAL)
+1. Read the Component List and the Review Report using file read tools.
+2. Identify all issues flagged in the review.
+3. **Apply ONE fix at a time**:
+   - Read the current JSON using file read tools
+   - Apply ONE modification (add/remove/update one component)
+   - Produce valid JSON with \`id\`, \`name\`, \`files\`, and \`description\` for each component
+   - Use \`${editToolNameForPrompt}\` to write the updated JSON immediately
+   - Repeat for each remaining fix
+4. Remove any file paths that fall under excluded roots.
+5. Ensure: (a) no missing core files, (b) no duplicate \`id\` values, (c) each component has a clear purpose. Note: The same file CAN appear in multiple components.
+
+**IMPORTANT**: Apply changes ONE AT A TIME. Do NOT try to output the entire modified list at once.${retryContextL2}
 
 ## Granularity Guidelines (CRITICAL)
 - **NEVER reduce the number of components** unless L2-B explicitly identified a duplicate component
@@ -670,8 +684,9 @@ Refine the component list based on review feedback.
 ## Constraints
 1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-3. **Chat Final Response**: Keep your chat reply brief (e.g., "List finalized."). Do not include JSON or file contents.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "Applied N fixes, total M components."). Do not include JSON or file contents.
 4. **ID/Name**: The \`id\` must be filename-safe (no \`/\`, no spaces). Use \`_\` as a separator. Set \`id\` and \`name\` to the same value (L4 may refine \`name\` later).
+5. **Incremental Writes (CRITICAL)**: File write/create operations have output size limits. Read/search operations are unlimited, but you MUST write incrementally - apply ONE fix, save, repeat. Writing all at once will fail.
 
 ` + getPipelineOverview('L2-C'),
 	                    token,
@@ -957,7 +972,7 @@ ${mdCodeBlock}
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed. You may edit \`${intermediateDir}/L1/project_context.md\` if you find inaccuracies.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.
 4. **Project Context Correction**: If you find inaccuracies in project_context.md, fix them directly using \`${editToolNameForPrompt}\` (do not just report them).${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L3'),
@@ -1199,7 +1214,7 @@ ${mdCodeBlock}
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **ID Immutability**: NEVER modify \`id\` fields in component_list.json. Only \`name\` can be changed.
 3. **Chat Final Response**: One short confirmation line. Do not include file contents.
-4. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.${mermaidValidationInstruction}
+4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST write section-by-section with \`${editToolNameForPrompt}\`. Writing all at once will fail.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L4'),
                     token,
@@ -1514,7 +1529,7 @@ Write files to \`${outputPath}/pages/\`.
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.
 4. **Do NOT include raw source code or implementation details.**
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references. If you include signatures, keep them short (no bodies).
 6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory. If filenames contain spaces, wrap link targets in angle brackets, e.g. \`[Page Name](<Page Name.md>)\`.${mermaidValidationInstruction}
@@ -1736,7 +1751,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` after each instruction step. Due to token limits, writing all at once risks data loss.${mermaidValidationInstruction}
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L6'),
                     token,
@@ -1879,7 +1894,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
 2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST write section-by-section with \`${editToolNameForPrompt}\`. Writing all at once will fail.
 4. **Sanitize Intermediate Links**: Never link to intermediate paths; only to final pages.
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
 6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or "what I validated" prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.${mermaidValidationInstruction}
@@ -1924,7 +1939,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
 2. **No guessing**: If you can't verify, remove or rewrite conservatively.
-3. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` as you go. Writing all at once will fail.
 4. **Chat Final Response**: One short confirmation line; no file contents.
 5. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Fact-check", or similar sections/notes to \`${outputPath}/README.md\`. Keep all verification results exclusively in \`${intermediateDir}/L8/factcheck_report.md\`.
 `,
@@ -1963,7 +1978,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`.
-2. **Incremental Writing**: Use \`${editToolNameForPrompt}\` as you go.
+2. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` as you go. Writing all at once will fail.
 3. **Chat Final Response**: One short confirmation line; no file contents.
 4. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Release Gate", or similar report sections into \`${outputPath}/README.md\`. Keep gate details exclusively in \`${intermediateDir}/L9/release_gate_report.md\`.
 `,
