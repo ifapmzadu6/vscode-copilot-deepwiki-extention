@@ -2,7 +2,7 @@
   "name": "deepwiki-generator",
   "displayName": "DeepWiki Generator",
   "description": "Generate comprehensive DeepWiki documentation using autonomous AI agents.",
-  "version": "1.16.3",
+  "version": "1.16.4",
   "publisher": "your-publisher",
   "license": "MIT",
   "engines": {
@@ -37,44 +37,44 @@
         "userDescription": "Generate DeepWiki documentation for the current workspace.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
-		      "inputSchema": {
-		        "type": "object",
-		        "properties": {
-		          "outputPath": {
-		            "type": "string",
-		            "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
-		          },
-		          "fileEditToolName": {
-		            "type": "string",
-		            "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions), e.g. 'apply_patch' or 'replace_string_in_file'. If omitted, the extension will auto-detect when possible."
-		          },
-		          "mermaidValidatorToolName": {
-		            "type": "string",
-		            "description": "Optional name of the Mermaid syntax validator tool available to subagents, e.g. 'mcp__mermaid__validate'. If provided, prompts will instruct subagents to validate Mermaid diagrams using this tool. If omitted, no Mermaid validation instructions are included."
-		          },
-		          "startFromStage": {
-		            "type": "string",
-		            "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist.",
-		            "enum": [
-		              "L1",
-		              "L2",
-		              "L3",
-		              "L4",
-		              "L5",
-		              "L6",
-		              "L7",
-		              "L8",
-		              "L9"
-		            ]
-		          }
-		        },
-		        "required": [
-		          "fileEditToolName"
-		        ]
-		      }
-	      }
-	    ]
-	  },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "outputPath": {
+              "type": "string",
+              "description": "Optional output directory path for the generated DeepWiki. Defaults to '.deepwiki' in workspace root."
+            },
+            "fileEditToolName": {
+              "type": "string",
+              "description": "Optional name of the file edit tool available to subagents in this environment (used only for prompt instructions), e.g. 'apply_patch' or 'replace_string_in_file'. If omitted, the extension will auto-detect when possible."
+            },
+            "mermaidValidatorToolName": {
+              "type": "string",
+              "description": "Optional name of the Mermaid syntax validator tool available to subagents, e.g. 'mcp__mermaid__validate'. If provided, prompts will instruct subagents to validate Mermaid diagrams using this tool. If omitted, no Mermaid validation instructions are included."
+            },
+            "startFromStage": {
+              "type": "string",
+              "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist.",
+              "enum": [
+                "L1",
+                "L2",
+                "L3",
+                "L4",
+                "L5",
+                "L6",
+                "L7",
+                "L8",
+                "L9"
+              ]
+            }
+          },
+          "required": [
+            "fileEditToolName"
+          ]
+        }
+      }
+    ]
+  },
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
