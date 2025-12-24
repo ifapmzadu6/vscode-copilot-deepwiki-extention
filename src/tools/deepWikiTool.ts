@@ -198,7 +198,9 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             : '';
 
         // Define ComponentDef interface globally within invoke scope
-        interface ComponentDef { name: string; files: string[]; description: string }
+        // - id: internal identifier (immutable, used for L3 filenames, page_groups, retry references)
+        // - name: display name and output filename (can be refined by L4)
+        interface ComponentDef { id: string; name: string; files: string[]; description: string }
 
         const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
             const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePathFromWorkspace));
@@ -428,8 +430,9 @@ ${mdCodeBlock}
             const jsonExample = `
 [
   {
-    "name": "Auth Module", 
-    "files": ["src/auth/auth.controller.ts", "src/auth/auth.service.ts"], 
+    "id": "Auth_Module",
+    "name": "Auth Module",
+    "files": ["src/auth/auth.controller.ts", "src/auth/auth.service.ts"],
     "description": "Handles user authentication"
   }
 ]
@@ -497,16 +500,22 @@ Create an INITIAL draft of logical components based on **what the code does**, n
 Write the draft **RAW JSON (no Markdown fences)** to \`${intermediateDir}/L2/component_list.json\`.
 
 **Format (raw JSON; no backticks, no fences)**:
+Each component must have:
+- \`id\`: Internal identifier (filename-safe, immutable after creation). Used for L3 analysis filenames and internal references.
+- \`name\`: Display name (initially same as id, but L4 may refine it later). Used for page filenames and headings.
+- \`files\`: Array of source file paths
+- \`description\`: Brief description of the component's purpose
+
 Example:
 ${jsonExample}
 
-> IMPORTANT: the file content must be raw JSON only. Your chat reply: one short confirmation line.
+> IMPORTANT: Set \`id\` and \`name\` to the same value initially. The \`id\` will never change, but \`name\` may be refined by L4.
 
 ## Constraints
 1. **Files**: The "files" array must contain actual file paths with extensions (e.g., "src/auth/auth.ts"), NOT directory paths.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Draft written."). Do not include JSON or file contents.
-4. **Naming**: Use filename-safe component names (no \`/\`, no leading/trailing spaces). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\` (NOT \`Editor/Core\`).
+4. **Naming**: Use filename-safe values for \`id\` (no \`/\`, no spaces). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\`.
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 
 ` + getPipelineOverview('L2-A'),
@@ -642,8 +651,8 @@ Refine the component list based on review feedback.
 1. Read the Component List and the Review Report.
 2. Apply the suggested fixes from the review to the component list.
 3. Remove any file paths that fall under excluded roots (already documented elsewhere).
-4. Ensure: (a) no missing core files, (b) no duplicate component names, (c) each component has a clear purpose. Note: The same file CAN appear in multiple components.
-5. Produce valid JSON.${retryContextL2}
+4. Ensure: (a) no missing core files, (b) no duplicate \`id\` values, (c) each component has a clear purpose. Note: The same file CAN appear in multiple components.
+5. Produce valid JSON with \`id\`, \`name\`, \`files\`, and \`description\` for each component.${retryContextL2}
 
 ## Granularity Guidelines (CRITICAL)
 - **NEVER reduce the number of components** unless L2-B explicitly identified a duplicate component
@@ -656,13 +665,13 @@ Refine the component list based on review feedback.
 
 ## Output
 - Write the FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L2/component_list.json\`.
-- Format must be a valid non-empty JSON array.
+- Format must be a valid non-empty JSON array with \`{id, name, files, description}\` for each component.
 
 ## Constraints
 1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
 2. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "List finalized."). Do not include JSON or file contents.
-4. **Naming**: Component \`name\` values must be filename-safe (no \`/\`). Use \`_\` as a separator, e.g. \`Editor_Core\`, \`Configuration_System\` (NOT \`Editor/Core\`). Rename any component that violates this.
+4. **ID/Name**: The \`id\` must be filename-safe (no \`/\`, no spaces). Use \`_\` as a separator. Set \`id\` and \`name\` to the same value (L4 may refine \`name\` later).
 
 ` + getPipelineOverview('L2-C'),
 	                    token,
@@ -746,24 +755,26 @@ Refine the component list based on review feedback.
                 // Auto-repair missing pages when resuming from L6+.
                 // If pages are missing, rerun L5 (Writer + Validator) for those components before continuing to L6.
                 if (firstLoop && startStageIndex >= stageOrder.indexOf('L6') && initialSkipTo === 'L6') {
-                    const missingComponentNames: string[] = [];
+                    const missingComponentIds: string[] = [];
                     for (const component of componentList) {
+                        // Page filename uses `name`, check if file exists
                         const pageUri = vscode.Uri.file(
                             path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`)
                         );
                         try {
                             await vscode.workspace.fs.stat(pageUri);
                         } catch {
-                            missingComponentNames.push(component.name);
+                            // Track by id for matching
+                            missingComponentIds.push(component.id);
                         }
                     }
 
-                    if (missingComponentNames.length > 0) {
+                    if (missingComponentIds.length > 0) {
                         logger.warn(
                             'DeepWiki',
-                            `Resume detected ${missingComponentNames.length} missing page(s). Auto-running L5 Writer for missing components.`
+                            `Resume detected ${missingComponentIds.length} missing page(s). Auto-running L5 Writer for missing components.`
                         );
-                        componentsToAnalyze = componentList.filter(c => missingComponentNames.includes(c.name));
+                        componentsToAnalyze = componentList.filter(c => missingComponentIds.includes(c.id));
                         initialSkipTo = 'L5';
                     }
                 }
@@ -786,10 +797,10 @@ Refine the component list based on review feedback.
                 // Task generator function for L3 analysis (shared by initial and retry)
                 const createL3Task = (component: ComponentDef) => {
                     const componentStr = JSON.stringify(component);
-                    const originalIndex = componentList.findIndex(c => c.name === component.name);
+                    const originalIndex = componentList.findIndex(c => c.id === component.id);
                     const paddedIndex = String(originalIndex + 1).padStart(3, '0');
                     const analysisFileUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', `${paddedIndex}_${component.name}_analysis.md`)
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', `${paddedIndex}_${component.id}_analysis.md`)
                     );
                     return () => this.runPhase(
                         `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
@@ -839,7 +850,7 @@ Use this exact bullet structure:
    - **Missing abstractions**: Important types/classes exist but aren't listed
    - **Wrong dependencies**: Dependencies described incorrectly
    → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix the issue immediately, then continue your analysis
-3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\`
+3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\`
 4. Read source code files for this component
 5. Token-stability workflow (do NOT write all at once):
    - Use \`${editToolNameForPrompt}\` after EACH section.
@@ -884,7 +895,7 @@ stateDiagram-v2
 \`\`\`
 
 ## Output
-Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.name}_analysis.md\` using this structure (example only; do not wrap the whole file in fences):
+Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\` using this structure (example only; do not wrap the whole file in fences):
 ${mdCodeBlock}markdown
 # ${component.name} - Analysis
 
@@ -966,11 +977,11 @@ ${mdCodeBlock}
                 // ---------------------------------------------------------
                 const createL3RTask = (component: ComponentDef) => {
                     const componentStr = JSON.stringify(component);
-                    const originalIndex = componentList.findIndex(c => c.name === component.name);
+                    const originalIndex = componentList.findIndex(c => c.id === component.id);
                     const paddedIndex = String(originalIndex + 1).padStart(3, '0');
-                    const analysisFile = `${paddedIndex}_${component.name}_analysis.md`;
-                    const reviewFile = `${paddedIndex}_${component.name}_review.md`;
-                    const retryFile = `${paddedIndex}_${component.name}_retry.json`;
+                    const analysisFile = `${paddedIndex}_${component.id}_analysis.md`;
+                    const reviewFile = `${paddedIndex}_${component.id}_review.md`;
+                    const retryFile = `${paddedIndex}_${component.id}_retry.json`;
                     return () => this.runPhase(
                         `L3-R: Reviewer (Loop ${loopCount + 1}, ${component.name})`,
                         `Review L3 analysis`,
@@ -1006,7 +1017,7 @@ ${mdCodeBlock}
    - Use \`${editToolNameForPrompt}\` to write this section NOW.
    - If the file does NOT exist or is empty:
      - Append "**Result**: RETRY_REQUIRED - Analysis file missing" to review file
-     - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.name}"]\`
+     - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
      - Stop (no further steps).
 
 3. **Claim Verification (Incremental)**
@@ -1060,7 +1071,7 @@ ${mdCodeBlock}
    - Use \`${editToolNameForPrompt}\` to write this final section.
 
 6. **Retry Decision**
-   - If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.name}"]\`.
+   - If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.id}"]\`.
    - Otherwise, do not create the retry file.
 
 ## Constraints
@@ -1096,10 +1107,10 @@ ${mdCodeBlock}
                     }
                 }
 
-                const l3rRetryNames = Array.from(l3rRetryNamesSet);
-                if (l3rRetryNames.length > 0) {
-                    logger.log('DeepWiki', `L3 Reviewer requested re-analysis for: ${l3rRetryNames.join(', ')}`);
-                    const retryComponents = componentsToAnalyze.filter(c => l3rRetryNames.includes(c.name));
+                const l3rRetryIds = Array.from(l3rRetryNamesSet);
+                if (l3rRetryIds.length > 0) {
+                    logger.log('DeepWiki', `L3 Reviewer requested re-analysis for: ${l3rRetryIds.join(', ')}`);
+                    const retryComponents = componentsToAnalyze.filter(c => l3rRetryIds.includes(c.id));
                     if (retryComponents.length > 0) {
                         const l3RetryTasks = retryComponents.map(createL3Task);
                         await runTasksSequentially(l3RetryTasks, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
@@ -1133,26 +1144,45 @@ ${mdCodeBlock}
 - **Critical Success Factor**: Indexer depends on your clarity and correctness
 
 ## Goal
-Produce a coherent system overview from ALL L3 analyses.
+1. Produce a coherent system overview from ALL L3 analyses.
+2. Review and refine component \`name\` values for clarity and consistency.
 
 ## Input
 - \`${intermediateDir}/L1/project_context.md\` - **Read first** for:
   - **Vocabulary**: Use these exact terms consistently in your overview
   - **Architecture Pattern**: Frame the system architecture within this context
+- \`${intermediateDir}/L2/component_list.json\` - Component definitions with \`id\` and \`name\`
 - Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any necessary source files.
 
 ## Workflow
-1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context.
-2. Read L3 analysis and confirm key responsibilities/links.
-3. Source verification (mandatory):
+
+### Part 1: Name Refinement (Do First)
+1. Read \`${intermediateDir}/L2/component_list.json\` and all L3 analyses.
+2. For each component, evaluate if the current \`name\` is:
+   - **Clear**: Does it accurately describe what the component does?
+   - **Consistent**: Does it follow naming conventions of other components? (e.g., all use \`_\` separators, similar style)
+   - **User-friendly**: Will documentation readers understand it?
+3. If a \`name\` needs improvement:
+   - Update ONLY the \`name\` field in \`${intermediateDir}/L2/component_list.json\`
+   - **NEVER change the \`id\` field** - it must remain unchanged
+   - Examples:
+     - \`"PKCE_Handler"\` → \`"OAuth2_Authentication"\` (more descriptive)
+     - \`"Utils_Misc"\` → \`"String_Utilities"\` (more specific)
+     - \`"auth-module"\` → \`"Auth_Module"\` (consistent style)
+4. Write changes using \`${editToolNameForPrompt}\` before proceeding to Part 2.
+
+### Part 2: System Overview
+5. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context.
+6. Read L3 analysis and confirm key responsibilities/links.
+7. Source verification (mandatory):
    - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
    - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.
-4. Write \`${intermediateDir}/L4/overview.md\`:
+8. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
-5. Write \`${intermediateDir}/L4/relationships.md\`:
+9. Write \`${intermediateDir}/L4/relationships.md\`:
    - cross-component event/state causality map
    - include diagrams (see below)
-6. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
+10. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
 
 ## Diagrams
 - **Required**: at least one \`stateDiagram-v2\` for cross-component state/event flow
@@ -1160,14 +1190,16 @@ Produce a coherent system overview from ALL L3 analyses.
 - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
+- \`${intermediateDir}/L2/component_list.json\` - Edit \`name\` fields if refinement needed (keep \`id\` unchanged)
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - Include at least TWO diagrams total.
 
 ## Constraints
 1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
-2. **Chat Final Response**: One short confirmation line. Do not include file contents.
-3. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.${mermaidValidationInstruction}
+2. **ID Immutability**: NEVER modify \`id\` fields in component_list.json. Only \`name\` can be changed.
+3. **Chat Final Response**: One short confirmation line. Do not include file contents.
+4. **Incremental Writing**: Write section-by-section with \`${editToolNameForPrompt}\`.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L4'),
                     token,
@@ -1197,16 +1229,17 @@ Produce a coherent system overview from ALL L3 analyses.
 [
   {
     "groupName": "Authentication",
-    "pages": ["Authentication", "Authorization"],
+    "pages": ["Auth_Login", "Auth_OAuth2"],
     "rationale": "User identity, permissions, and auth flows"
   },
   {
     "groupName": "Infrastructure",
-    "pages": ["Configuration", "Logging"],
+    "pages": ["Config_Manager", "Logger"],
     "rationale": "Cross-cutting runtime infrastructure"
   }
 ]
 `;
+                // NOTE: "pages" array should contain component IDs (not names)
 
                 // Save current component list to detect changes after L5-G
                 const componentListBeforeL5G = JSON.stringify(componentList);
@@ -1283,11 +1316,12 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Conservative updates**: Only modify project_context.md or component_list.json when L3/L4 clearly indicates a problem.
-2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {name, files, description}.
-3. Each \`pages\` item must be an exact component \`name\` (no \`.md\` suffix).
-4. Every page must appear exactly once across all groups.
+2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {id, name, files, description}.
+3. **Page groups use \`id\`**: Each \`pages\` item must be an exact component \`id\` (not \`name\`, no \`.md\` suffix).
+4. Every component \`id\` must appear exactly once across all groups.
 5. **Scope**: Only write under \`.deepwiki/\`.
 6. **Chat Final Response**: One short confirmation line.
+7. **ID Immutability**: When editing component_list.json, NEVER change \`id\` fields. Only \`name\`, \`files\`, \`description\` can be modified.
 
 ` + getPipelineOverview('L5'),
                     token,
@@ -1382,15 +1416,17 @@ ${mdCodeBlock}
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
 
 ## Input
-- Assigned Component: ${JSON.stringify({ name: component.name, files: component.files, description: component.description })}
-- For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_ComponentName_analysis.md\`)
+- Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files, description: component.description })}
+  - \`id\`: Internal identifier (use to find L3 analysis file: \`{index}_{id}_analysis.md\`)
+  - \`name\`: Display name (use for output filename and page H1 heading)
+- For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_{id}_analysis.md\`)
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for:
   - **Vocabulary**: Use these exact terms consistently in your documentation
   - **Architecture Pattern**: Frame explanations within this architectural context
 
 ## Workflow
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
-2. For EACH assigned component: Create \`${outputPath}/pages/{ComponentName}.md\` with the page title and Overview section
+2. For EACH assigned component: Create \`${outputPath}/pages/{name}.md\` with the page title (H1: \`# {name}\`) and Overview section
 3. Read the L3 analysis for that component
 4. Synthesize and consolidate L3 content into a reader-friendly page.
    - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
@@ -1449,7 +1485,8 @@ Write files to \`${outputPath}/pages/\`.
                 // L5 Validator: Check for missing page files and retry if needed
                 // ---------------------------------------------------------
                 const l5ExpectedPages = componentsToAnalyze.map(c => ({
-                    pageName: c.name,
+                    id: c.id,
+                    name: c.name,
                     file: `${c.name}.md`
                 }));
                 await this.runPhase(
@@ -1462,19 +1499,19 @@ Quality gate for L5 outputs: ensure expected page files exist.
 
 ## Expected Files
 Directory: \`${outputPath}/pages/\`
-Files to verify:
-${l5ExpectedPages.map(p => `- \`${p.file}\` (Page: ${p.pageName})`).join('\n')}
+Files to verify (filename derived from \`name\`, report missing by \`id\`):
+${l5ExpectedPages.map(p => `- \`${p.file}\` (id: ${p.id})`).join('\n')}
 
 ## Workflow
 1. List files in \`${outputPath}/pages/\`
 2. Compare against expected files above
 3. If ALL files exist → Write empty array to \`${intermediateDir}/L5V/page_validation_failures.json\`
-4. If ANY files are MISSING → Write JSON array of missing page names to \`${intermediateDir}/L5V/page_validation_failures.json\`
+4. If ANY files are MISSING → Write JSON array of missing component **id** values to \`${intermediateDir}/L5V/page_validation_failures.json\`
 
 ## Output
 Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - If all present: \`[]\`
-- If missing: \`["Page A", "Page B"]\`
+- If missing: \`["component_id_1", "component_id_2"]\` (use \`id\`, not \`name\`)
 
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
@@ -1485,23 +1522,23 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 
                 // Check L5 validation result and retry failed pages
                 const l5FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5V', 'page_validation_failures.json'));
-                let l5FailedPages: string[] = [];
+                let l5FailedIds: string[] = [];
                 try {
                     const content = await vscode.workspace.fs.readFile(l5FailuresUri);
                     const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
                     if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
-                        l5FailedPages = parsed;
+                        l5FailedIds = parsed;
                     } else {
                         logger.warn('DeepWiki', 'L5-V: page_validation_failures.json is not a string array; retrying all pages for safety.');
-                        l5FailedPages = componentsToAnalyze.map(c => c.name);
+                        l5FailedIds = componentsToAnalyze.map(c => c.id);
                     }
                     await vscode.workspace.fs.delete(l5FailuresUri);
                 } catch { /* no failures file or invalid */ }
 
-                if (l5FailedPages.length > 0) {
-                    logger.log('DeepWiki', `L5 Validator requested retry for ${l5FailedPages.length} page(s): ${l5FailedPages.join(', ')}`);
+                if (l5FailedIds.length > 0) {
+                    logger.log('DeepWiki', `L5 Validator requested retry for ${l5FailedIds.length} page(s): ${l5FailedIds.join(', ')}`);
                     // Retry using the same task generator function
-                    const failedComponents = componentsToAnalyze.filter(c => l5FailedPages.includes(c.name));
+                    const failedComponents = componentsToAnalyze.filter(c => l5FailedIds.includes(c.id));
                     const l5RetryTasks = failedComponents.map(createL5Task);
                     await runTasksSequentially(l5RetryTasks, `L5 Retry (Loop ${loopCount + 1})`, token);
                 }
@@ -1514,8 +1551,8 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
                 const isLastLoop = loopCount === MAX_LOOPS - 1;
                 const retryInstruction = isLastLoop
                     ? `This is the FINAL attempt. Do NOT request retries. Fix minor issues directly within the pages. If a page is fundamentally broken, add a prominent warning note to the page itself, explaining the issue.`
-                    : `If a page has MAJOR missing information or wrong analysis, list the Component Name(s) that need re-analysis (L3/L4/L5) in "` + intermediateDir + `/L6/retry_request.json".
-                       Format: ["Auth Module", "Utils"].
+                    : `If a page has MAJOR missing information or wrong analysis, list the component **id** values that need re-analysis (L3/L4/L5) in "` + intermediateDir + `/L6/retry_request.json".
+                       Format: ["Auth_Module", "Utils"] (use \`id\`, not \`name\`).
                        For minor issues (typos, formatting, broken links), fix the page directly.`;
 
 	                await this.runPhase(
@@ -1533,8 +1570,10 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Input
 - Read generated pages in \`${outputPath}/pages/\`
-- Read relevant L3 analysis files in \`${intermediateDir}/L3/\` for each page's components
-- Read \`${intermediateDir}/L2/component_list.json\` to map pageName ↔ component ↔ source files (pageName == component name)
+- Read relevant L3 analysis files in \`${intermediateDir}/L3/\` (named by \`id\`: \`{index}_{id}_analysis.md\`)
+- Read \`${intermediateDir}/L2/component_list.json\` to map components:
+  - \`id\`: Internal identifier (use for L3 file lookup and retry requests)
+  - \`name\`: Display name (page filename is \`{name}.md\`)
 
 ## Workflow (Incremental Write Pattern - MANDATORY)
 
@@ -1548,7 +1587,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
    - Use \`${editToolNameForPrompt}\` immediately to write this header.
 
 2. **Inventory Check**
-   - Read \`${intermediateDir}/L2/component_list.json\` and compute the expected page files: \`{component.name}.md\` (1 component = 1 page).
+   - Read \`${intermediateDir}/L2/component_list.json\` and compute expected page files: \`{name}.md\` (1 component = 1 page).
    - List files in \`${outputPath}/pages/\`.
    - Identify:
      - Missing pages: expected but not present
@@ -1558,19 +1597,22 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
      ## Inventory
      - Expected pages: {count}
      - Found pages: {count}
-     - Missing: {list or "None"}
+     - Missing: {list of names or "None"}
      - Extra: {list or "None"}
      \`\`\`
    - Use \`${editToolNameForPrompt}\` to write this section NOW before proceeding.
    - If any pages are missing:
-     - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component names so the pipeline can regenerate them.`}
+     - ${isLastLoop ? 'Do NOT request retries; add a prominent warning note to README and/or affected areas about missing pages.' : `Write \`${intermediateDir}/L6/retry_request.json\` as a raw JSON array of the missing component **id** values (not names).`}
 
 3. **Page-by-Page Review (Incremental)**
-   For EACH existing page (where pageName == component name), perform the following sub-steps IN ORDER:
+   For EACH existing page (filename from \`name\`, lookup L3 by \`id\`), perform the following sub-steps IN ORDER:
 
    a. **Read and Check**
       - Read the page file
       - Check ALL of the following:
+        - **Page Title Consistency**: Verify the page's H1 heading matches the component's \`name\` from component_list.json.
+          - If there's a mismatch, update the page's H1 heading to match \`name\`.
+          - Note: L4 Architect already refined \`name\` for clarity, so just ensure consistency.
         - **File Structure**: Ensure the "File Structure" section includes an accurate list of source files (populate it from \`${intermediateDir}/L2/component_list.json\`; remove any non-existent paths).
         - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
         - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
@@ -1586,6 +1628,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         \`\`\`markdown
         ### {PageName}.md
         - Status: {OK / Issues Found}
+        - Title: {OK / Updated to match name}
         - File Structure: {OK / Fixed / N/A}
         - Placeholders: {None found / Removed: ...}
         - Element use cases: {OK / Added / N/A}
@@ -1622,7 +1665,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
 - Always write \`${intermediateDir}/L6/review_report.md\`.
 - Write \`${intermediateDir}/L6/retry_request.json\` ONLY if requesting retries.
-  - The file must be a raw JSON array of component names, e.g. \`["Auth Module"]\` (no extra fields, no fences).
+  - The file must be a raw JSON array of component **id** values, e.g. \`["Auth_Module"]\` (use \`id\`, not \`name\`).
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
@@ -1651,8 +1694,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
                 if (retryNames && Array.isArray(retryNames) && retryNames.length > 0) {
                     logger.log('DeepWiki', `Reviewer requested retry for: ${retryNames.join(', ')}`);
-                    // Filter componentList to get the actual component objects for retry
-                    componentsToAnalyze = componentList.filter(c => retryNames!.includes(c.name));
+                    // Filter componentList to get the actual component objects for retry (match by id)
+                    componentsToAnalyze = componentList.filter(c => retryNames!.includes(c.id));
                     if (componentsToAnalyze.length === 0) {
                         logger.warn('DeepWiki', 'Retry requested for unknown components. Stopping loop.');
                         break;
@@ -1689,7 +1732,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - \`${intermediateDir}/L2/component_list.json\` (source of truth for pages; 1 component = 1 page)
-- \`${intermediateDir}/L5/page_groups.json\` (source of truth for README grouping; created by L5-G)
+  - \`id\`: Internal identifier (used in page_groups.json)
+  - \`name\`: Display name (page filename is \`{name}.md\`, use for link text)
+- \`${intermediateDir}/L5/page_groups.json\` (source of truth for README grouping; uses \`id\` to reference components)
 - All files under \`${outputPath}/pages/\`
 - Existing nested DeepWikis list: \`${intermediateDir}/L1/existing_deepwikis.md\`
 
@@ -1734,7 +1779,8 @@ This section helps readers understand the system boundaries before diving into i
 
 ### 2. Components
 Use \`${intermediateDir}/L5/page_groups.json\` to structure the README as **chapters** (one chapter per group, in the same order as page_groups).
-If any component page name from \`${intermediateDir}/L2/component_list.json\` is missing from \`${intermediateDir}/L5/page_groups.json\` (or appears twice / is unknown), FIX \`${intermediateDir}/L5/page_groups.json\` first so it covers every pageName exactly once, then generate the README from the corrected groups. Do NOT create an "Ungrouped"/"Other" bucket in the README.
+The \`pages\` array in page_groups contains component \`id\` values. Look up each \`id\` in \`${intermediateDir}/L2/component_list.json\` to get the \`name\` (for filename and link text).
+If any component \`id\` from \`${intermediateDir}/L2/component_list.json\` is missing from \`${intermediateDir}/L5/page_groups.json\` (or appears twice / is unknown), FIX \`${intermediateDir}/L5/page_groups.json\` first so it covers every \`id\` exactly once, then generate the README from the corrected groups. Do NOT create an "Ungrouped"/"Other" bucket in the README.
 For EACH group, create a chapter with this shape:
 - Chapter heading: \`#### <GroupName>\`
 - Chapter description: 3-6 sentences explaining:
@@ -1742,8 +1788,9 @@ For EACH group, create a chapter with this shape:
   - How it relates to other groups at a high level (1-2 sentences max)
   - Where a new reader should start (name 1-2 pages as the recommended entry points)
 - Pages list: include ALL pages in this group, each as:
-  - Link: If filename has no spaces: \`[PageName](pages/PageName.md)\`; if it has spaces: \`[PageName](<pages/Page Name.md>)\`
-  - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component (or a conservative summary from the page itself).
+  - Look up the component by \`id\` to get \`name\`
+  - Link: Use \`name\` for both link text and filename: \`[{name}](pages/{name}.md)\` or \`[{name}](<pages/{name}.md>)\` if name has spaces
+  - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component.
 - Do NOT add source-code links in the README. Keep navigation focused on the generated pages (\`pages/*.md\`); detailed code entry points belong inside each page if needed.
 
 ### 2.5 Existing DeepWikis (optional)
