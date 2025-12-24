@@ -84,8 +84,11 @@ This phase enables DeepWiki to be aware of build configurations, feature flags, 
 
 ### 2. Level 2: DISCOVERER (Component Grouping & Refinement)
 Identifies and groups files into logical components. Uses L1 context to understand project structure. This stage uses a 3-step internal process:
--   **L2-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L1 project context.
--   **L2-B Reviewer**: Critiques the draft and writes a review report (`review_report.md`). **Verifies against the ACTUAL file system structure.**
+-   **L2-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L1 project context. Follows granularity guidelines to prefer fine-grained components.
+-   **L2-B Reviewer**: Critiques the draft and writes a review report (`review_report.md`). **Verifies against the ACTUAL file system structure.** Includes:
+    -   **Coverage Check**: Scans source directories to verify all significant files are included in at least one component.
+    -   **Intra-file Component Detection**: Identifies single files containing multiple independent abstractions that should be split into separate components.
+    -   **Granularity Consistency Check**: Ensures similar files are analyzed with consistent granularity.
 -   **L2-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L2-C refinements are **always re-reviewed by L2-B** to ensure quality. L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
@@ -110,14 +113,20 @@ Reviews and updates the project context and component structure based on L3/L4 a
 ### 6. Level 5: WRITER
 Generates the final documentation pages using a stable 1:1 mapping (`pages/{ComponentName}.md`). Clearly distinguishes **External Interface** from **Internal Mechanics** and focuses on **causal flow** descriptions. Includes ASCII file structure trees for better visualization.
 -   **Grounding via File Structure**: Each page includes a source tree / file structure section listing the source files used to justify claims.
+-   **Content Quality Requirements**:
+    -   **Minimum Content Depth**: Each section must meet minimum requirements (e.g., Summary: 2-3 paragraphs, Use Cases: 3-5 concrete examples, Internal Mechanics: 3-5 paragraphs per major component).
+    -   **Consistency Guidelines**: All components at the same hierarchical level receive similar depth of coverage.
 
 **L5-V Validator**: After writing completes, validates that all expected page files exist. If files are missing, triggers automatic retry for failed pages using the same writing logic.
 
 ### 7. Level 6: PAGE REVIEWER & RETRY LOOP
 Checks all generated pages (`pages/*.md`) for quality (accuracy, completeness, connectivity, formatting).
 -   **Verifies against ACTUAL SOURCE CODE**: Reads referenced source files to ensure descriptions are correct.
+-   **Content Quality Checks**:
+    -   **Content Depth**: Verifies each section meets minimum content requirements (paragraph counts, concrete examples, detailed explanations).
+    -   **Granularity Consistency**: Ensures consistent level of detail across all elements at the same hierarchical level.
 -   **Self-Correction**: Directly fixes minor issues in the pages.
--   **Critical Failure Loop**: If major issues are found, it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
+-   **Critical Failure Loop**: If major issues are found (including insufficient content depth or inconsistent granularity), it can request re-analysis for specific components. This re-analysis **starts from L3 Analyzer** (rerunning L3, L4, L5) to ensure fundamental issues are addressed, with a retry limit (max 5 loops).
 
 ### 8. Level 7: Indexer
 Compiles the landing page (`README.md`) with:
