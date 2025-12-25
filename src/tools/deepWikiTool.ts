@@ -196,6 +196,31 @@ Your text output before each tool call is invisible to users but remains in YOUR
 
 This protocol improves accuracy by forcing explicit reasoning before actions.
 
+## Anti-Hallucination Rules
+You are generating technical documentation. Accuracy is more important than completeness.
+
+### Rules
+1. **Only write what you've verified in source code**
+   - Every function name should exist in the codebase
+   - Every parameter name and type should match the source
+   - Every relationship (A calls B, A extends B) should be verifiable in code
+
+2. **When uncertain, omit rather than guess**
+   - If you're not sure, don't write it
+   - A shorter document with only verified facts is better than a longer document with errors
+
+3. **Common hallucination patterns to avoid**:
+   - Inventing function names that "sound right"
+   - Describing parameters that don't exist
+   - Claiming relationships between components without code evidence
+   - Using vague words like "handles", "manages", "processes" without specific implementation details
+   - Making architecture claims based on assumptions
+
+4. **Self-check before every write**:
+   - "Did I actually see this in the source code?"
+   - "Can I point to the exact line that proves this?"
+   - "Am I making an assumption or stating a verified fact?"
+
 `;
 
         const bq = '`';
@@ -851,6 +876,13 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 - **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace event/state causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
+
+## Anti-Hallucination (Generator Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a content generator:
+- Only write claims you can directly support with code evidence (use CEI format)
+- If you cannot find clear evidence for something, OMIT it entirely - do not guess
+- Use exact symbol names from source code; never invent names that "sound right"
+- When uncertain about behavior, describe what the code literally does, not what it might do
 ` + getDeepThinkingProtocol() + `
 ## Reasoning Style (Priority)
 - **Causal-chain-first**: Prioritize explaining causality over summarization.
@@ -1031,6 +1063,12 @@ ${mdCodeBlock}
 - **Your Stage**: L3-R Reviewer (Quality Gate)
 - **Core Responsibility**: Review the L3 analysis for correctness and usefulness before L4 synthesis.
 - **Critical Success Factor**: Catch wrong/invented statements early so they don't propagate.
+
+## Anti-Hallucination (Reviewer Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a reviewer:
+- Your job is to CATCH lies, not create content
+- If L3 made unverifiable claims, DELETE them - do not try to fix or rewrite
+- Request RETRY only when content is fundamentally broken, not when you're uncertain
 ` + getDeepThinkingProtocol() + `
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -1076,7 +1114,7 @@ ${mdCodeBlock}
        \`\`\`
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
-   - If the analysis is too thin (only headings / vague), add missing critical details ONLY if you can justify them from code.
+   - If the analysis is too thin (only headings / vague), request RETRY rather than adding content yourself.
 
 4. **Diagram Verification (Incremental)**
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
@@ -1454,6 +1492,13 @@ ${mdCodeBlock}
 - **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
 - **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
+
+## Anti-Hallucination (Writer Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a documentation writer:
+- Stay grounded in L3 analysis - do not add claims beyond what L3 supports
+- If L3 is vague on a topic, keep your writing equally brief rather than elaborating
+- Verify symbol names against L3's evidence anchors before using them
+- When in doubt, write less - L6 can request retry if content is insufficient
 ` + getDeepThinkingProtocol() + `
 ## Input
 - Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files, description: component.description })}
@@ -1653,6 +1698,12 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
 - **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
 - **Critical Success Factor**: You are the last line of defense before final output - be thorough
+
+## Anti-Hallucination (Final Gate Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the final quality gate:
+- You are the LAST defense before output - verify actively, don't just skim
+- Common issues to catch: non-existent functions, wrong parameter types, fabricated relationships
+- When deleting, prefer removing the smallest incorrect unit (sentence/row) rather than entire sections
 ` + getDeepThinkingProtocol() + `
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
@@ -1775,8 +1826,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.${mermaidValidationInstruction}
+2. **No guessing**: If you can't verify, delete rather than invent.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L6'),
                     token,
@@ -1945,6 +1997,12 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 - **Your Stage**: L8 Final QA (README-only)
 - **Core Responsibility**: Ensure \`${outputPath}/README.md\` contains no unverifiable claims.
 - **Critical Success Factor**: README is the entry point; it must not hallucinate.
+
+## Anti-Hallucination (README Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. README-specific concerns:
+- Remove marketing language ("powerful", "efficient", "robust") unless backed by measurable evidence
+- Verify capability claims ("supports X", "handles Y") actually exist in source code
+- Architecture descriptions must match actual component relationships
 ` + getDeepThinkingProtocol() + `
 ## Input
 - \`${outputPath}/README.md\`
@@ -1953,13 +2011,12 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ## Workflow
 1. Read \`${outputPath}/README.md\` and the linked pages in \`${outputPath}/pages/\`.
-2. Verify the one-line summary and any architectural assertions against the pages and, when needed, actual source code.
-3. If anything cannot be verified, delete it or rewrite it conservatively (no guessing).
-4. Ensure there are no links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.).
-5. Write a report to \`${intermediateDir}/L8/factcheck_report.md\` including:
+2. For each claim in README, verify against generated pages or source code. If unverifiable, delete or rewrite conservatively.
+3. Ensure there are no links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.).
+4. Write a report to \`${intermediateDir}/L8/factcheck_report.md\` including:
    - Files modified (at least README if changed)
    - Summary of removed/rewritten unverifiable claims
-   - Any remaining known limitations (if any)
+   - Any remaining known limitations
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
@@ -1987,6 +2044,12 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Role
 - **Your Stage**: L9 Final QA (Release Gate)
 - **Core Responsibility**: Enforce final output invariants right before completion.
+
+## Anti-Hallucination (Release Gate Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release gate:
+- Only perform cleanup (link fixes, placeholder removal) - do NOT add new content
+- If you spot suspicious claims, remove them rather than trying to verify at this stage
+- The goal is to ensure nothing obviously wrong ships, not to add value
 ` + getDeepThinkingProtocol() + `
 ## Input
 - \`${outputPath}/README.md\`
