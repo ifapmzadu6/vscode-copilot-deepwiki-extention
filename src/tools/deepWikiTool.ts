@@ -196,20 +196,20 @@ Your text output before each tool call is invisible to users but remains in YOUR
 
 This protocol improves accuracy by forcing explicit reasoning before actions.
 
-## CRITICAL: Anti-Hallucination Rules (MUST FOLLOW)
-You are generating technical documentation. **Accuracy is more important than completeness.**
+## Anti-Hallucination Rules
+You are generating technical documentation. Accuracy is more important than completeness.
 
-### Absolute Rules
-1. **NEVER write anything you haven't verified in source code**
-   - Every function name must exist in the codebase
-   - Every parameter name and type must match the source
-   - Every relationship (A calls B, A extends B) must be verifiable in code
+### Rules
+1. **Only write what you've verified in source code**
+   - Every function name should exist in the codebase
+   - Every parameter name and type should match the source
+   - Every relationship (A calls B, A extends B) should be verifiable in code
 
-2. **When uncertain, OMIT rather than guess**
-   - If you're not 100% sure, don't write it
-   - A shorter document with only verified facts is infinitely better than a longer document with lies
+2. **When uncertain, omit rather than guess**
+   - If you're not sure, don't write it
+   - A shorter document with only verified facts is better than a longer document with errors
 
-3. **Common hallucination patterns to AVOID**:
+3. **Common hallucination patterns to avoid**:
    - Inventing function names that "sound right"
    - Describing parameters that don't exist
    - Claiming relationships between components without code evidence
@@ -876,6 +876,13 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 - **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
 - **Core Responsibility**: Deep analysis - understand HOW code works, trace event/state causality, create diagrams
 - **Critical Success Factor**: L4 and L5 depend on your analysis - be thorough and accurate
+
+## Anti-Hallucination (Generator Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a content generator:
+- Only write claims you can directly support with code evidence (use CEI format)
+- If you cannot find clear evidence for something, OMIT it entirely - do not guess
+- Use exact symbol names from source code; never invent names that "sound right"
+- When uncertain about behavior, describe what the code literally does, not what it might do
 ` + getDeepThinkingProtocol() + `
 ## Reasoning Style (Priority)
 - **Causal-chain-first**: Prioritize explaining causality over summarization.
@@ -1057,12 +1064,11 @@ ${mdCodeBlock}
 - **Core Responsibility**: Review the L3 analysis for correctness and usefulness before L4 synthesis.
 - **Critical Success Factor**: Catch wrong/invented statements early so they don't propagate.
 
-## STRICT Anti-Hallucination Policy
-- **ZERO TOLERANCE** for unverified claims. If you cannot find direct evidence in source code, DELETE the claim.
-- **Assume skepticism**: Treat every claim as potentially false until you verify it with your own eyes in the source code.
-- **No inference**: Do NOT accept claims based on "it probably works this way" or "this makes sense architecturally".
-- **Literal verification only**: The exact function names, class names, variable names, and relationships MUST exist in the source code.
-- **When in doubt, delete**: It is ALWAYS better to have less content than to have incorrect content.
+## Anti-Hallucination (Reviewer Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a reviewer:
+- Your job is to CATCH lies, not create content
+- If L3 made unverifiable claims, DELETE them - do not try to fix or rewrite
+- Request RETRY only when content is fundamentally broken, not when you're uncertain
 ` + getDeepThinkingProtocol() + `
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -1092,34 +1098,23 @@ ${mdCodeBlock}
      - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
      - Stop (no further steps).
 
-3. **Claim Verification (Incremental) - BE EXTREMELY STRICT**
+3. **Claim Verification (Incremental)**
    - Open the L3 analysis file and the component's source files.
    - Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
    - For EACH batch of claims (process 3-5 at a time):
-     - **STRICT VERIFICATION PROTOCOL**:
-       1. Read the claim carefully
-       2. Open the source file mentioned in the evidence
-       3. Use grep/search to find the EXACT symbol/function/class name mentioned
-       4. Verify the claim describes what the code ACTUALLY does (not what it seems to do)
-       5. Check that relationships between components are REAL (function A actually calls function B, not just seems related)
-     - **Types of claims that MUST be deleted**:
-       - Claims about "typical patterns" or "common approaches" without specific code evidence
-       - Claims about what code "should" or "would" do
-       - Claims using vague language like "handles", "manages", "processes" without specific implementation details
-       - Claims about architectural decisions or design patterns that aren't explicitly documented
-       - Claims that extrapolate behavior beyond what the source code literally shows
-     - For each evidence anchor: confirm file path exists AND the symbol EXACTLY matches (case-sensitive).
-     - If a claim cannot be verified with DIRECT CODE EVIDENCE: DELETE it entirely. Do not rewrite - just delete.
+     - Verify against ACTUAL SOURCE CODE (APIs, control flow, events, state changes).
+     - Use the nearby \`- Evidence:\` anchors to navigate quickly.
+     - For each evidence anchor: confirm file path exists and symbol appears in that file.
+     - If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim.
      - **IMMEDIATELY** append verification result to \`${intermediateDir}/L3R/${reviewFile}\`:
        \`\`\`markdown
        ### Claims Batch {N}
-       - Verified: {list of verified claims with specific line numbers from source}
-       - DELETED (no evidence): {list with reasons why evidence was insufficient}
-       - DELETED (incorrect): {list with what the code actually shows}
+       - Verified: {list of verified claims}
+       - Removed/Rewritten: {list with reasons}
        \`\`\`
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
-   - If the analysis is too thin (only headings / vague), request RETRY rather than adding content yourself (you might add hallucinations).
+   - If the analysis is too thin (only headings / vague), request RETRY rather than adding content yourself.
 
 4. **Diagram Verification (Incremental)**
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
@@ -1159,10 +1154,8 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
-2. **ABSOLUTE NO GUESSING**: If you cannot verify with direct code evidence, DELETE. Never invent, assume, or extrapolate.
-3. **Deletion is preferable**: A shorter, accurate document is infinitely better than a longer document with falsehoods.
-4. **No benefit of the doubt**: Do not assume claims are correct because they "sound reasonable". Verify everything.
-5. **Chat Final Response**: One short confirmation line; no file contents.
+2. **No guessing**: If you can't verify, delete rather than invent.
+3. **Chat Final Response**: One short confirmation line; no file contents.
 
 ` + getPipelineOverview('L3R'),
                         token,
@@ -1499,6 +1492,13 @@ ${mdCodeBlock}
 - **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
 - **Core Responsibility**: Transform L3 analysis into readable, well-structured documentation pages
 - **Critical Success Factor**: L6 will review your output - focus on clarity and causal explanations
+
+## Anti-Hallucination (Writer Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a documentation writer:
+- Stay grounded in L3 analysis - do not add claims beyond what L3 supports
+- If L3 is vague on a topic, keep your writing equally brief rather than elaborating
+- Verify symbol names against L3's evidence anchors before using them
+- When in doubt, write less - L6 can request retry if content is insufficient
 ` + getDeepThinkingProtocol() + `
 ## Input
 - Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files, description: component.description })}
@@ -1699,18 +1699,11 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 - **Core Responsibility**: Final quality gate - verify accuracy against source code, fix minor issues, request retry for major problems
 - **Critical Success Factor**: You are the last line of defense before final output - be thorough
 
-## STRICT Anti-Hallucination Policy (CRITICAL)
-- **Trust nothing**: Assume every statement in the page is potentially false until YOU verify it in source code.
-- **No assumptions**: Do not assume something is correct because it "sounds technical" or "makes sense".
-- **Line number verification**: When verifying a claim, note the exact line number in source where you found evidence.
-- **Delete liberally**: If you cannot find DIRECT evidence in source code, DELETE the statement. No exceptions.
-- **Watch for common hallucinations**:
-  - Function/method names that don't exist
-  - Parameter types that are wrong
-  - Return types that are incorrect
-  - Relationships between components that don't exist in code
-  - "Typical behavior" descriptions that aren't backed by code
-  - Architecture claims without explicit code evidence
+## Anti-Hallucination (Final Gate Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the final quality gate:
+- You are the LAST defense before output - verify actively, don't just skim
+- Common issues to catch: non-existent functions, wrong parameter types, fabricated relationships
+- When deleting, prefer removing the smallest incorrect unit (sentence/row) rather than entire sections
 ` + getDeepThinkingProtocol() + `
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
@@ -1764,20 +1757,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
         - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
         - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
-        - **Accuracy (MOST CRITICAL CHECK)**:
-          - For EVERY technical claim (function names, class names, parameters, return types, relationships):
-            1. Open the actual source file
-            2. Search for the exact symbol name (case-sensitive)
-            3. Verify the claim matches what the code ACTUALLY does
-            4. If you cannot find the symbol or the behavior doesn't match: DELETE immediately
-          - **Common lies to catch**:
-            - Functions that are described but don't exist
-            - Parameters with wrong names or types
-            - Return types that don't match the code
-            - "This function calls that function" when it doesn't
-            - Event/callback descriptions that don't match implementation
-            - State management claims that aren't in the code
-          - DELETE any statement you cannot verify with direct code evidence. Never assume.
+        - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
         - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
         - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
         - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
@@ -1846,10 +1826,9 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 
 ## Constraints
 1. **Scope**: Do NOT modify files outside of the ".deepwiki" directory. Read-only access is allowed for source code.
-2. **ZERO TOLERANCE for unverified content**: DELETE any statement you cannot verify. A shorter accurate document is better than a longer false one.
-3. **Verify before passing**: Do not mark a page as "OK" unless you have actively verified its technical claims against source code.
-4. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
-5. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.${mermaidValidationInstruction}
+2. **No guessing**: If you can't verify, delete rather than invent.
+3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
+4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.${mermaidValidationInstruction}
 
 ` + getPipelineOverview('L6'),
                     token,
@@ -2019,12 +1998,11 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 - **Core Responsibility**: Ensure \`${outputPath}/README.md\` contains no unverifiable claims.
 - **Critical Success Factor**: README is the entry point; it must not hallucinate.
 
-## STRICT Fact-Checking Policy (MANDATORY)
-- **Every claim needs evidence**: For each statement in README, you must be able to point to source code or generated pages that confirm it.
-- **No marketing language**: Remove any claims like "powerful", "efficient", "robust" unless backed by specific measurable evidence.
-- **No capability claims without code proof**: If README says "the system can do X", verify X is actually implemented in source code.
-- **Architecture claims must match reality**: If README describes architecture, each component/relationship must exist in the actual codebase.
-- **Delete first, ask never**: If you cannot verify a claim in 30 seconds of searching source code, DELETE it immediately.
+## Anti-Hallucination (README Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. README-specific concerns:
+- Remove marketing language ("powerful", "efficient", "robust") unless backed by measurable evidence
+- Verify capability claims ("supports X", "handles Y") actually exist in source code
+- Architecture descriptions must match actual component relationships
 ` + getDeepThinkingProtocol() + `
 ## Input
 - \`${outputPath}/README.md\`
@@ -2033,31 +2011,19 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 
 ## Workflow
 1. Read \`${outputPath}/README.md\` and the linked pages in \`${outputPath}/pages/\`.
-2. **Line-by-line verification**: For EACH claim in README:
-   - Technical claims (function names, class names, APIs): Search source code for exact match
-   - Architecture claims: Verify relationships exist in source code
-   - Capability claims: Verify feature is actually implemented
-   - If you cannot find evidence within 30 seconds of searching: DELETE the claim
-3. **Common README lies to catch**:
-   - Project descriptions that sound good but don't match actual functionality
-   - Feature lists with items that aren't implemented
-   - Architecture diagrams showing relationships that don't exist in code
-   - "Supports X" claims where X isn't in the codebase
-   - Performance or quality claims without evidence
-4. Ensure there are no links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.).
-5. Write a report to \`${intermediateDir}/L8/factcheck_report.md\` including:
+2. For each claim in README, verify against generated pages or source code. If unverifiable, delete or rewrite conservatively.
+3. Ensure there are no links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.).
+4. Write a report to \`${intermediateDir}/L8/factcheck_report.md\` including:
    - Files modified (at least README if changed)
-   - **Detailed list of every claim you deleted and why**
-   - **List of claims you verified and what evidence you found**
+   - Summary of removed/rewritten unverifiable claims
    - Any remaining known limitations
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
-2. **ABSOLUTE NO GUESSING**: If you can't verify with direct evidence, DELETE. A shorter README with only true statements is infinitely better.
-3. **Be suspicious**: Assume every claim is false until you prove it true.
-4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` as you go. Writing all at once will fail.
-5. **Chat Final Response**: One short confirmation line; no file contents.
-6. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Fact-check", or similar sections/notes to \`${outputPath}/README.md\`. Keep all verification results exclusively in \`${intermediateDir}/L8/factcheck_report.md\`.
+2. **No guessing**: If you can't verify, remove or rewrite conservatively.
+3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` as you go. Writing all at once will fail.
+4. **Chat Final Response**: One short confirmation line; no file contents.
+5. **No Validation Results in README**: Do NOT add any "Verification", "Validation", "Fact-check", or similar sections/notes to \`${outputPath}/README.md\`. Keep all verification results exclusively in \`${intermediateDir}/L8/factcheck_report.md\`.
 `,
                     token,
                     options.toolInvocationToken,
@@ -2078,6 +2044,12 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ## Role
 - **Your Stage**: L9 Final QA (Release Gate)
 - **Core Responsibility**: Enforce final output invariants right before completion.
+
+## Anti-Hallucination (Release Gate Focus)
+Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release gate:
+- Only perform cleanup (link fixes, placeholder removal) - do NOT add new content
+- If you spot suspicious claims, remove them rather than trying to verify at this stage
+- The goal is to ensure nothing obviously wrong ships, not to add value
 ` + getDeepThinkingProtocol() + `
 ## Input
 - \`${outputPath}/README.md\`
