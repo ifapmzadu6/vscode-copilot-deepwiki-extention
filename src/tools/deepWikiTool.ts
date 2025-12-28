@@ -923,6 +923,9 @@ Your output must be detailed enough that L4 can reconstruct architecture and rel
 - Include **2–4 critical end-to-end flows** with step-by-step call/event sequences (what triggers it → what runs → what state changes → what observable effect).
 - Include **edge cases / failure modes** (at least 5 bullets) that are visible in code paths (validation, fallbacks, cancellation, retries, platform differences).
 - Write **at least 12 Claims→Evidence→Implication (CEI) blocks** across the document. Each CEI block must include **≥ 2 Evidence anchors**.
+- **NEW**: Document **at least 2-3 design decisions** with rationale, alternatives, and trade-offs.
+- **NEW**: Document **at least 2-3 architectural constraints or invariants** with enforcement evidence.
+- **NEW**: Document **at least 2-3 primary data flows** with diagrams showing state/data movement.
 - Prefer specifics over generalities; if you can't justify a claim from code, omit it.
 
 ## Claims → Evidence → Implication (CEI) Format (MANDATORY)
@@ -961,6 +964,7 @@ Use this exact bullet structure:
    1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
 7. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
    - Overview and Architecture
+   - **Architectural Analysis** (see below: Design Decisions, Constraints, Data Flow)
    - Key Logic
    - **Causal Analysis** (see below)
    - Edge Cases & Failure Modes
@@ -994,6 +998,74 @@ stateDiagram-v2
     Error --> Loading : user.retry
 \`\`\`
 
+## Architectural Analysis Requirements
+Analyze the architectural decisions, constraints, and data flow patterns in the source code:
+
+### Design Decisions & Trade-offs
+For each significant architectural or design decision visible in the code:
+- **Decision**: What was decided? (e.g., "Uses RxJS observables instead of Promises for async operations")
+  - Evidence: \`path/to/file.ts::SymbolName\` — Direct code evidence
+  - Evidence: \`config/setup.ts::initialization\` — Configuration evidence
+- **Rationale**: Why was this approach chosen? (infer from code structure, comments, patterns)
+  - Performance requirements visible in code
+  - Flexibility needs (plugin architecture, configuration options)
+  - Consistency with existing patterns in the codebase
+- **Alternatives Considered**: What other approaches were possible? (Based on comments, fallback code, or common alternatives)
+  - Alternative A: [approach] — Why it wasn't chosen (from code/comments)
+  - Alternative B: [approach] — Comparison
+- **Trade-offs**:
+  - ✅ Advantages: What benefits does this decision provide?
+  - ❌ Disadvantages: What costs or limitations does it incur?
+- **Impact**: How does this decision affect the rest of the system?
+
+**Minimum**: Document at least 2-3 major design decisions with full CEI blocks.
+
+### Architectural Constraints & Invariants
+Document the rules and constraints that the architecture must maintain:
+- **Invariants**: Conditions that must always be true
+  - Claim: [invariant statement]
+    - Evidence: \`file.ts::guardFunction\` — Where/how it's enforced
+    - Evidence: \`validator.ts::check\` — Additional enforcement points
+    - Implication: What breaks if this invariant is violated?
+- **Boundaries**: What this component does NOT do (separation of concerns)
+  - Evidence: Absence of certain imports/dependencies
+  - Evidence: Explicit checks that reject out-of-scope operations
+  - Rationale: Why this boundary exists
+- **Constraints**: Restrictions on how the system can be used or modified
+  - Technical constraints (e.g., "Must run in single-threaded environment")
+  - Business constraints (e.g., "User data never leaves local storage")
+  - Evidence: Code that enforces these constraints
+
+**Minimum**: Document at least 2-3 architectural constraints with evidence.
+
+### Data Flow & State Management
+Document how data and state flow through the system:
+- **State Architecture**: How is state organized and managed?
+  - Central state: \`store.ts::AppState\` — Global application state
+  - Local state: Component-level state
+  - Derived state: Computed/cached values
+  - Evidence: State management library usage, patterns
+- **Primary Data Flows**: Critical paths data takes through the system
+  1. Flow name: Input → Processing → Output
+     - Trigger: What starts this flow?
+     - Steps: Detailed sequence with function/method calls
+     - State changes: What state is modified?
+     - Evidence: \`handler.ts::process\` → \`store.ts::update\` → \`view.ts::render\`
+- **Data Flow Patterns**:
+  - Unidirectional? Bidirectional? Event-driven? Request-response?
+  - Evidence: Code structure that demonstrates the pattern
+- **State Synchronization**: How is consistency maintained?
+  - Between layers (UI ↔ Business Logic ↔ Data)
+  - Between components
+  - Evidence: Observer patterns, event emitters, state subscriptions
+
+**Minimum**: Document the primary state architecture and at least 2-3 critical data flows with diagrams.
+
+**Recommended Diagrams**:
+- \`sequenceDiagram\` for data flow sequences
+- \`stateDiagram-v2\` for state transitions
+- \`graph LR\` for data flow direction (exception to the flowchart ban, only for data flow)
+
 ## Output
 Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\` using this structure (example only; do not wrap the whole file in fences):
 ${mdCodeBlock}markdown
@@ -1004,6 +1076,39 @@ ${mdCodeBlock}markdown
 
 ## Overview and Architecture
 - ...
+
+## Architectural Analysis
+
+### Design Decisions & Trade-offs
+- **Decision 1**: [Decision name]
+  - Evidence: \`path/to/file.ts::Symbol\` — ...
+  - Evidence: \`...\`
+  - Rationale: ...
+  - Alternatives: ...
+  - Trade-offs: ✅ Pros: ... | ❌ Cons: ...
+  - Impact: ...
+
+### Architectural Constraints & Invariants
+- **Invariant 1**: [Always-true condition]
+  - Evidence: \`path/to/guard.ts::checkFunction\` — ...
+  - Implication: ...
+- **Boundary**: [What this component does NOT do]
+  - Evidence: ...
+  - Rationale: ...
+
+### Data Flow & State Management
+- **State Architecture**: ...
+- **Primary Data Flows**:
+  1. Flow Name: Input → Process → Output
+     - Trigger: ...
+     - Steps: \`a.ts::foo()\` → \`b.ts::bar()\` → ...
+     - Evidence: ...
+
+### CEI Blocks (Architectural Analysis)
+- Claim: ...
+  - Evidence: \`...\`
+  - Evidence: \`...\`
+  - Implication: ...
 
 ## Key Logic
 
