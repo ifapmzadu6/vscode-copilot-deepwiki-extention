@@ -924,10 +924,15 @@ Requirements are classified as:
 - **SHOULD**: Recommended for comprehensive analysis.
 
 ### Component Size Guide
-Apply SHOULD requirements based on component complexity:
-- **Small** (1-2 files, <300 LOC): MUST requirements are sufficient
-- **Medium** (3-5 files, 300-1000 LOC): Aim to meet most SHOULD requirements
-- **Large** (6+ files, >1000 LOC): Meet all SHOULD requirements
+Determine component size from the assigned component's file list, then apply requirements accordingly:
+
+| Size | Files | LOC | Requirements |
+|------|-------|-----|--------------|
+| **Small** | 1-2 | <300 | MUST only |
+| **Medium** | 3-5 | 300-1000 | MUST + most SHOULD |
+| **Large** | 6+ | >1000 | MUST + all SHOULD |
+
+*Count files from the component definition. Estimate LOC by reading source files.*
 
 ### Anchors & Symbols
 - **MUST**: Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\`
@@ -979,10 +984,10 @@ Write key statements as CEI blocks so downstream stages can verify and reuse the
   - Implication: [concrete consequence for behavior/architecture/integration]
 
 ### CEI Quality Requirements
-- **MUST**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
-- **MUST**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
-- **SHOULD**: Include line numbers (e.g., \`:L42\`) for easier verification
-- **SHOULD**: When behavior spans files, include evidence from all relevant files
+- **MUST (Specificity)**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
+- **MUST (Evidence Depth)**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
+- **SHOULD (Line References)**: Include line numbers (e.g., \`:L42\`) for easier verification
+- **SHOULD (Cross-file Tracing)**: When behavior spans files, include evidence from all relevant files
 
 ### CEI Categories
 Ensure coverage across categories:
@@ -1046,12 +1051,13 @@ Analyze the source code and document cause-and-effect relationships. This sectio
 - **SHOULD**: For each state change, trace downstream effects (UI updates, side effects, cascaded updates)
 
 ### Temporal Relationships
-Include this section if the component has async operations, multiple event sources, or state dependencies:
+**Include if**: Component uses Promise/async-await, setTimeout/setInterval, event listeners, or has operations that must complete in order.
+
 - **SHOULD**: Document ordering constraints (what must happen before what)
 - **SHOULD**: Identify race conditions and their handling mechanisms
 - **SHOULD**: Describe async coordination (locks, queues, debouncing)
 
-*Skip this section if the component is purely synchronous with no timing concerns.*
+**Skip if**: All functions are synchronous with no callbacks, timers, or external event handling.
 
 ### Causal Diagrams
 - **MUST**: Create **at least 1 diagram** showing state/event flow
