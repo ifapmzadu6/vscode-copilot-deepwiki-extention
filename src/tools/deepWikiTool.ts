@@ -150,7 +150,6 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
             // Run auto-detection subagent
             const autoDetectResult = await this.runAutoDetectSubagent(
-                workspaceFolder,
                 outputPath,
                 intermediateDir,
                 token,
@@ -2265,20 +2264,49 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
      * Returns the stage to resume from and a reason explaining the decision.
      */
     private async runAutoDetectSubagent(
-        workspaceFolder: vscode.WorkspaceFolder,
         outputPath: string,
         intermediateDir: string,
         cancellationToken: vscode.CancellationToken,
         toolInvocationToken: vscode.ChatParticipantToolToken | undefined
     ): Promise<{ stage: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9'; reason: string }> {
-        const startTime = Date.now();
-        logger.log('DeepWiki', '>>> Starting Phase: L0-Auto (Resume Point Detector)');
+        const maxAttempts = 2;
+        const retryDelayMs = 15000;
+        const isRetryableFailureText = (text: string) =>
+            /(your request failed|hit the length limit|there was a network error|no response was returned|rate limit|too many requests|429|timed out|timeout|econnreset|socket hang up)/i.test(
+                text
+            );
+
+        // Pipeline Overview for context
+        const pipelineOverview = `
+## Pipeline Overview (short)
+L1 Context → L2 Discover (A/B/C) → L3 Analyze → L3-R Review → L4 Architect → L5 Pages (1:1) → L5-V Validate → L6 Review → L7 Indexer → L8 QA (README) → L9 QA (Release Gate)
+(Artifacts are stored under \`.deepwiki/\`.)
+`;
+
+        // Deep Thinking Protocol for better reasoning
+        const deepThinkingProtocol = `
+## Deep Thinking Protocol (IMPORTANT)
+Your text output before each tool call is invisible to users but remains in YOUR context. Use this as a "scratchpad" to maximize reasoning quality:
+
+### Before EACH Tool Call
+1. **Situation Analysis**: Describe current state and what you're trying to accomplish
+2. **Hypotheses** (generate 3): List three possible approaches or interpretations
+3. **Decision**: Choose the best hypothesis and explain why
+
+### After EACH Tool Result
+1. **Reflection**: Was your hypothesis correct? What did you learn?
+2. **Adjustment**: How does this change your next action?
+
+### Final Output
+- Keep your final chat response brief and polished
+- All detailed reasoning stays in your pre-tool-call text (which is discarded from user view)
+`;
 
         const prompt = `# Resume Point Detector Agent (L0-Auto)
-
+${pipelineOverview}
 ## Role
 You are the Resume Point Detector. Your task is to analyze existing DeepWiki artifacts and determine the optimal stage to resume the pipeline from.
-
+${deepThinkingProtocol}
 ## Your Mission
 1. Examine the \`${outputPath}/\` directory structure
 2. Check which intermediate artifacts exist in \`${intermediateDir}/\`
@@ -2334,32 +2362,48 @@ Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
 - Be conservative: if unsure about artifact quality, recommend an earlier stage
 - Your JSON output MUST be parseable - ensure valid JSON syntax`;
 
-        try {
-            const result = await vscode.lm.invokeTool(
-                'runSubagent',
-                {
-                    input: {
-                        description: 'Detect optimal resume point',
-                        prompt: prompt
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const startTime = Date.now();
+            logger.log('DeepWiki', `>>> Starting Phase: L0-Auto (Resume Point Detector) (attempt ${attempt}/${maxAttempts})`);
+
+            // Wait before each subagent call to avoid API rate limits
+            await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 10000 : retryDelayMs));
+
+            try {
+                const result = await vscode.lm.invokeTool(
+                    'runSubagent',
+                    {
+                        input: {
+                            description: 'Detect optimal resume point',
+                            prompt: prompt
+                        },
+                        toolInvocationToken: toolInvocationToken
                     },
-                    toolInvocationToken: toolInvocationToken
-                },
-                cancellationToken
-            );
+                    cancellationToken
+                );
 
-            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            let resultText = '';
-            for (const part of result.content) {
-                if (part instanceof vscode.LanguageModelTextPart) {
-                    resultText += part.value + '\n';
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                let resultText = '';
+                for (const part of result.content) {
+                    if (part instanceof vscode.LanguageModelTextPart) {
+                        resultText += part.value + '\n';
+                    }
                 }
-            }
 
-            // Parse the JSON response from the subagent
-            const jsonMatch = resultText.match(/```(?:json)?\s*([\s\S]*?)```/);
-            if (jsonMatch) {
+                // Check for retryable failures in response text
+                if (isRetryableFailureText(resultText)) {
+                    const shouldRetry = attempt < maxAttempts;
+                    logger.warn(
+                        'DeepWiki',
+                        `Subagent reported request failure in L0-Auto (attempt ${attempt}/${maxAttempts}).${shouldRetry ? ' Retrying.' : ''}`
+                    );
+                    if (shouldRetry) continue;
+                    return { stage: 'L1', reason: 'Auto-detection failed after retries, starting fresh' };
+                }
+
+                // Parse the JSON response using existing parseJson helper pattern
                 try {
-                    const parsed = JSON.parse(jsonMatch[1].trim()) as { stage: string; reason: string };
+                    const parsed = this.parseJson<{ stage: string; reason: string }>(resultText);
                     const validStages = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'];
                     const stage = validStages.includes(parsed.stage?.toUpperCase())
                         ? (parsed.stage.toUpperCase() as 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9')
@@ -2369,26 +2413,36 @@ Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
                     logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Detected: ${stage}`);
                     return { stage, reason };
                 } catch (parseError) {
-                    logger.warn('DeepWiki', `L0-Auto JSON parse failed, defaulting to L1: ${parseError}`);
+                    logger.warn('DeepWiki', `L0-Auto JSON parse failed: ${parseError}`);
                 }
-            }
 
-            // Fallback: try to find stage mention in text
-            const stageMention = resultText.match(/\b(L[1-9])\b/i);
-            if (stageMention) {
-                const stage = stageMention[1].toUpperCase() as 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9';
-                logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Fallback detected: ${stage}`);
-                return { stage, reason: 'Auto-detected from text analysis' };
-            }
+                // Fallback: try to find stage mention in text
+                const stageMention = resultText.match(/\b(L[1-9])\b/i);
+                if (stageMention) {
+                    const stage = stageMention[1].toUpperCase() as 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9';
+                    logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Fallback detected: ${stage}`);
+                    return { stage, reason: 'Auto-detected from text analysis' };
+                }
 
-            logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - No stage detected, defaulting to L1`);
-            return { stage: 'L1', reason: 'No existing artifacts found' };
-        } catch (error) {
-            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-            logger.error('DeepWiki', `!!! Failed Phase: L0-Auto after ${duration}s`, error);
-            // On error, default to L1 (fresh start)
-            return { stage: 'L1', reason: 'Auto-detection failed, starting fresh' };
+                logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - No stage detected, defaulting to L1`);
+                return { stage: 'L1', reason: 'No existing artifacts found' };
+            } catch (error) {
+                const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+                const msg = error instanceof Error ? error.message : String(error);
+                const shouldRetry = attempt < maxAttempts && isRetryableFailureText(msg);
+                logger.error(
+                    'DeepWiki',
+                    `!!! Failed Phase: L0-Auto after ${duration}s (attempt ${attempt}/${maxAttempts})${shouldRetry ? ' - retrying' : ''}`,
+                    error
+                );
+                if (shouldRetry) continue;
+                // On final error, default to L1 (fresh start)
+                return { stage: 'L1', reason: 'Auto-detection failed, starting fresh' };
+            }
         }
+
+        // Should not reach here, but fallback just in case
+        return { stage: 'L1', reason: 'Auto-detection exhausted retries' };
     }
 
     private async discoverExistingDeepWikis(
