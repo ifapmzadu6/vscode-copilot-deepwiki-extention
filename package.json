@@ -54,7 +54,7 @@
             },
             "startFromStage": {
               "type": "string",
-              "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist.",
+              "description": "Optional resume/start stage for the pipeline. If set (e.g., 'L4'), earlier stages are skipped and required artifacts under outputPath must already exist. Use 'auto' to let an AI subagent analyze existing artifacts and determine the optimal resume point.",
               "enum": [
                 "L1",
                 "L2",
@@ -64,7 +64,8 @@
                 "L6",
                 "L7",
                 "L8",
-                "L9"
+                "L9",
+                "auto"
               ]
             }
           },

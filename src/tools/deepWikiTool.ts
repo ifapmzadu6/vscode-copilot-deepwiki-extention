@@ -104,6 +104,10 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
     ): Promise<vscode.PreparedToolInvocation> {
         const outputPath = options.input.outputPath || '.deepwiki';
         const startFromStage = options.input.startFromStage || 'L1';
+        const isAuto = startFromStage.toLowerCase() === 'auto';
+        const stageDescription = isAuto
+            ? '`auto` (AI will analyze existing artifacts and determine optimal resume point)'
+            : `\`${startFromStage}\`${startFromStage === 'L1' ? '' : ' (resume; earlier stages are skipped and existing artifacts are reused)'}`;
         return {
             invocationMessage: 'Initializing DeepWiki Component Pipeline...',
             confirmationMessages: {
@@ -111,7 +115,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 message: new vscode.MarkdownString(
                     'Start the DeepWiki generation pipeline?\n\n' +
                     `This will analyze your workspace by **Components** and generate documentation in \`${outputPath}\`.\n\n` +
-                    `Start from stage: \`${startFromStage}\`${startFromStage === 'L1' ? '' : ' (resume; earlier stages are skipped and existing artifacts are reused)'}.`
+                    `Start from stage: ${stageDescription}.`
                 ),
             },
         };
@@ -125,11 +129,6 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         const outputPath = params.outputPath || '.deepwiki';
         const stageOrder = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'] as const;
         type Stage = typeof stageOrder[number];
-        const startFromStageRaw = String(params.startFromStage || 'L1').toUpperCase();
-        const startFromStage: Stage = (stageOrder as readonly string[]).includes(startFromStageRaw)
-            ? (startFromStageRaw as Stage)
-            : 'L1';
-        const startStageIndex = stageOrder.indexOf(startFromStage);
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
         if (!workspaceFolder) {
@@ -138,12 +137,41 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             ]);
         }
 
-
-
         const intermediateDir = `${outputPath}/intermediate`;
+
+        // Determine start stage (may be overridden by auto-detection below)
+        let startFromStageRaw = String(params.startFromStage || 'L1').toUpperCase();
+        const isAutoDetect = startFromStageRaw === 'AUTO';
+        let startFromStage: Stage;
+        let autoDetectedReason = '';
+
+        if (isAutoDetect) {
+            logger.log('DeepWiki', 'Auto-detect mode: Running L0-Auto subagent to determine resume point...');
+
+            // Run auto-detection subagent
+            const autoDetectResult = await this.runAutoDetectSubagent(
+                workspaceFolder,
+                outputPath,
+                intermediateDir,
+                token,
+                options.toolInvocationToken
+            );
+
+            startFromStage = autoDetectResult.stage;
+            autoDetectedReason = autoDetectResult.reason;
+            logger.log('DeepWiki', `Auto-detect result: ${startFromStage} - ${autoDetectedReason}`);
+        } else {
+            startFromStage = (stageOrder as readonly string[]).includes(startFromStageRaw)
+                ? (startFromStageRaw as Stage)
+                : 'L1';
+        }
+
+        const startStageIndex = stageOrder.indexOf(startFromStage);
+
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
         if (startFromStage !== 'L1') {
-            logger.log('DeepWiki', `Resume mode: starting from stage ${startFromStage} (skipping earlier stages)`);
+            const reasonSuffix = autoDetectedReason ? ` (${autoDetectedReason})` : '';
+            logger.log('DeepWiki', `Resume mode: starting from stage ${startFromStage} (skipping earlier stages)${reasonSuffix}`);
         }
 
         // Helper to check for cancellation and throw if requested
@@ -2229,6 +2257,137 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
                     throw error;
                 }
             }
+        }
+    }
+
+    /**
+     * L0-Auto: Subagent that analyzes existing artifacts to determine the optimal resume point.
+     * Returns the stage to resume from and a reason explaining the decision.
+     */
+    private async runAutoDetectSubagent(
+        workspaceFolder: vscode.WorkspaceFolder,
+        outputPath: string,
+        intermediateDir: string,
+        cancellationToken: vscode.CancellationToken,
+        toolInvocationToken: vscode.ChatParticipantToolToken | undefined
+    ): Promise<{ stage: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9'; reason: string }> {
+        const startTime = Date.now();
+        logger.log('DeepWiki', '>>> Starting Phase: L0-Auto (Resume Point Detector)');
+
+        const prompt = `# Resume Point Detector Agent (L0-Auto)
+
+## Role
+You are the Resume Point Detector. Your task is to analyze existing DeepWiki artifacts and determine the optimal stage to resume the pipeline from.
+
+## Your Mission
+1. Examine the \`${outputPath}/\` directory structure
+2. Check which intermediate artifacts exist in \`${intermediateDir}/\`
+3. Verify artifact integrity and completeness
+4. Determine the optimal resume point
+
+## Artifact Checklist (check in this order)
+
+### Stage Artifacts to Check:
+1. **L1**: \`${intermediateDir}/L1/project_context.md\` - Project context analysis
+2. **L2**: \`${intermediateDir}/L2/component_list.json\` - Component discovery list
+3. **L3**: \`${intermediateDir}/L3/*_analysis.md\` - Individual component analyses
+4. **L4**: \`${intermediateDir}/L4/overview.md\` and \`${intermediateDir}/L4/relationships.md\` - Architecture docs
+5. **L5**: \`${outputPath}/pages/*.md\` - Generated documentation pages
+6. **L6**: Check if L6 review was completed (no pending retry_request.json)
+7. **L7**: \`${outputPath}/README.md\` - Index/README file
+8. **L8**: \`${intermediateDir}/L8/factcheck_report.md\` - Fact-check report
+9. **L9**: \`${intermediateDir}/L9/release_gate_report.md\` - Release gate report
+
+## Decision Logic
+
+Analyze artifacts and apply this logic:
+- If L9 release gate report exists and indicates PASS → pipeline is complete, recommend L9 for final verification
+- If L8 fact-check exists → resume from L9
+- If README.md exists in output → resume from L8
+- If pages/*.md files exist AND match component_list.json → resume from L7
+- If pages/*.md exist but some are missing → resume from L5 (to regenerate missing pages)
+- If L4 overview.md and relationships.md exist → resume from L5
+- If L3 analysis files exist for all components → resume from L4
+- If L2 component_list.json exists → resume from L3
+- If L1 project_context.md exists → resume from L2
+- If no artifacts exist → start fresh from L1
+
+## Special Checks
+- If \`${intermediateDir}/L6/retry_request.json\` exists, there may be pending retries - consider resuming from L3
+- If \`${intermediateDir}/L5V/page_validation_failures.json\` exists, some pages need regeneration - resume from L5
+
+## Output Format (CRITICAL)
+After your analysis, you MUST output a JSON block with your decision. Use EXACTLY this format:
+
+\`\`\`json
+{
+  "stage": "L1",
+  "reason": "Brief explanation of why this stage was chosen"
+}
+\`\`\`
+
+Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
+
+## Important
+- Read files to verify they exist and contain valid content
+- Check file sizes - empty or near-empty files indicate incomplete stages
+- Be conservative: if unsure about artifact quality, recommend an earlier stage
+- Your JSON output MUST be parseable - ensure valid JSON syntax`;
+
+        try {
+            const result = await vscode.lm.invokeTool(
+                'runSubagent',
+                {
+                    input: {
+                        description: 'Detect optimal resume point',
+                        prompt: prompt
+                    },
+                    toolInvocationToken: toolInvocationToken
+                },
+                cancellationToken
+            );
+
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            let resultText = '';
+            for (const part of result.content) {
+                if (part instanceof vscode.LanguageModelTextPart) {
+                    resultText += part.value + '\n';
+                }
+            }
+
+            // Parse the JSON response from the subagent
+            const jsonMatch = resultText.match(/```(?:json)?\s*([\s\S]*?)```/);
+            if (jsonMatch) {
+                try {
+                    const parsed = JSON.parse(jsonMatch[1].trim()) as { stage: string; reason: string };
+                    const validStages = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'];
+                    const stage = validStages.includes(parsed.stage?.toUpperCase())
+                        ? (parsed.stage.toUpperCase() as 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9')
+                        : 'L1';
+                    const reason = parsed.reason || 'Auto-detected';
+
+                    logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Detected: ${stage}`);
+                    return { stage, reason };
+                } catch (parseError) {
+                    logger.warn('DeepWiki', `L0-Auto JSON parse failed, defaulting to L1: ${parseError}`);
+                }
+            }
+
+            // Fallback: try to find stage mention in text
+            const stageMention = resultText.match(/\b(L[1-9])\b/i);
+            if (stageMention) {
+                const stage = stageMention[1].toUpperCase() as 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9';
+                logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Fallback detected: ${stage}`);
+                return { stage, reason: 'Auto-detected from text analysis' };
+            }
+
+            logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - No stage detected, defaulting to L1`);
+            return { stage: 'L1', reason: 'No existing artifacts found' };
+        } catch (error) {
+            const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+            logger.error('DeepWiki', `!!! Failed Phase: L0-Auto after ${duration}s`, error);
+            // On error, default to L1 (fresh start)
+            return { stage: 'L1', reason: 'Auto-detection failed, starting fresh' };
         }
     }
 
