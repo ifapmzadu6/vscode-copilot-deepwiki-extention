@@ -2329,12 +2329,14 @@ ${deepThinkingProtocol}
 
 ### Stage Artifacts to Check:
 1. **L1**: \`${absoluteIntermediateDir}/L1/project_context.md\` - Project context analysis
-2. **L2**: \`${absoluteIntermediateDir}/L2/component_list.json\` - Component discovery list
-3. **L3**: \`${absoluteIntermediateDir}/L3/*_analysis.md\` - Individual component analyses
+2. **L2**: \`${absoluteIntermediateDir}/L2/component_list.json\` - Component discovery list (contains array of {id, name, ...})
+3. **L3**: \`${absoluteIntermediateDir}/L3/{id}_analysis.md\` - Individual component analyses (one per component)
+   - **Verification**: Read component_list.json, extract all component IDs, then check if \`{id}_analysis.md\` exists for EACH component
 4. **L4**: \`${absoluteIntermediateDir}/L4/overview.md\` and \`${absoluteIntermediateDir}/L4/relationships.md\` - Architecture docs
-5. **L5**: \`${absoluteOutputPath}/pages/*.md\` - Generated documentation pages
-6. **L6**: Check if L6 review was completed (no pending retry_request.json)
-7. **L7**: \`${absoluteOutputPath}/README.md\` - Index/README file
+5. **L5**: \`${absoluteOutputPath}/pages/*.md\` - Generated documentation pages (one per component)
+   - **Verification**: Compare page files against component_list.json to ensure all components have pages
+6. **L6**: Check if L6 review was completed (no pending \`${absoluteIntermediateDir}/L6/retry_request.json\`)
+7. **L7**: \`${absoluteOutputPath}/README.md\` AND \`${absoluteIntermediateDir}/L7/indexer_report.md\` - Index file and indexer report
 8. **L8**: \`${absoluteIntermediateDir}/L8/factcheck_report.md\` - Fact-check report
 9. **L9**: \`${absoluteIntermediateDir}/L9/release_gate_report.md\` - Release gate report
 
@@ -2343,14 +2345,23 @@ ${deepThinkingProtocol}
 Analyze artifacts and apply this logic:
 - If L9 release gate report exists and indicates PASS → pipeline is complete, recommend L9 for final verification
 - If L8 fact-check exists → resume from L9
-- If README.md exists in output → resume from L8
-- If pages/*.md files exist AND match component_list.json → resume from L7
-- If pages/*.md exist but some are missing → resume from L5 (to regenerate missing pages)
+- If README.md AND L7 indexer_report.md exist → resume from L8
+- If pages/*.md files exist AND match ALL components in component_list.json → resume from L7
+- If pages/*.md exist but some components are missing pages → resume from L5 (to regenerate missing pages)
 - If L4 overview.md and relationships.md exist → resume from L5
-- If L3 analysis files exist for all components → resume from L4
+- If L3 analysis files exist for ALL components in component_list.json → resume from L4
+- If L3 analysis files exist but some components are missing → resume from L3 (to analyze missing components)
 - If L2 component_list.json exists → resume from L3
 - If L1 project_context.md exists → resume from L2
 - If no artifacts exist → start fresh from L1
+
+## L3 Verification Steps (IMPORTANT)
+To verify L3 completion:
+1. Read \`${absoluteIntermediateDir}/L2/component_list.json\`
+2. Parse the JSON array and extract all \`id\` fields
+3. For each component ID, check if \`${absoluteIntermediateDir}/L3/{id}_analysis.md\` exists
+4. If ALL analysis files exist → L3 is complete, can resume from L4
+5. If SOME are missing → resume from L3 to analyze remaining components
 
 ## Special Checks
 - If \`${absoluteIntermediateDir}/L6/retry_request.json\` exists, there may be pending retries - consider resuming from L3
