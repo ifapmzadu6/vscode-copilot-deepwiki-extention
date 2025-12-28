@@ -923,6 +923,7 @@ Your output must be detailed enough that L4 can reconstruct architecture and rel
 - Include **2–4 critical end-to-end flows** with step-by-step call/event sequences (what triggers it → what runs → what state changes → what observable effect).
 - Include **edge cases / failure modes** (at least 5 bullets) that are visible in code paths (validation, fallbacks, cancellation, retries, platform differences).
 - Write **at least 12 Claims→Evidence→Implication (CEI) blocks** across the document. Each CEI block must include **≥ 2 Evidence anchors**.
+- Include **at least 2 data flow paths** showing how data transforms from input to output (entry points → validation → transformation → storage/output).
 - Prefer specifics over generalities; if you can't justify a claim from code, omit it.
 
 ## Claims → Evidence → Implication (CEI) Format (MANDATORY)
@@ -958,11 +959,12 @@ Use this exact bullet structure:
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
 6. Priority order (highest → lowest):
-   1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
+   1) CEI blocks (with evidence anchors) → 2) Data Flow paths → 3) Diagrams → 4) Critical flows → 5) Narrative summary
 7. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
+   - **Data Flow Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
 8. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
@@ -992,6 +994,47 @@ stateDiagram-v2
     Loading --> Error : api.error
     Success --> Idle : user.reset
     Error --> Loading : user.retry
+\`\`\`
+
+## Data Flow Analysis Requirements
+Trace how data moves through the component from input to output:
+
+### Data Entry Points
+- **External Inputs**: Where does data enter? (API requests, user input, file reads, message queues)
+- **Input Types**: What are the data structures/schemas at entry?
+- **Validation Gates**: Where and how is input validated? (schema validation, type guards, sanitization)
+
+### Data Transformation Pipeline
+- **Transformation Steps**: How is data modified as it flows through? (parsing → normalization → enrichment → formatting)
+- **Intermediate Representations**: What shapes does data take between stages?
+- **Business Logic Application**: Where are business rules applied to data?
+
+### Data Output & Persistence
+- **Output Destinations**: Where does data go? (API responses, database writes, event emissions, file outputs)
+- **Output Formats**: How is data serialized/formatted for output?
+- **Persistence Points**: Where is data stored? (in-memory caches, databases, files, external services)
+
+### Data Integrity & Validation
+- **Validation Checkpoints**: List all points where data is validated with \`path/to/file.ts::validatorFunction\`
+- **Error Boundaries**: Where are data errors caught and handled?
+- **Data Contracts**: What guarantees does this component make about its output data?
+
+### Data Flow Diagram
+Create a \`sequenceDiagram\` or \`flowchart LR\` showing the data transformation pipeline:
+\`\`\`mermaid
+sequenceDiagram
+    participant Input as External Input
+    participant Validate as Validator
+    participant Transform as Transformer
+    participant Store as Storage
+    participant Output as External Output
+
+    Input->>Validate: raw data
+    Validate->>Validate: schema check
+    Validate->>Transform: validated data
+    Transform->>Transform: normalize & enrich
+    Transform->>Store: processed data
+    Store->>Output: formatted response
 \`\`\`
 
 ## Output
@@ -1031,6 +1074,27 @@ ${mdCodeBlock}markdown
 - ...
 
 ### CEI Blocks (Causality)
+- Claim: ...
+  - Evidence: \`...\`
+  - Evidence: \`...\`
+  - Implication: ...
+
+## Data Flow Analysis
+
+### Data Entry Points
+- External inputs: ...
+- Input validation: \`path/to/file.ts::validateInput\`
+
+### Data Transformation Pipeline
+- Step 1: parsing → \`path/to/file.ts::parseData\`
+- Step 2: normalization → \`path/to/file.ts::normalizeData\`
+- Step 3: enrichment → \`path/to/file.ts::enrichData\`
+
+### Data Output & Persistence
+- Output destinations: ...
+- Persistence points: ...
+
+### CEI Blocks (Data Flow)
 - Claim: ...
   - Evidence: \`...\`
   - Evidence: \`...\`
