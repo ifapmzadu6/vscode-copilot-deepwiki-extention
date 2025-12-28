@@ -917,64 +917,73 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a content gen
 - Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
 
 ## Depth Targets (Write More Than a Summary)
-Your output must be detailed enough that L4 can reconstruct architecture and relationships without re-reading source code. **Aim for exhaustive analysis, not minimal compliance.**
+Your output must be detailed enough that L4 can reconstruct architecture and relationships without re-reading source code.
+
+Requirements are classified as:
+- **MUST**: Minimum requirements. Analysis will be rejected if not met.
+- **SHOULD**: Recommended for comprehensive analysis. Aim to meet these for medium/large components.
 
 ### Anchors & Symbols
-- Include **at least 20 concrete anchors** in the form \`path/to/file.ts::SymbolName\` (functions, classes, events, commands, services, config keys, constants, type definitions).
-- For each major type/class, document **all public methods and their signatures**.
-- Reference **configuration keys, environment variables, and magic strings** with their locations.
+- **MUST**: Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\`
+- **SHOULD**: Target **20+ anchors** for comprehensive coverage (functions, classes, events, commands, services, config keys, constants, type definitions)
+- **SHOULD**: Document all public methods and their signatures for major types/classes
+- **SHOULD**: Reference configuration keys, environment variables, and magic strings with their locations
 
 ### Critical Flows
-- Include **4–6 critical end-to-end flows** with step-by-step call/event sequences (what triggers it → what runs → what state changes → what observable effect).
-- Each flow must include **at least 5 steps** with concrete function/method references.
-- Document **both success and failure paths** for each critical flow.
+- **MUST**: Include **at least 2 critical end-to-end flows** with step-by-step sequences
+- **SHOULD**: Target **4–6 flows** for complex components
+- **MUST**: Each flow must include **at least 3 steps** with concrete function/method references
+- **SHOULD**: Each flow includes **5+ steps** with both success and failure paths
 
 ### Edge Cases & Error Handling
-- Include **at least 8 edge cases / failure modes** that are visible in code paths (validation, fallbacks, cancellation, retries, platform differences, timeout handling, resource cleanup).
-- For each edge case, specify: **trigger condition**, **handling mechanism**, and **recovery behavior**.
-- Document **error propagation patterns** (how errors bubble up through the call stack).
+- **MUST**: Include **at least 4 edge cases / failure modes** visible in code paths
+- **SHOULD**: Target **8+ edge cases** covering validation, fallbacks, cancellation, retries, timeout handling, resource cleanup
+- **SHOULD**: For each edge case, specify trigger condition, handling mechanism, and recovery behavior
+- **SHOULD**: Document error propagation patterns
 
 ### CEI Blocks (Claims → Evidence → Implication)
-- Write **at least 18 CEI blocks** across the document.
-- Each CEI block must include **≥ 3 Evidence anchors** with specific line-level references where possible.
-- Distribute CEI blocks across all sections: Key Logic (6+), Causal Analysis (4+), Data Flow (4+), Edge Cases (4+).
+- **MUST**: Write **at least 8 CEI blocks** across the document
+- **SHOULD**: Target **18+ CEI blocks** distributed across sections: Key Logic (6+), Causal Analysis (4+), Data Flow (4+), Edge Cases (4+)
+- **MUST**: Each CEI block must include **≥ 2 Evidence anchors**
+- **SHOULD**: Each CEI block includes **≥ 3 Evidence anchors** with line-level references
 
 ### Data Flow Paths
-- Include **at least 4 data flow paths** showing how data transforms from input to output (entry points → validation → transformation → storage/output).
-- Document **data shape changes** at each transformation step (what fields are added/removed/modified).
-- Identify **data validation checkpoints** and what happens when validation fails.
+- **MUST**: Include **at least 1 data flow path** showing input → processing → output
+- **SHOULD**: Target **4+ data flow paths** with data shape changes documented at each step
+- **SHOULD**: Identify data validation checkpoints and failure handling
 
 ### Diagrams
-- Include **at least 3 Mermaid diagrams**: one stateDiagram-v2, one sequenceDiagram, and one additional (classDiagram, C4Context, or block).
-- Each diagram must have **at least 6 nodes/states** and show meaningful relationships.
+- **MUST**: Include **at least 1 Mermaid diagram** (stateDiagram-v2 or sequenceDiagram)
+- **SHOULD**: Include **3+ diagrams**: stateDiagram-v2, sequenceDiagram, and one additional (classDiagram, C4Context, or block)
+- **MUST**: Each diagram must have **at least 4 nodes/states**
+- **SHOULD**: Each diagram has **6+ nodes/states** showing meaningful relationships
 
-### Quality Bar
-- Prefer specifics over generalities; if you can't justify a claim from code, omit it.
-- Every claim must trace back to a concrete code location.
-- If a section seems thin, dig deeper into the source code before moving on.
+### Quality Bar (All MUST)
+- Prefer specifics over generalities; if you can't justify a claim from code, omit it
+- Every claim must trace back to a concrete code location
+- If a section seems thin, dig deeper into the source code before moving on
 
-## Claims → Evidence → Implication (CEI) Format (MANDATORY)
-Write key statements as CEI blocks so downstream stages can verify and reuse them. **CEI blocks are the most important output** - they provide verifiable, reusable facts for L4/L5.
+## Claims → Evidence → Implication (CEI) Format
+Write key statements as CEI blocks so downstream stages can verify and reuse them. CEI blocks provide verifiable, reusable facts for L4/L5.
 
-### CEI Structure (use this exact format)
+### CEI Structure (MUST use this format)
 - Claim: [precise, verifiable statement about code behavior]
-  - Evidence: \`path/to/file.ts:L42::functionName\` — [specific explanation of how this code supports the claim]
-  - Evidence: \`path/to/file.ts:L78::ClassName.methodName\` — [additional supporting evidence]
-  - Evidence: \`path/to/other.ts:L15::CONSTANT_NAME\` — [third evidence point]
-  - Implication: [concrete consequence for behavior/architecture/integration - no speculation]
+  - Evidence: \`path/to/file.ts::functionName\` — [explanation of how this supports the claim]
+  - Evidence: \`path/to/file.ts::ClassName.methodName\` — [additional evidence]
+  - Implication: [concrete consequence for behavior/architecture/integration]
 
 ### CEI Quality Requirements
-- **Specificity**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
-- **Evidence depth**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
-- **Line references**: Include line numbers where practical (e.g., \`:L42\`) for easier verification
-- **Cross-file tracing**: When behavior spans files, include evidence from ALL relevant files
-- **No orphan claims**: Every claim MUST have at least 3 evidence points; if you can't find 3, the claim is too broad
+- **MUST - Specificity**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
+- **MUST - Evidence depth**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
+- **SHOULD - Line references**: Include line numbers where practical (e.g., \`:L42\`) for easier verification
+- **SHOULD - Cross-file tracing**: When behavior spans files, include evidence from ALL relevant files
 
-### CEI Categories (ensure coverage across all)
-1. **Behavioral CEIs**: What the code does (at least 6)
-2. **Structural CEIs**: How code is organized/connected (at least 4)
-3. **Contractual CEIs**: Guarantees the code makes/expects (at least 4)
-4. **Failure CEIs**: How errors are handled (at least 4)
+### CEI Categories
+Ensure coverage across categories. Numbers are targets, not strict minimums:
+1. **Behavioral CEIs**: What the code does (target: 4+, SHOULD: 6+)
+2. **Structural CEIs**: How code is organized/connected (target: 2+, SHOULD: 4+)
+3. **Contractual CEIs**: Guarantees the code makes/expects (target: 2+, SHOULD: 4+)
+4. **Failure CEIs**: How errors are handled (target: 2+, SHOULD: 4+)
 
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -1013,176 +1022,96 @@ Write key statements as CEI blocks so downstream stages can verify and reuse the
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Causal Analysis Requirements
-Analyze the source code and document cause-and-effect relationships **exhaustively**. This section should answer "why does X happen?" for every significant behavior.
+Analyze the source code and document cause-and-effect relationships. This section should answer "why does X happen?" for significant behaviors.
 
-### Event Causality (at least 4 complete chains)
-- **Event Chain**: Trace how events propagate with FULL paths (e.g., "User clicks button → \`click\` event → \`handleClick()\` → validates input → emits \`data.updated\` → \`onDataUpdated()\` triggers → UI re-renders")
-- **Event Sources**: Document ALL event origins with their triggers:
-  - User actions (clicks, inputs, gestures)
-  - System events (timers, lifecycle hooks, observers)
-  - External events (API responses, WebSocket messages, file changes)
-- **Event Consumers**: For EACH event type, list ALL listeners and their side effects
-- **Event Timing**: Document any debouncing, throttling, or sequencing constraints
+### Event Causality
+- **MUST**: Document **at least 2 event chains** showing how events propagate
+- **SHOULD**: Target **4+ complete chains** with full paths (trigger → handler → state change → side effects)
+- **MUST**: Identify primary event sources (user actions, system events, external events)
+- **SHOULD**: For each event type, list all listeners and their side effects
+- **SHOULD**: Document debouncing, throttling, or sequencing constraints if present
 
-### State Causality (at least 6 state variables analyzed)
-- **State Inventory**: List ALL stateful variables/properties with their types and initial values
-- **State Dependencies**: Map which states depend on other states with concrete examples:
-  - Direct dependencies: "\`canSubmit\` = \`!isLoading && isValid\`"
-  - Derived state: "\`displayName\` computed from \`firstName\` + \`lastName\`"
-- **Mutation Triggers**: For EACH state variable, document:
-  - What events/calls can modify it
-  - What validation/guards exist before mutation
-  - Whether mutation is sync or async
-- **Downstream Effects**: For EACH state change, trace ALL consequences:
-  - UI updates triggered
-  - Side effects executed
-  - Other state updates cascaded
-  - External notifications sent
+### State Causality
+- **MUST**: Identify **at least 3 key state variables** with their mutation triggers
+- **SHOULD**: Target **6+ state variables** with full analysis
+- **SHOULD**: Map state dependencies with concrete examples
+- **SHOULD**: For each state change, trace downstream effects (UI updates, side effects, cascaded updates)
 
-### Temporal Relationships
-- **Ordering Constraints**: What must happen before what? (e.g., "auth must complete before data fetch")
-- **Race Conditions**: Identify potential timing issues and how they're handled
-- **Async Coordination**: How are concurrent operations coordinated? (locks, queues, semaphores)
+### Temporal Relationships (SHOULD - if applicable)
+- Ordering constraints (what must happen before what)
+- Race condition handling
+- Async coordination mechanisms
 
-### Causal Diagrams (at least 2 diagrams)
-Create a \`stateDiagram-v2\` showing state transitions with event triggers (minimum 8 states):
+### Causal Diagrams
+- **MUST**: Create **at least 1 diagram** showing state/event flow
+- **SHOULD**: Create **2 diagrams**: stateDiagram-v2 (4+ states) and sequenceDiagram (4+ participants)
+
+Example stateDiagram-v2:
 \`\`\`mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Validating : user.submit
-    Validating --> Loading : validation.success
-    Validating --> Idle : validation.error
-    Loading --> Processing : api.response
-    Loading --> Error : api.timeout
-    Processing --> Success : process.complete
-    Processing --> Error : process.error
-    Success --> Idle : user.reset
-    Error --> Validating : user.retry
-    Error --> Idle : user.cancel
+    Idle --> Loading : submit
+    Loading --> Success : response
+    Loading --> Error : error
+    Success --> Idle : reset
+    Error --> Idle : dismiss
 \`\`\`
 
-Create a \`sequenceDiagram\` showing a critical event flow (minimum 6 participants):
+Example sequenceDiagram:
 \`\`\`mermaid
 sequenceDiagram
     participant U as User
-    participant UI as UI Component
-    participant V as Validator
-    participant S as State Manager
-    participant API as API Client
-    participant Cache as Cache
+    participant C as Component
+    participant S as Service
+    participant API as API
 
-    U->>UI: submit action
-    UI->>V: validate(data)
-    V-->>UI: validation result
-    UI->>S: setState(loading)
-    S->>API: request(data)
-    API->>Cache: check cache
-    Cache-->>API: cache miss
+    U->>C: action
+    C->>S: process
+    S->>API: request
     API-->>S: response
-    S->>UI: setState(success)
+    S-->>C: result
+    C-->>U: update
 \`\`\`
 
 ## Data Flow Analysis Requirements
-Trace how data moves through the component from input to output **with precision**. Document every transformation, validation, and branching point.
+Trace how data moves through the component from input to output.
 
-### Data Entry Points (document ALL entry points)
-- **External Inputs**: List EVERY data entry point with:
-  - Source type (API request, user input, file read, message queue, environment variable, config file)
-  - Entry function/method: \`path/to/file.ts::entryFunction\`
-  - Expected data shape (TypeScript interface or JSON schema)
-- **Input Types Table**: Create a table of all input types:
-  | Entry Point | Source | Type/Schema | Required Fields | Optional Fields |
-  |-------------|--------|-------------|-----------------|-----------------|
-- **Validation Gates**: For EACH entry point, document:
-  - Validation function: \`path/to/file.ts::validateX\`
-  - Validation rules applied (type checking, range validation, format validation, business rules)
-  - What happens on validation failure (error thrown, default value, rejection)
+### Data Entry Points
+- **MUST**: Identify **at least 2 data entry points** with source type and entry function
+- **SHOULD**: Create input types table with schema, required/optional fields
+- **SHOULD**: Document validation gates (validation function, rules, failure handling)
 
-### Data Transformation Pipeline (at least 4 transformation steps per major flow)
-- **Transformation Inventory**: List ALL transformation functions:
-  | Step | Function | Input Type | Output Type | Side Effects |
-  |------|----------|------------|-------------|--------------|
-- **Shape Changes**: Document how data shape changes at each step:
-  - Fields added/computed
-  - Fields removed/filtered
-  - Fields renamed/restructured
-  - Type conversions applied
-- **Business Logic Points**: For each business rule application:
-  - Rule location: \`path/to/file.ts::applyRule\`
-  - Rule description
-  - Conditions that trigger the rule
-  - Data modifications made
-- **Branching Points**: Document where data flow splits:
-  - Condition that determines branch
-  - Different paths data can take
-  - How branches rejoin (if applicable)
+### Data Transformation Pipeline
+- **MUST**: Document **at least 2 transformation steps** (e.g., parse → validate → transform → output)
+- **SHOULD**: Target **4+ transformation steps** with input/output types
+- **SHOULD**: Document data shape changes at each step
+- **SHOULD**: Identify branching points where data flow splits
 
-### Data Output & Persistence (document ALL outputs)
-- **Output Inventory**: List EVERY data output with:
-  | Destination | Type | Format | Function |
-  |-------------|------|--------|----------|
-- **Output Formats**: For each output type:
-  - Serialization method (JSON, XML, binary, etc.)
-  - Schema/contract of output data
-  - Any post-processing applied
-- **Persistence Points**: For each storage location:
-  - Storage type (memory, file, database, cache, external service)
-  - Data lifetime (session, persistent, TTL)
-  - Read/write patterns (write-through, write-back, read-only)
-  - Consistency guarantees
+### Data Output & Persistence
+- **MUST**: Identify **at least 1 output destination** with format
+- **SHOULD**: Document all output destinations with serialization method
+- **SHOULD**: Document persistence points (storage type, lifetime, read/write patterns)
 
-### Data Integrity & Validation (comprehensive)
-- **Validation Checkpoint Table**:
-  | Checkpoint | Location | Validation Type | Failure Handling |
-  |------------|----------|-----------------|------------------|
-- **Error Boundaries**: For each error boundary:
-  - Boundary location: \`path/to/file.ts::errorHandler\`
-  - Error types caught
-  - Recovery/fallback behavior
-  - Error propagation (swallowed, rethrown, transformed)
-- **Data Contracts**: Document guarantees:
-  - Input contracts (what the component expects)
-  - Output contracts (what the component guarantees)
-  - Invariants maintained throughout processing
+### Data Integrity & Validation (SHOULD)
+- Validation checkpoint table (location, type, failure handling)
+- Error boundaries and recovery behavior
+- Data contracts (input/output guarantees)
 
-### Data Flow Diagrams (at least 2 diagrams)
-Create a \`sequenceDiagram\` showing the primary data flow (minimum 8 participants):
+### Data Flow Diagram
+- **MUST**: Include **at least 1 diagram** showing data transformation flow
+- **SHOULD**: Include a sequenceDiagram with 4+ participants
+
+Example:
 \`\`\`mermaid
 sequenceDiagram
-    participant Ext as External Source
-    participant Entry as Entry Point
-    participant Val as Validator
-    participant Parse as Parser
-    participant Trans as Transformer
-    participant BL as Business Logic
-    participant Cache as Cache Layer
-    participant Store as Data Store
-    participant Out as Output Handler
+    participant In as Input
+    participant V as Validator
+    participant T as Transformer
+    participant Out as Output
 
-    Ext->>Entry: raw input
-    Entry->>Val: validate schema
-    Val-->>Entry: validation result
-    Entry->>Parse: parse to internal format
-    Parse->>Trans: parsed data
-    Trans->>BL: apply transformations
-    BL->>Cache: check cache
-    Cache-->>BL: cache result
-    BL->>Store: persist data
-    Store-->>Out: format response
-    Out-->>Ext: final output
-\`\`\`
-
-Create a data shape evolution diagram showing type transformations:
-\`\`\`mermaid
-block-beta
-    columns 5
-    A["RawInput\\n{raw: string}"]
-    B["Parsed\\n{data: object}"]
-    C["Validated\\n{...data, valid: true}"]
-    D["Enriched\\n{...data, meta: {...}}"]
-    E["Output\\n{result: {...}}"]
-
-    A --> B --> C --> D --> E
+    In->>V: raw data
+    V->>T: validated
+    T->>Out: transformed
 \`\`\`
 
 ## Output
