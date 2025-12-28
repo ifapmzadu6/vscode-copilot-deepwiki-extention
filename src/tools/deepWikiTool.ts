@@ -1357,14 +1357,29 @@ ${mdCodeBlock}
 
 ## Role
 - **Your Stage**: L3-R Reviewer (Quality Gate)
-- **Core Responsibility**: Review the L3 analysis for correctness and usefulness before L4 synthesis.
+- **Core Responsibility**: Verify L3 analysis meets MUST requirements and contains no fabricated claims.
 - **Critical Success Factor**: Catch wrong/invented statements early so they don't propagate.
 
 ## Anti-Hallucination (Reviewer Focus)
 Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a reviewer:
 - Your job is to CATCH lies, not create content
 - If L3 made unverifiable claims, DELETE them - do not try to fix or rewrite
-- Request RETRY only when content is fundamentally broken, not when you're uncertain
+- Request RETRY only when MUST requirements are not met or content is fundamentally broken
+
+## MUST Requirements Checklist
+Before issuing PASS, verify the analysis meets ALL MUST requirements:
+
+| Requirement | Minimum | Check |
+|-------------|---------|-------|
+| Concrete anchors | 10+ | Count \`path/to/file.ts::Symbol\` references |
+| Critical flows | 2 flows, 3+ steps each | Count flow sections with step-by-step sequences |
+| Edge cases | 4+ | Count edge case bullets |
+| CEI blocks | 8+ total | Count \`- Claim:\` lines |
+| CEI evidence | 2+ per CEI | Check each CEI has ≥2 Evidence lines |
+| Data flow paths | 1+ | Check Data Flow Analysis section exists |
+| Diagrams | 1+ with 4+ nodes | Check mermaid blocks |
+
+**RETRY if any MUST requirement is not met.**
 ` + getDeepThinkingProtocol() + `
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -1394,7 +1409,27 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a re
      - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
      - Stop (no further steps).
 
-3. **Claim Verification (Incremental)**
+3. **MUST Requirements Check**
+   - Count items against the MUST Requirements Checklist above.
+   - **IMMEDIATELY** append to review file:
+     \`\`\`markdown
+     ## MUST Requirements
+     | Requirement | Found | Required | Status |
+     |-------------|-------|----------|--------|
+     | Anchors | {N} | 10+ | {OK/FAIL} |
+     | Critical flows | {N} | 2+ | {OK/FAIL} |
+     | Edge cases | {N} | 4+ | {OK/FAIL} |
+     | CEI blocks | {N} | 8+ | {OK/FAIL} |
+     | Data flow section | {Y/N} | Y | {OK/FAIL} |
+     | Diagrams | {N} | 1+ | {OK/FAIL} |
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this section NOW.
+   - If ANY requirement shows FAIL:
+     - Append "**Result**: RETRY_REQUIRED - MUST requirements not met"
+     - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
+     - Stop (no further steps).
+
+4. **Claim Verification (Incremental)**
    - Open the L3 analysis file and the component's source files.
    - Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
    - For EACH batch of claims (process 3-5 at a time):
@@ -1410,9 +1445,8 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a re
        \`\`\`
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
-   - If the analysis is too thin (only headings / vague), request RETRY rather than adding content yourself.
 
-4. **Diagram Verification (Incremental)**
+5. **Diagram Verification (Incremental)**
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
    - For EACH diagram:
      - Verify all referenced identifiers against source (functions/classes/types/events/commands must exist).
@@ -1427,26 +1461,20 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a re
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-5. **Final Summary and Verdict**
+6. **Final Summary and Verdict**
    - Append final summary to \`${intermediateDir}/L3R/${reviewFile}\`:
      \`\`\`markdown
      ## Summary
-     - Total claims processed: {count}
-     - Claims verified: {count}
-     - Claims removed/rewritten: {count}
-     - Diagrams processed: {count}
-     - Diagrams verified: {count}
-     - Diagrams removed/fixed: {count}
+     - MUST requirements: PASSED
+     - Claims processed: {count}, verified: {count}, removed: {count}
+     - Diagrams processed: {count}, verified: {count}, fixed: {count}
 
      ## Final Verdict
-     **Result**: {PASS / RETRY_REQUIRED}
-     **Reason**: {Brief explanation}
+     **Result**: PASS
+     **Reason**: All MUST requirements met, claims verified against source code.
      \`\`\`
    - Use \`${editToolNameForPrompt}\` to write this final section.
-
-6. **Retry Decision**
-   - If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.id}"]\`.
-   - Otherwise, do not create the retry file.
+   - Do NOT create retry file if all checks passed.
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
