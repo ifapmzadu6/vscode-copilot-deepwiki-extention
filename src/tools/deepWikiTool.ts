@@ -150,6 +150,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 
             // Run auto-detection subagent
             const autoDetectResult = await this.runAutoDetectSubagent(
+                workspaceFolder,
                 outputPath,
                 intermediateDir,
                 token,
@@ -2264,6 +2265,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
      * Returns the stage to resume from and a reason explaining the decision.
      */
     private async runAutoDetectSubagent(
+        workspaceFolder: vscode.WorkspaceFolder,
         outputPath: string,
         intermediateDir: string,
         cancellationToken: vscode.CancellationToken,
@@ -2276,11 +2278,16 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
                 text
             );
 
+        // Absolute paths for subagent file access
+        const workspaceRoot = workspaceFolder.uri.fsPath;
+        const absoluteOutputPath = path.join(workspaceRoot, outputPath);
+        const absoluteIntermediateDir = path.join(workspaceRoot, intermediateDir);
+
         // Pipeline Overview for context
         const pipelineOverview = `
 ## Pipeline Overview (short)
 L1 Context → L2 Discover (A/B/C) → L3 Analyze → L3-R Review → L4 Architect → L5 Pages (1:1) → L5-V Validate → L6 Review → L7 Indexer → L8 QA (README) → L9 QA (Release Gate)
-(Artifacts are stored under \`.deepwiki/\`.)
+(Artifacts are stored under \`${outputPath}/\`.)
 `;
 
         // Deep Thinking Protocol for better reasoning
@@ -2307,24 +2314,29 @@ ${pipelineOverview}
 ## Role
 You are the Resume Point Detector. Your task is to analyze existing DeepWiki artifacts and determine the optimal stage to resume the pipeline from.
 ${deepThinkingProtocol}
+## Workspace Context
+- **Workspace Root**: \`${workspaceRoot}\`
+- **Output Directory**: \`${absoluteOutputPath}\` (relative: \`${outputPath}\`)
+- **Intermediate Directory**: \`${absoluteIntermediateDir}\` (relative: \`${intermediateDir}\`)
+
 ## Your Mission
-1. Examine the \`${outputPath}/\` directory structure
-2. Check which intermediate artifacts exist in \`${intermediateDir}/\`
+1. Examine the output directory structure
+2. Check which intermediate artifacts exist
 3. Verify artifact integrity and completeness
 4. Determine the optimal resume point
 
 ## Artifact Checklist (check in this order)
 
 ### Stage Artifacts to Check:
-1. **L1**: \`${intermediateDir}/L1/project_context.md\` - Project context analysis
-2. **L2**: \`${intermediateDir}/L2/component_list.json\` - Component discovery list
-3. **L3**: \`${intermediateDir}/L3/*_analysis.md\` - Individual component analyses
-4. **L4**: \`${intermediateDir}/L4/overview.md\` and \`${intermediateDir}/L4/relationships.md\` - Architecture docs
-5. **L5**: \`${outputPath}/pages/*.md\` - Generated documentation pages
+1. **L1**: \`${absoluteIntermediateDir}/L1/project_context.md\` - Project context analysis
+2. **L2**: \`${absoluteIntermediateDir}/L2/component_list.json\` - Component discovery list
+3. **L3**: \`${absoluteIntermediateDir}/L3/*_analysis.md\` - Individual component analyses
+4. **L4**: \`${absoluteIntermediateDir}/L4/overview.md\` and \`${absoluteIntermediateDir}/L4/relationships.md\` - Architecture docs
+5. **L5**: \`${absoluteOutputPath}/pages/*.md\` - Generated documentation pages
 6. **L6**: Check if L6 review was completed (no pending retry_request.json)
-7. **L7**: \`${outputPath}/README.md\` - Index/README file
-8. **L8**: \`${intermediateDir}/L8/factcheck_report.md\` - Fact-check report
-9. **L9**: \`${intermediateDir}/L9/release_gate_report.md\` - Release gate report
+7. **L7**: \`${absoluteOutputPath}/README.md\` - Index/README file
+8. **L8**: \`${absoluteIntermediateDir}/L8/factcheck_report.md\` - Fact-check report
+9. **L9**: \`${absoluteIntermediateDir}/L9/release_gate_report.md\` - Release gate report
 
 ## Decision Logic
 
@@ -2341,8 +2353,8 @@ Analyze artifacts and apply this logic:
 - If no artifacts exist → start fresh from L1
 
 ## Special Checks
-- If \`${intermediateDir}/L6/retry_request.json\` exists, there may be pending retries - consider resuming from L3
-- If \`${intermediateDir}/L5V/page_validation_failures.json\` exists, some pages need regeneration - resume from L5
+- If \`${absoluteIntermediateDir}/L6/retry_request.json\` exists, there may be pending retries - consider resuming from L3
+- If \`${absoluteIntermediateDir}/L5V/page_validation_failures.json\` exists, some pages need regeneration - resume from L5
 
 ## Output Format (CRITICAL)
 After your analysis, you MUST output a JSON block with your decision. Use EXACTLY this format:
