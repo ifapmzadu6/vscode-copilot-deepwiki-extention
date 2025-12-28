@@ -921,7 +921,13 @@ Your output must be detailed enough that L4 can reconstruct architecture and rel
 
 Requirements are classified as:
 - **MUST**: Minimum requirements. Analysis will be rejected if not met.
-- **SHOULD**: Recommended for comprehensive analysis. Aim to meet these for medium/large components.
+- **SHOULD**: Recommended for comprehensive analysis.
+
+### Component Size Guide
+Apply SHOULD requirements based on component complexity:
+- **Small** (1-2 files, <300 LOC): MUST requirements are sufficient
+- **Medium** (3-5 files, 300-1000 LOC): Aim to meet most SHOULD requirements
+- **Large** (6+ files, >1000 LOC): Meet all SHOULD requirements
 
 ### Anchors & Symbols
 - **MUST**: Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\`
@@ -968,22 +974,24 @@ Write key statements as CEI blocks so downstream stages can verify and reuse the
 
 ### CEI Structure (MUST use this format)
 - Claim: [precise, verifiable statement about code behavior]
-  - Evidence: \`path/to/file.ts::functionName\` — [explanation of how this supports the claim]
-  - Evidence: \`path/to/file.ts::ClassName.methodName\` — [additional evidence]
+  - Evidence: \`path/to/file.ts:L42::functionName\` — [explanation of how this supports the claim]
+  - Evidence: \`path/to/file.ts:L78::ClassName.methodName\` — [additional evidence]
   - Implication: [concrete consequence for behavior/architecture/integration]
 
 ### CEI Quality Requirements
-- **MUST - Specificity**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
-- **MUST - Evidence depth**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
-- **SHOULD - Line references**: Include line numbers where practical (e.g., \`:L42\`) for easier verification
-- **SHOULD - Cross-file tracing**: When behavior spans files, include evidence from ALL relevant files
+- **MUST**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
+- **MUST**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
+- **SHOULD**: Include line numbers (e.g., \`:L42\`) for easier verification
+- **SHOULD**: When behavior spans files, include evidence from all relevant files
 
 ### CEI Categories
-Ensure coverage across categories. Numbers are targets, not strict minimums:
-1. **Behavioral CEIs**: What the code does (target: 4+, SHOULD: 6+)
-2. **Structural CEIs**: How code is organized/connected (target: 2+, SHOULD: 4+)
-3. **Contractual CEIs**: Guarantees the code makes/expects (target: 2+, SHOULD: 4+)
-4. **Failure CEIs**: How errors are handled (target: 2+, SHOULD: 4+)
+Ensure coverage across categories:
+| Category | MUST | SHOULD |
+|----------|------|--------|
+| **Behavioral**: What the code does | 3+ | 6+ |
+| **Structural**: How code is organized | 2+ | 4+ |
+| **Contractual**: Guarantees made/expected | 2+ | 4+ |
+| **Failure**: How errors are handled | 1+ | 4+ |
 
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -1037,10 +1045,13 @@ Analyze the source code and document cause-and-effect relationships. This sectio
 - **SHOULD**: Map state dependencies with concrete examples
 - **SHOULD**: For each state change, trace downstream effects (UI updates, side effects, cascaded updates)
 
-### Temporal Relationships (SHOULD - if applicable)
-- Ordering constraints (what must happen before what)
-- Race condition handling
-- Async coordination mechanisms
+### Temporal Relationships
+Include this section if the component has async operations, multiple event sources, or state dependencies:
+- **SHOULD**: Document ordering constraints (what must happen before what)
+- **SHOULD**: Identify race conditions and their handling mechanisms
+- **SHOULD**: Describe async coordination (locks, queues, debouncing)
+
+*Skip this section if the component is purely synchronous with no timing concerns.*
 
 ### Causal Diagrams
 - **MUST**: Create **at least 1 diagram** showing state/event flow
