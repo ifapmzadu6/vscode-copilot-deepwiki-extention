@@ -919,20 +919,84 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a content gen
 ## Depth Targets (Write More Than a Summary)
 Your output must be detailed enough that L4 can reconstruct architecture and relationships without re-reading source code.
 
-- Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\` (functions, classes, events, commands, services, config keys).
-- Include **2–4 critical end-to-end flows** with step-by-step call/event sequences (what triggers it → what runs → what state changes → what observable effect).
-- Include **edge cases / failure modes** (at least 5 bullets) that are visible in code paths (validation, fallbacks, cancellation, retries, platform differences).
-- Write **at least 12 Claims→Evidence→Implication (CEI) blocks** across the document. Each CEI block must include **≥ 2 Evidence anchors**.
-- Prefer specifics over generalities; if you can't justify a claim from code, omit it.
+Requirements are classified as:
+- **MUST**: Minimum requirements. Analysis will be rejected if not met.
+- **SHOULD**: Recommended for comprehensive analysis.
 
-## Claims → Evidence → Implication (CEI) Format (MANDATORY)
-Write key statements as CEI blocks so downstream stages can verify and reuse them.
+### Component Size Guide
+Determine component size from the assigned component's file list, then apply requirements accordingly:
 
-Use this exact bullet structure:
-- Claim: ...
-  - Evidence: \`path/to/file.ts::SymbolName\` — why this supports the claim
-  - Evidence: \`path/to/file.ts::OtherSymbol\` — why this supports the claim
-  - Implication: what this means for behavior/architecture/integration (no speculation)
+| Size | Files | LOC | Requirements |
+|------|-------|-----|--------------|
+| **Small** | 1-2 | <300 | MUST only |
+| **Medium** | 3-5 | 300-1000 | MUST + most SHOULD |
+| **Large** | 6+ | >1000 | MUST + all SHOULD |
+
+*Count files from the component definition. Estimate LOC by reading source files.*
+
+### Anchors & Symbols
+- **MUST**: Include **at least 10 concrete anchors** in the form \`path/to/file.ts::SymbolName\`
+- **SHOULD**: Target **20+ anchors** for comprehensive coverage (functions, classes, events, commands, services, config keys, constants, type definitions)
+- **SHOULD**: Document all public methods and their signatures for major types/classes
+- **SHOULD**: Reference configuration keys, environment variables, and magic strings with their locations
+
+### Critical Flows
+- **MUST**: Include **at least 2 critical end-to-end flows** with step-by-step sequences
+- **SHOULD**: Target **4–6 flows** for complex components
+- **MUST**: Each flow must include **at least 3 steps** with concrete function/method references
+- **SHOULD**: Each flow includes **5+ steps** with both success and failure paths
+
+### Edge Cases & Error Handling
+- **MUST**: Include **at least 4 edge cases / failure modes** visible in code paths
+- **SHOULD**: Target **8+ edge cases** covering validation, fallbacks, cancellation, retries, timeout handling, resource cleanup
+- **SHOULD**: For each edge case, specify trigger condition, handling mechanism, and recovery behavior
+- **SHOULD**: Document error propagation patterns
+
+### CEI Blocks (Claims → Evidence → Implication)
+- **MUST**: Write **at least 8 CEI blocks** across the document
+- **SHOULD**: Target **18+ CEI blocks** distributed across sections: Key Logic (6+), Causal Analysis (4+), Data Flow (4+), Edge Cases (4+)
+- **MUST**: Each CEI block must include **≥ 2 Evidence anchors**
+- **SHOULD**: Each CEI block includes **≥ 3 Evidence anchors** with line-level references
+
+### Data Flow Paths
+- **MUST**: Include **at least 1 data flow path** showing input → processing → output
+- **SHOULD**: Target **4+ data flow paths** with data shape changes documented at each step
+- **SHOULD**: Identify data validation checkpoints and failure handling
+
+### Diagrams
+- **MUST**: Include **at least 1 Mermaid diagram** (stateDiagram-v2 or sequenceDiagram)
+- **SHOULD**: Include **3+ diagrams**: stateDiagram-v2, sequenceDiagram, and one additional (classDiagram, C4Context, or block)
+- **MUST**: Each diagram must have **at least 4 nodes/states**
+- **SHOULD**: Each diagram has **6+ nodes/states** showing meaningful relationships
+
+### Quality Bar (All MUST)
+- Prefer specifics over generalities; if you can't justify a claim from code, omit it
+- Every claim must trace back to a concrete code location
+- If a section seems thin, dig deeper into the source code before moving on
+
+## Claims → Evidence → Implication (CEI) Format
+Write key statements as CEI blocks so downstream stages can verify and reuse them. CEI blocks provide verifiable, reusable facts for L4/L5.
+
+### CEI Structure (MUST use this format)
+- Claim: [precise, verifiable statement about code behavior]
+  - Evidence: \`path/to/file.ts:L42::functionName\` — [explanation of how this supports the claim]
+  - Evidence: \`path/to/file.ts:L78::ClassName.methodName\` — [additional evidence]
+  - Implication: [concrete consequence for behavior/architecture/integration]
+
+### CEI Quality Requirements
+- **MUST (Specificity)**: Claims must be precise enough to be falsifiable (e.g., "validates input using Zod schema" not "handles validation")
+- **MUST (Evidence Depth)**: Each evidence must explain WHY it supports the claim, not just WHERE the code is
+- **SHOULD (Line References)**: Include line numbers (e.g., \`:L42\`) for easier verification
+- **SHOULD (Cross-file Tracing)**: When behavior spans files, include evidence from all relevant files
+
+### CEI Categories
+Ensure coverage across categories:
+| Category | MUST | SHOULD |
+|----------|------|--------|
+| **Behavioral**: What the code does | 3+ | 6+ |
+| **Structural**: How code is organized | 2+ | 4+ |
+| **Contractual**: Guarantees made/expected | 2+ | 4+ |
+| **Failure**: How errors are handled | 1+ | 4+ |
 
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -958,11 +1022,12 @@ Use this exact bullet structure:
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
 6. Priority order (highest → lowest):
-   1) CEI blocks (with evidence anchors) → 2) Diagrams → 3) Critical flows → 4) Narrative summary
+   1) CEI blocks (with evidence anchors) → 2) Data Flow paths → 3) Diagrams → 4) Critical flows → 5) Narrative summary
 7. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
+   - **Data Flow Analysis** (see below)
    - Edge Cases & Failure Modes
    - Integration Points & Dependencies
 8. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
@@ -970,28 +1035,100 @@ Use this exact bullet structure:
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Causal Analysis Requirements
-Analyze the source code and document:
+Analyze the source code and document cause-and-effect relationships. This section should answer "why does X happen?" for significant behaviors.
 
 ### Event Causality
-- **Event Chain**: Trace how events propagate (e.g., "User clicks button → \`click\` event → \`handleClick()\` → emits \`data.updated\` → \`onDataUpdated()\` triggers")
-- **Event Sources**: Where do events originate? (user actions, timers, external APIs)
-- **Event Consumers**: Who listens and what do they do?
+- **MUST**: Document **at least 2 event chains** showing how events propagate
+- **SHOULD**: Target **4+ complete chains** with full paths (trigger → handler → state change → side effects)
+- **MUST**: Identify primary event sources (user actions, system events, external events)
+- **SHOULD**: For each event type, list all listeners and their side effects
+- **SHOULD**: Document debouncing, throttling, or sequencing constraints if present
 
 ### State Causality
-- **State Dependencies**: Which states depend on other states? (e.g., "\`isLoading\` must be false before \`data\` can be set")
-- **Mutation Triggers**: What causes state changes? (events, function calls, lifecycle hooks)
-- **Downstream Effects**: What happens when state X changes? (UI re-renders, side effects, other state updates)
+- **MUST**: Identify **at least 3 key state variables** with their mutation triggers
+- **SHOULD**: Target **6+ state variables** with full analysis
+- **SHOULD**: Map state dependencies with concrete examples
+- **SHOULD**: For each state change, trace downstream effects (UI updates, side effects, cascaded updates)
 
-### Causal Diagram
-Create a \`stateDiagram-v2\` showing state transitions with event triggers:
+### Temporal Relationships
+**Include if**: Component uses Promise/async-await, setTimeout/setInterval, event listeners, or has operations that must complete in order.
+
+- **SHOULD**: Document ordering constraints (what must happen before what)
+- **SHOULD**: Identify race conditions and their handling mechanisms
+- **SHOULD**: Describe async coordination (locks, queues, debouncing)
+
+**Skip if**: All functions are synchronous with no callbacks, timers, or external event handling.
+
+### Causal Diagrams
+- **MUST**: Create **at least 1 diagram** showing state/event flow
+- **SHOULD**: Create **2 diagrams**: stateDiagram-v2 (4+ states) and sequenceDiagram (4+ participants)
+
+Example stateDiagram-v2:
 \`\`\`mermaid
 stateDiagram-v2
     [*] --> Idle
-    Idle --> Loading : user.submit
-    Loading --> Success : api.response
-    Loading --> Error : api.error
-    Success --> Idle : user.reset
-    Error --> Loading : user.retry
+    Idle --> Loading : submit
+    Loading --> Success : response
+    Loading --> Error : error
+    Success --> Idle : reset
+    Error --> Idle : dismiss
+\`\`\`
+
+Example sequenceDiagram:
+\`\`\`mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Component
+    participant S as Service
+    participant API as API
+
+    U->>C: action
+    C->>S: process
+    S->>API: request
+    API-->>S: response
+    S-->>C: result
+    C-->>U: update
+\`\`\`
+
+## Data Flow Analysis Requirements
+Trace how data moves through the component from input to output.
+
+### Data Entry Points
+- **MUST**: Identify **at least 2 data entry points** with source type and entry function
+- **SHOULD**: Create input types table with schema, required/optional fields
+- **SHOULD**: Document validation gates (validation function, rules, failure handling)
+
+### Data Transformation Pipeline
+- **MUST**: Document **at least 2 transformation steps** (e.g., parse → validate → transform → output)
+- **SHOULD**: Target **4+ transformation steps** with input/output types
+- **SHOULD**: Document data shape changes at each step
+- **SHOULD**: Identify branching points where data flow splits
+
+### Data Output & Persistence
+- **MUST**: Identify **at least 1 output destination** with format
+- **SHOULD**: Document all output destinations with serialization method
+- **SHOULD**: Document persistence points (storage type, lifetime, read/write patterns)
+
+### Data Integrity & Validation (SHOULD)
+- Validation checkpoint table (location, type, failure handling)
+- Error boundaries and recovery behavior
+- Data contracts (input/output guarantees)
+
+### Data Flow Diagram
+- **MUST**: Include **at least 1 diagram** showing data transformation flow
+- **SHOULD**: Include a sequenceDiagram with 4+ participants
+
+Example:
+\`\`\`mermaid
+sequenceDiagram
+    participant In as Input
+    participant V as Validator
+    participant T as Transformer
+    participant Out as Output
+
+    In->>V: raw data
+    V->>T: validated
+    T->>Out: transformed
 \`\`\`
 
 ## Output
@@ -1000,54 +1137,185 @@ ${mdCodeBlock}markdown
 # ${component.name} - Analysis
 
 ## File Structure
-- ...
+| File | Purpose | Key Exports |
+|------|---------|-------------|
+| path/to/file.ts | ... | Symbol1, Symbol2 |
 
 ## Overview and Architecture
-- ...
+- Architecture pattern: ...
+- Design rationale: ...
+- Key responsibilities: ...
 
 ## Key Logic
 
 ### Key Types & APIs
-| Symbol | Location | Responsibility |
-|--------|----------|----------------|
+| Symbol | Location | Signature | Responsibility |
+|--------|----------|-----------|----------------|
+| ClassName | path/to/file.ts:L10 | class ClassName | ... |
+| methodName | path/to/file.ts:L42 | (args) => ReturnType | ... |
+
+### Public Interface
+| Method/Property | Type | Description |
+|-----------------|------|-------------|
 | ... | ... | ... |
 
-### Critical Flows
-1. ...
-2. ...
+### Critical Flows (4-6 flows, each with 5+ steps)
+#### Flow 1: [Name]
+1. Entry: \`file.ts::entryPoint\` receives trigger
+2. Validation: \`file.ts::validate\` checks input
+3. Processing: \`file.ts::process\` transforms data
+4. Side effect: \`file.ts::notify\` emits event
+5. Return: formatted result to caller
 
-### CEI Blocks (Key Logic)
-- Claim: ...
-  - Evidence: \`...\`
-  - Evidence: \`...\`
-  - Implication: ...
+#### Flow 2: [Name] (Failure Path)
+1. ...
+
+### CEI Blocks (Key Logic) - at least 6 blocks
+- Claim: [precise behavioral claim]
+  - Evidence: \`path/to/file.ts:L42::functionName\` — [explanation]
+  - Evidence: \`path/to/file.ts:L78::ClassName.method\` — [explanation]
+  - Evidence: \`path/to/other.ts:L15::CONSTANT\` — [explanation]
+  - Implication: [concrete consequence]
 
 ## Causal Analysis
 
-### Event Causality
-- ...
+### State Inventory
+| State Variable | Type | Initial Value | Mutators |
+|----------------|------|---------------|----------|
+| ... | ... | ... | ... |
 
-### State Causality
-- ...
+### Event Chains (at least 4 chains)
+1. **[Event Name]**: trigger → handler → state change → side effects → UI update
+2. ...
 
-### CEI Blocks (Causality)
+### State Dependencies
+- \`stateA\` depends on: \`stateB\`, \`stateC\`
+- \`derivedState\` = computed from \`stateX\` + \`stateY\`
+
+### Temporal Constraints
+- [ordering requirement 1]
+- [race condition handling]
+
+### CEI Blocks (Causality) - at least 4 blocks
 - Claim: ...
+  - Evidence: \`...\`
   - Evidence: \`...\`
   - Evidence: \`...\`
   - Implication: ...
 
-## Edge Cases & Failure Modes
-- ...
+## Data Flow Analysis
+
+### Data Entry Points
+| Entry Point | Source | Type/Schema | Validation |
+|-------------|--------|-------------|------------|
+| ... | ... | ... | ... |
+
+### Data Transformation Pipeline
+| Step | Function | Input → Output | Side Effects |
+|------|----------|----------------|--------------|
+| 1. Parse | \`file.ts::parse\` | RawInput → ParsedData | none |
+| 2. Validate | \`file.ts::validate\` | ParsedData → ValidData | throws on invalid |
+| 3. Transform | \`file.ts::transform\` | ValidData → Enriched | none |
+| 4. Persist | \`file.ts::save\` | Enriched → Stored | writes to DB |
+
+### Data Shape Evolution
+- Raw: \`{ raw: string }\`
+- Parsed: \`{ data: object, meta: object }\`
+- Validated: \`{ ...data, valid: true }\`
+- Output: \`{ result: ProcessedData }\`
+
+### Data Output & Persistence
+| Destination | Type | Format | Lifetime |
+|-------------|------|--------|----------|
+| ... | ... | ... | ... |
+
+### CEI Blocks (Data Flow) - at least 4 blocks
+- Claim: ...
+  - Evidence: \`...\`
+  - Evidence: \`...\`
+  - Evidence: \`...\`
+  - Implication: ...
+
+## Edge Cases & Failure Modes (at least 8 items)
+| Scenario | Trigger | Handling | Recovery |
+|----------|---------|----------|----------|
+| Invalid input | malformed data | validation error thrown | caller retry |
+| Timeout | network delay > 30s | AbortController cancels | exponential backoff |
+| ... | ... | ... | ... |
+
+### Error Propagation
+- Errors at layer X bubble up to layer Y
+- Error transformation: InternalError → UserFacingError
 
 ## Integration Points & Dependencies
-- Upstream callers/triggers: ...
-- Downstream consumers/effects: ...
-- Contracts (events/services/commands/config keys): ...
+
+### Upstream (who calls this component)
+| Caller | Trigger | Expected Response |
+|--------|---------|-------------------|
+| ... | ... | ... |
+
+### Downstream (what this component calls)
+| Dependency | Purpose | Failure Impact |
+|------------|---------|----------------|
+| ... | ... | ... |
+
+### Contracts
+- Events emitted: \`event.name\` with payload \`{...}\`
+- Events consumed: \`other.event\` expecting payload \`{...}\`
+- Config keys: \`CONFIG_KEY\` (type, default, description)
 
 ## Diagrams
+
+### State Diagram (minimum 8 states)
 ${mdCodeBlock}mermaid
 stateDiagram-v2
     [*] --> Idle
+    Idle --> Validating : submit
+    Validating --> Loading : valid
+    Validating --> Error : invalid
+    Loading --> Processing : response
+    Loading --> Error : timeout
+    Processing --> Success : complete
+    Processing --> Error : failed
+    Success --> Idle : reset
+    Error --> Idle : dismiss
+${mdCodeBlock}
+
+### Sequence Diagram (minimum 6 participants)
+${mdCodeBlock}mermaid
+sequenceDiagram
+    participant U as User
+    participant C as Component
+    participant V as Validator
+    participant S as Service
+    participant A as API
+    participant D as Database
+
+    U->>C: action
+    C->>V: validate
+    V-->>C: result
+    C->>S: process
+    S->>A: request
+    A->>D: query
+    D-->>A: data
+    A-->>S: response
+    S-->>C: result
+    C-->>U: update
+${mdCodeBlock}
+
+### Data Flow Diagram
+${mdCodeBlock}mermaid
+sequenceDiagram
+    participant In as Input
+    participant V as Validator
+    participant T as Transformer
+    participant P as Persister
+    participant Out as Output
+
+    In->>V: raw data
+    V->>T: validated
+    T->>P: transformed
+    P->>Out: persisted
 ${mdCodeBlock}
 ${mdCodeBlock}
 - Do not wrap the entire file in Markdown fences.
@@ -1089,14 +1357,29 @@ ${mdCodeBlock}
 
 ## Role
 - **Your Stage**: L3-R Reviewer (Quality Gate)
-- **Core Responsibility**: Review the L3 analysis for correctness and usefulness before L4 synthesis.
+- **Core Responsibility**: Verify L3 analysis meets MUST requirements and contains no fabricated claims.
 - **Critical Success Factor**: Catch wrong/invented statements early so they don't propagate.
 
 ## Anti-Hallucination (Reviewer Focus)
 Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a reviewer:
 - Your job is to CATCH lies, not create content
 - If L3 made unverifiable claims, DELETE them - do not try to fix or rewrite
-- Request RETRY only when content is fundamentally broken, not when you're uncertain
+- Request RETRY only when MUST requirements are not met or content is fundamentally broken
+
+## MUST Requirements Checklist
+Before issuing PASS, verify the analysis meets ALL MUST requirements:
+
+| Requirement | Minimum | Check |
+|-------------|---------|-------|
+| Concrete anchors | 10+ | Count \`path/to/file.ts::Symbol\` references |
+| Critical flows | 2 flows, 3+ steps each | Count flow sections with step-by-step sequences |
+| Edge cases | 4+ | Count edge case bullets |
+| CEI blocks | 8+ total | Count \`- Claim:\` lines |
+| CEI evidence | 2+ per CEI | Check each CEI has ≥2 Evidence lines |
+| Data flow paths | 1+ | Check Data Flow Analysis section exists |
+| Diagrams | 1+ with 4+ nodes | Check mermaid blocks |
+
+**RETRY if any MUST requirement is not met.**
 ` + getDeepThinkingProtocol() + `
 ## Input
 - **Assigned Component**: ${componentStr}
@@ -1126,7 +1409,27 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a re
      - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
      - Stop (no further steps).
 
-3. **Claim Verification (Incremental)**
+3. **MUST Requirements Check**
+   - Count items against the MUST Requirements Checklist above.
+   - **IMMEDIATELY** append to review file:
+     \`\`\`markdown
+     ## MUST Requirements
+     | Requirement | Found | Required | Status |
+     |-------------|-------|----------|--------|
+     | Anchors | {N} | 10+ | {OK/FAIL} |
+     | Critical flows | {N} | 2+ | {OK/FAIL} |
+     | Edge cases | {N} | 4+ | {OK/FAIL} |
+     | CEI blocks | {N} | 8+ | {OK/FAIL} |
+     | Data flow section | {Y/N} | Y | {OK/FAIL} |
+     | Diagrams | {N} | 1+ | {OK/FAIL} |
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this section NOW.
+   - If ANY requirement shows FAIL:
+     - Append "**Result**: RETRY_REQUIRED - MUST requirements not met"
+     - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
+     - Stop (no further steps).
+
+4. **Claim Verification (Incremental)**
    - Open the L3 analysis file and the component's source files.
    - Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
    - For EACH batch of claims (process 3-5 at a time):
@@ -1142,9 +1445,8 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a re
        \`\`\`
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
-   - If the analysis is too thin (only headings / vague), request RETRY rather than adding content yourself.
 
-4. **Diagram Verification (Incremental)**
+5. **Diagram Verification (Incremental)**
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
    - For EACH diagram:
      - Verify all referenced identifiers against source (functions/classes/types/events/commands must exist).
@@ -1159,26 +1461,20 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol strictly. As a re
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-5. **Final Summary and Verdict**
+6. **Final Summary and Verdict**
    - Append final summary to \`${intermediateDir}/L3R/${reviewFile}\`:
      \`\`\`markdown
      ## Summary
-     - Total claims processed: {count}
-     - Claims verified: {count}
-     - Claims removed/rewritten: {count}
-     - Diagrams processed: {count}
-     - Diagrams verified: {count}
-     - Diagrams removed/fixed: {count}
+     - MUST requirements: PASSED
+     - Claims processed: {count}, verified: {count}, removed: {count}
+     - Diagrams processed: {count}, verified: {count}, fixed: {count}
 
      ## Final Verdict
-     **Result**: {PASS / RETRY_REQUIRED}
-     **Reason**: {Brief explanation}
+     **Result**: PASS
+     **Reason**: All MUST requirements met, claims verified against source code.
      \`\`\`
    - Use \`${editToolNameForPrompt}\` to write this final section.
-
-6. **Retry Decision**
-   - If the analysis is fundamentally broken or too incomplete to fix safely, write \`${intermediateDir}/L3R/${retryFile}\` as raw JSON array \`["${component.id}"]\`.
-   - Otherwise, do not create the retry file.
+   - Do NOT create retry file if all checks passed.
 
 ## Constraints
 1. **Scope**: Only modify files under \`.deepwiki/\`. Read source code as needed.
