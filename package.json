@@ -2,7 +2,7 @@
   "name": "deepwiki-generator",
   "displayName": "DeepWiki Generator",
   "description": "Generate comprehensive DeepWiki documentation using autonomous AI agents.",
-  "version": "1.16.4",
+  "version": "1.16.5",
   "publisher": "your-publisher",
   "license": "MIT",
   "engines": {
