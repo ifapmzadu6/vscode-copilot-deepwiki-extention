@@ -116,6 +116,7 @@ Deeply analyzes the logic, patterns, and responsibilities of each component. Foc
 ### 4. Level 4: ARCHITECT
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
 -   **L1 Context Verification**: Before generating overview, verifies L1 project context against L3 analyses. If inaccuracies are found (e.g., wrong Project Type, missing languages), **directly fixes** `project_context.md`. This ensures the README uses accurate project information.
+-   **L3 Coverage Check**: Ensures ALL major elements discovered in L3 analyses are reflected in L1's Key Abstractions, Vocabulary, and Architecture Pattern. If Component A contains sub-elements B and C in L3, both must appear in L1 (prevents information loss).
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
 ### 5. Level 5-G: PAGE GROUPER (Component Review & README Navigation)

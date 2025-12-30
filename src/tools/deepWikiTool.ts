@@ -1655,9 +1655,17 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
    - **Languages**: Are all major languages listed?
    - **Build System**: Is it correct?
 3. Also verify other sections (Vocabulary, Architecture Pattern, Entry Points, External Interfaces) if L3 analyses reveal inaccuracies.
-4. If inaccuracies found:
+4. **L3 Coverage Check (CRITICAL)**: Ensure L1 reflects ALL major elements discovered in L3 analyses:
+   - Read ALL L3 analysis files in \`${intermediateDir}/L3/\`
+   - For each L3 analysis, identify key abstractions, sub-components, and important concepts
+   - Verify these are reflected in L1's:
+     - **Key Abstractions**: All major classes/interfaces/types from L3 should be listed
+     - **Vocabulary**: Important domain terms discovered in L3 should be defined
+     - **Architecture Pattern**: If L3 reveals architectural patterns not in L1, add them
+   - If L3 mentions Component A contains sub-elements B and C, ensure BOTH B and C appear in L1 (not just B)
+5. If inaccuracies or missing elements found:
    → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix immediately.
-5. Proceed to Part 1 only after L1 is accurate.
+6. Proceed to Part 1 only after L1 is complete and accurate.
 
 ### Part 1: Name Refinement
 1. Read \`${intermediateDir}/L2/component_list.json\` and all L3 analyses.
