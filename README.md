@@ -6,7 +6,7 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 -   **MISSION: World-Class DeepWiki**: Aims to produce technical documentation equivalent to "Devin's DeepWiki" standard (insightful, visual, structured, connected, **verified against actual source code**).
 -   **Agentic Architecture**: Orchestrates specialized sub-agents to autonomously analyze, plan, draft, review, and publish documentation.
--   **Multi-Stage Pipeline**: Follows a robust 9-stage (L1-L9) pipeline where each agent builds upon the previous one's output. Includes validation gates (L3-R, L5-V) that trigger targeted retries.
+-   **Multi-Stage Pipeline**: Follows a robust 10-stage pipeline where each agent builds upon the previous one's output. Includes validation gates (L1-R, L3-R, L5-V) that trigger targeted retries.
 -   **Self-Correction Loop**: L2 Discoverer uses a draft→review→refine loop for valid grouping. L3-R and L5-V validators trigger targeted retries for missing outputs. **L3 Analyzer directly fixes project context** when it discovers inaccuracies during analysis. L5-G can update **project context** (used by L5 Writer) and **component groupings** (restarting from L3 if changed). L6 can request re-analysis for fundamental issues (max 5 loops).
 -   **Sequential Processing**: Runs sub-agents sequentially to ensure accurate context propagation (e.g., L3 Analyzer can fix project context for subsequent analyzers). **File Validation Subagents** automatically detect missing output files and trigger retries for failed components.
 -   **Component-Based Documentation**: Documents code by "Logical Components" (e.g., a Feature Module or UI Component) rather than single files, ensuring cohesive pages.
@@ -18,13 +18,14 @@ A VS Code extension that generates comprehensive DeepWiki documentation for your
 
 ## Generation Pipeline
 
-The extension orchestrates a sophisticated 9-stage agentic pipeline with validation gates and self-correction loops to generate high-quality documentation:
+The extension orchestrates a sophisticated 10-stage agentic pipeline with validation gates and self-correction loops to generate high-quality documentation:
 
 ```mermaid
 stateDiagram-v2
     [*] --> L1: Start
 
     L1: L1 Project Context
+    L1R: L1-R Reviewer
     L2: L2 Discoverer
     L3: L3 Analyzer
     L3R: L3-R Reviewer
@@ -38,7 +39,9 @@ stateDiagram-v2
     L9: L9 Final QA (Release Gate)
     Done: Final Docs
 
-    L1 --> L2
+    L1 --> L1R
+    note right of L1R : Verifies & fixes project_context.md
+    L1R --> L2
 
     state L2 {
         [*] --> Draft
@@ -82,6 +85,17 @@ Analyzes the project structure, build system, and conditional code patterns befo
 
 This phase enables DeepWiki to be aware of build configurations, feature flags, and system boundaries.
 
+### 1.1. Level 1-R: PROJECT CONTEXT REVIEWER
+Verifies the L1 project context against actual source code and fixes any inaccuracies before downstream stages use it:
+-   **Overview Verification**: Confirms Project Type, Languages, and Build System match actual files
+-   **Entry Points Check**: Verifies listed entry points exist and are actual entry points
+-   **Architecture Pattern Validation**: Confirms described patterns match code organization
+-   **Vocabulary Spot-Check**: Samples 5 vocabulary terms to ensure definitions match actual usage
+-   **Direct Fixes**: If inaccuracies are found, directly edits `project_context.md` to correct them
+-   **Output**: `intermediate/L1R/review.md` with verification results
+
+This early quality gate catches inaccurate project descriptions before they propagate to README.
+
 ### 2. Level 2: DISCOVERER (Component Grouping & Refinement)
 Identifies and groups files into logical components. Uses L1 context to understand project structure. This stage uses a 3-step internal process:
 -   **L2-A Drafter**: Proposes an initial component list (`component_draft.json`), considering L1 project context. Follows granularity guidelines to prefer fine-grained components.
@@ -101,6 +115,7 @@ Deeply analyzes the logic, patterns, and responsibilities of each component. Foc
 
 ### 4. Level 4: ARCHITECT
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
+-   **L1 Context Verification**: Before generating overview, verifies L1 project context against L3 analyses. If inaccuracies are found (e.g., wrong Project Type, missing languages), **directly fixes** `project_context.md`. This ensures the README uses accurate project information.
 -   **Input**: Considers **all L3 analysis files** (even those from previous retry loops) to maintain an up-to-date global view.
 
 ### 5. Level 5-G: PAGE GROUPER (Component Review & README Navigation)
@@ -188,6 +203,8 @@ The extension creates a `.deepwiki` folder in your workspace root with the follo
     │   └── project_context.md      # Project structure, build system, conditional patterns
     │   ├── existing_deepwikis.md   # Nested DeepWiki list (excluded roots)
     │   └── existing_deepwikis.json # Nested DeepWiki list (machine-readable)
+    ├── L1R/                # L1 review gate outputs
+    │   └── review.md               # L1 verification results
     ├── L2/                 # Discovery phase outputs
     │   ├── component_draft.json    # Initial draft from L2-A
     │   ├── review_report.md        # Review from L2-B

@@ -76,10 +76,11 @@ This approach, popularized by frameworks like **LangGraph**, models the workflow
 
 ### DeepWiki's Evolution
 Our final DeepWiki implementation evolved into a **Hybrid Architecture**.
-- **Graph Structure**: `L1 -> L2 -> L3 -> L3R -> L4 -> L5G -> L5 -> L5V -> L6 -> L7 -> L8 -> L9`.
+- **Graph Structure**: `L1 -> L1R -> L2 -> L3 -> L3R -> L4 -> L5G -> L5 -> L5V -> L6 -> L7 -> L8 -> L9`.
 - **Conditional Logic**:
     - **L6 Critical Failure Loop**: The L6 Reviewer (Agent) decides whether to loop back to L3 or proceed to Indexing.
     - **L2 Refinement Loop**: Draft → Review → Refine until `component_list.json` is valid.
+    - **L1-R Validation Gate**: Verifies L1 project context against source code and fixes inaccuracies.
     - **L3-R Validation Gate**: Verifies L3 analysis outputs and triggers retries for missing/failed components.
     - **L5-V Validation Gate**: Validates L5 page outputs and triggers retries for missing pages.
 
@@ -87,6 +88,7 @@ Our final DeepWiki implementation evolved into a **Hybrid Architecture**.
 stateDiagram-v2
     [*] --> L1
     state "L1 Project Context" as L1
+    state "L1-R Reviewer" as L1R
     state "L2 Discoverer" as L2
     state "L3 Analyzer" as L3
     state "L3-R Reviewer" as L3R
@@ -99,7 +101,8 @@ stateDiagram-v2
     state "L8 Final QA" as L8
     state "L9 Release Gate" as L9
 
-    L1 --> L2
+    L1 --> L1R
+    L1R --> L2
     L2 --> L3
     L3 --> L3R
     L3R --> L3: Missing/Failed Analysis
