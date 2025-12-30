@@ -1558,7 +1558,18 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 
 ## Workflow
 
-### Part 1: Name Refinement (Do First)
+### Part 0: L1 Project Context Verification (Do First)
+1. Read \`${intermediateDir}/L1/project_context.md\` and compare against L3 analyses.
+2. Verify the \`## Overview\` section:
+   - **Project Type**: Does it accurately describe what this project is?
+   - **Languages**: Are all major languages listed?
+   - **Build System**: Is it correct?
+3. Also verify other sections (Vocabulary, Architecture Pattern, Entry Points, External Interfaces) if L3 analyses reveal inaccuracies.
+4. If inaccuracies found:
+   → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix immediately.
+5. Proceed to Part 1 only after L1 is accurate.
+
+### Part 1: Name Refinement
 1. Read \`${intermediateDir}/L2/component_list.json\` and all L3 analyses.
 2. For each component, evaluate if the current \`name\` is:
    - **Clear**: Does it accurately describe what the component does?
@@ -1592,13 +1603,14 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
+- \`${intermediateDir}/L1/project_context.md\` - Edit if inaccuracies found (keep Markdown format)
 - \`${intermediateDir}/L2/component_list.json\` - Edit \`name\` fields if refinement needed (keep \`id\` unchanged)
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - Include at least TWO diagrams total.
 
 ## Constraints
-1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed. You may edit \`${intermediateDir}/L1/project_context.md\` if you find inaccuracies.
 2. **ID Immutability**: NEVER modify \`id\` fields in component_list.json. Only \`name\` can be changed.
 3. **Chat Final Response**: One short confirmation line. Do not include file contents.
 4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST write section-by-section with \`${editToolNameForPrompt}\`. Writing all at once will fail.${mermaidValidationInstruction}
