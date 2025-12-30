@@ -196,7 +196,7 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
 	        // Function to generate pipeline overview with current stage highlighted
 	        const getPipelineOverview = (currentStage: string) => `
 	## Pipeline Overview (short)
-	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5 Pages (1:1)${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
+	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L1-R Review${currentStage === 'L1R' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5 Pages (1:1)${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
 	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
 	`;
 
@@ -295,7 +295,7 @@ You are generating technical documentation. Accuracy is more important than comp
 
         try {
             // Pre-create intermediate level directories so all phases can reliably write artifacts.
-            for (const level of ['L1', 'L2', 'L3', 'L3R', 'L4', 'L5', 'L5V', 'L6', 'L7', 'L8', 'L9']) {
+            for (const level of ['L1', 'L1R', 'L2', 'L3', 'L3R', 'L4', 'L5', 'L5V', 'L6', 'L7', 'L8', 'L9']) {
                 const dirUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, level));
                 await vscode.workspace.fs.createDirectory(dirUri);
             }
@@ -493,6 +493,96 @@ ${mdCodeBlock}
                     options.toolInvocationToken,
                     [projectContextUri],
                     { maxAttempts: 3 }
+                );
+
+                // ---------------------------------------------------------
+                // L1-R: PROJECT CONTEXT REVIEWER
+                // ---------------------------------------------------------
+                const l1rReviewUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L1R', 'review.md')
+                );
+                await this.runPhase(
+                    'L1-R: Project Context Reviewer',
+                    'Verify and fix L1 project context',
+                    `# Project Context Reviewer Agent (L1-R)
+
+## Role
+- **Your Stage**: L1-R Reviewer (Early Quality Gate)
+- **Core Responsibility**: Verify L1 project context is accurate and fix any errors before downstream stages use it.
+- **Critical Success Factor**: Catch inaccurate project descriptions early so they don't propagate to README.
+` + getDeepThinkingProtocol() + `
+## Input
+- L1 output: \`${intermediateDir}/L1/project_context.md\`
+- Source code: Read actual source files to verify claims
+
+## Verification Checklist
+For each section, verify against actual source code:
+
+| Section | Verify |
+|---------|--------|
+| **Overview** | Project Type, Languages, Build System match actual files |
+| **Entry Points** | Listed files exist and are actual entry points |
+| **Architecture Pattern** | Pattern matches code structure |
+| **External Interfaces** | APIs, DBs, external services are correctly identified |
+| **Vocabulary** | Terms are actually used in codebase with correct meanings |
+| **Key Abstractions** | Classes/interfaces exist and descriptions are accurate |
+
+## Workflow
+
+1. **Initialize Review File**
+   - Create \`${intermediateDir}/L1R/review.md\` with header:
+     \`\`\`markdown
+     # L1R Review: Project Context
+     \`\`\`
+
+2. **Verify Overview Section**
+   - Check if Project Type accurately describes the project
+   - Verify Languages list matches actual source files
+   - Confirm Build System is correct (check package.json, Makefile, etc.)
+   - **If inaccurate**: Edit \`${intermediateDir}/L1/project_context.md\` directly to fix
+   - Append verification result to review file
+
+3. **Verify Entry Points**
+   - Check that listed entry point files exist
+   - Verify they are actual entry points (main functions, index files, CLI commands)
+   - **If inaccurate**: Edit \`${intermediateDir}/L1/project_context.md\` directly to fix
+   - Append verification result to review file
+
+4. **Verify Architecture Pattern**
+   - Confirm the described pattern matches code organization
+   - Check if major architectural components exist as described
+   - **If inaccurate**: Edit \`${intermediateDir}/L1/project_context.md\` directly to fix
+   - Append verification result to review file
+
+5. **Spot-Check Vocabulary (Sample 5 Terms)**
+   - For 5 vocabulary terms, search codebase to verify usage
+   - Ensure definitions match actual usage in code
+   - **If inaccurate**: Edit \`${intermediateDir}/L1/project_context.md\` directly to fix
+   - Append verification result to review file
+
+6. **Write Summary**
+   - Append final summary to review file:
+     \`\`\`markdown
+     ## Summary
+     - Sections verified: {list}
+     - Corrections made: {count}
+     - Status: VERIFIED
+     \`\`\`
+
+## Output
+- \`${intermediateDir}/L1R/review.md\` - Review report
+- \`${intermediateDir}/L1/project_context.md\` - Edit directly if inaccuracies found
+
+## Constraints
+1. **Fix, Don't Just Report**: If you find errors, fix them immediately in project_context.md.
+2. **Be Conservative**: Only change what is clearly wrong. Don't over-engineer or add speculation.
+3. **Verify with Source**: Every correction must be based on actual source code, not assumptions.
+4. **Incremental Writing**: Write to review file after each verification step.
+
+` + getPipelineOverview('L1R'),
+                    token,
+                    options.toolInvocationToken,
+                    [l1rReviewUri]
                 );
             }
 
@@ -1558,7 +1648,26 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 
 ## Workflow
 
-### Part 1: Name Refinement (Do First)
+### Part 0: L1 Project Context Verification (Do First)
+1. Read \`${intermediateDir}/L1/project_context.md\` and compare against L3 analyses.
+2. Verify the \`## Overview\` section:
+   - **Project Type**: Does it accurately describe what this project is?
+   - **Languages**: Are all major languages listed?
+   - **Build System**: Is it correct?
+3. Also verify other sections (Vocabulary, Architecture Pattern, Entry Points, External Interfaces) if L3 analyses reveal inaccuracies.
+4. **L3 Coverage Check (CRITICAL)**: Ensure L1 reflects ALL major elements discovered in L3 analyses:
+   - Read ALL L3 analysis files in \`${intermediateDir}/L3/\`
+   - For each L3 analysis, identify key abstractions, sub-components, and important concepts
+   - Verify these are reflected in L1's:
+     - **Key Abstractions**: All major classes/interfaces/types from L3 should be listed
+     - **Vocabulary**: Important domain terms discovered in L3 should be defined
+     - **Architecture Pattern**: If L3 reveals architectural patterns not in L1, add them
+   - If L3 mentions Component A contains sub-elements B and C, ensure BOTH B and C appear in L1 (not just B)
+5. If inaccuracies or missing elements found:
+   → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix immediately.
+6. Proceed to Part 1 only after L1 is complete and accurate.
+
+### Part 1: Name Refinement
 1. Read \`${intermediateDir}/L2/component_list.json\` and all L3 analyses.
 2. For each component, evaluate if the current \`name\` is:
    - **Clear**: Does it accurately describe what the component does?
@@ -1592,13 +1701,14 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 - **Forbidden**: \`flowchart\`, \`graph TD\`
 
 ## Output
+- \`${intermediateDir}/L1/project_context.md\` - Edit if inaccuracies found (keep Markdown format)
 - \`${intermediateDir}/L2/component_list.json\` - Edit \`name\` fields if refinement needed (keep \`id\` unchanged)
 - \`${intermediateDir}/L4/overview.md\`
 - \`${intermediateDir}/L4/relationships.md\`
 - Include at least TWO diagrams total.
 
 ## Constraints
-1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed.
+1. **Scope**: Only write under \`.deepwiki/\`. Read source code as needed. You may edit \`${intermediateDir}/L1/project_context.md\` if you find inaccuracies.
 2. **ID Immutability**: NEVER modify \`id\` fields in component_list.json. Only \`name\` can be changed.
 3. **Chat Final Response**: One short confirmation line. Do not include file contents.
 4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST write section-by-section with \`${editToolNameForPrompt}\`. Writing all at once will fail.${mermaidValidationInstruction}
@@ -2582,7 +2692,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
         // Pipeline Overview for context
         const pipelineOverview = `
 ## Pipeline Overview (short)
-L1 Context → L2 Discover (A/B/C) → L3 Analyze → L3-R Review → L4 Architect → L5 Pages (1:1) → L5-V Validate → L6 Review → L7 Indexer → L8 QA (README) → L9 QA (Release Gate)
+L1 Context → L1-R Review → L2 Discover (A/B/C) → L3 Analyze → L3-R Review → L4 Architect → L5 Pages (1:1) → L5-V Validate → L6 Review → L7 Indexer → L8 QA (README) → L9 QA (Release Gate)
 (Artifacts are stored under \`${outputPath}/\`.)
 `;
 

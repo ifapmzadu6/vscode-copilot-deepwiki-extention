@@ -2,7 +2,7 @@
 
 The `runSubagent` tool is a powerful capability within VS Code's Copilot Chat API that allows extensions to spawn autonomous, stateless AI agents to perform complex tasks. Unlike standard chat interactions, `runSubagent` enables a **"Manager-Worker" architecture**, where a main extension tool orchestrates multiple specialized agents to achieve a larger goal.
 
-This guide distills the know-how gained from building the **DeepWiki Generator**, a sophisticated documentation engine that orchestrates a 9-stage agentic pipeline (L1-L9) with validation gates and self-correction loops.
+This guide distills the know-how gained from building the **DeepWiki Generator**, a sophisticated documentation engine that orchestrates a 10-stage agentic pipeline with validation gates (L1-R, L3-R, L5-V) and self-correction loops.
 
 ## 1. The Basics: Invoking a Sub-Agent
 
