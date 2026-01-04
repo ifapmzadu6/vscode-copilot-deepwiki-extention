@@ -74,6 +74,7 @@ dist/
 *.js.map
 *.wasm
 *.mjs
+!eslint.config.mjs
 *.cjs
 !.eslintrc.cjs
 *.map
