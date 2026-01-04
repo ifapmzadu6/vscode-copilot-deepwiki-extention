@@ -520,8 +520,7 @@ ${mdCodeBlock}
 ` + getPipelineOverview('L1'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     [projectContextUri],
                     { maxAttempts: 3 }
                 );
@@ -613,8 +612,7 @@ For each section, verify against actual source code:
 ` + getPipelineOverview('L1R'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     [l1rReviewUri]
                 );
             }
@@ -728,8 +726,7 @@ ${jsonExample}
 ` + getPipelineOverview('L2-A'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     [componentListUri],
                     { maxAttempts: 3 }
                 );
@@ -803,8 +800,7 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
 ` + getPipelineOverview('L2-B'),
 	                    token,
 	                    options.toolInvocationToken,
-	                    workspaceFolder,
-	                    outputPath,
+	                    path.join(workspaceFolder.uri.fsPath, outputPath),
 	                    [componentReviewUri],
 	                    { maxAttempts: 3 }
 	                );
@@ -896,8 +892,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 ` + getPipelineOverview('L2-C'),
 	                    token,
 	                    options.toolInvocationToken,
-	                    workspaceFolder,
-	                    outputPath,
+	                    path.join(workspaceFolder.uri.fsPath, outputPath),
 	                    [componentListUri],
 	                    { maxAttempts: 3 }
 	                );
@@ -1472,8 +1467,7 @@ ${mdCodeBlock}
 ` + getPipelineOverview('L3'),
                         token,
                         options.toolInvocationToken,
-                        workspaceFolder,
-                        outputPath,
+                        path.join(workspaceFolder.uri.fsPath, outputPath),
                         [analysisFileUri]
                     );
                 };
@@ -1627,8 +1621,7 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 ` + getPipelineOverview('L3R'),
                         token,
                         options.toolInvocationToken,
-                        workspaceFolder,
-                        outputPath
+                        path.join(workspaceFolder.uri.fsPath, outputPath)
                     );
                 };
 
@@ -1780,8 +1773,7 @@ ${codeUsagesInstruction}
 ` + getPipelineOverview('L4'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     [l4OverviewUri, l4RelationshipsUri],
                     { maxAttempts: 3 }
                 );
@@ -1904,8 +1896,7 @@ ${mdCodeBlock}
 ` + getPipelineOverview('L5'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath
+                    path.join(workspaceFolder.uri.fsPath, outputPath)
                 );
 
                 // ---------------------------------------------------------
@@ -2111,8 +2102,7 @@ Write files to \`${outputPath}/pages/\`.
 ` + getPipelineOverview('L5'),
                         token,
                         options.toolInvocationToken,
-                        workspaceFolder,
-                        outputPath,
+                        path.join(workspaceFolder.uri.fsPath, outputPath),
                         pageUris
                     );
                 };
@@ -2158,8 +2148,7 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 `,
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath
+                    path.join(workspaceFolder.uri.fsPath, outputPath)
                 );
 
                 // Check L5 validation result and retry failed pages
@@ -2347,8 +2336,7 @@ ${codeUsagesInstruction}
 ` + getPipelineOverview('L6'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath
+                    path.join(workspaceFolder.uri.fsPath, outputPath)
                 );
 
                 // ---------------------------------------------------------
@@ -2495,8 +2483,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 ` + getPipelineOverview('L7'),
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     [readmeUri, l7ReportUri],
                     { maxAttempts: 3 }
                 );
@@ -2545,8 +2532,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. README-specific 
 `,
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     undefined,
                     { maxAttempts: 3 }
                 );
@@ -2592,8 +2578,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
 `,
                     token,
                     options.toolInvocationToken,
-                    workspaceFolder,
-                    outputPath,
+                    path.join(workspaceFolder.uri.fsPath, outputPath),
                     undefined,
                     { maxAttempts: 3 }
                 );
@@ -2659,9 +2644,8 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
      * Close editor tabs for .deepwiki/ files, but only if they are not pinned and are in preview mode.
      * This prevents auto-generated files from cluttering the editor, while respecting user's explicit choices.
      */
-    private async closeDeepWikiEditors(workspaceFolder: vscode.WorkspaceFolder, outputPath: string): Promise<void> {
+    private async closeDeepWikiEditors(deepWikiPath: string): Promise<void> {
         try {
-            const deepWikiPath = path.join(workspaceFolder.uri.fsPath, outputPath);
             const tabsToClose: vscode.Tab[] = [];
 
             for (const tabGroup of vscode.window.tabGroups.all) {
@@ -2685,7 +2669,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
 
             if (tabsToClose.length > 0) {
                 await vscode.window.tabGroups.close(tabsToClose);
-                logger.log('DeepWiki', `Closed ${tabsToClose.length} preview tab(s) from ${outputPath}/`);
+                logger.log('DeepWiki', `Closed ${tabsToClose.length} preview tab(s) from ${path.basename(deepWikiPath)}/`);
             }
         } catch (error) {
             // Don't fail the entire process if tab closing fails
@@ -2699,8 +2683,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
         prompt: string,
         cancellationToken: vscode.CancellationToken,
         toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
-        workspaceFolder: vscode.WorkspaceFolder,
-        outputPath: string,
+        deepWikiPath: string,
         cleanupUrisOnRequestFailed?: vscode.Uri[],
         options?: { maxAttempts?: number; retryDelayMs?: number }
     ): Promise<void> {
@@ -2768,7 +2751,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
                 logger.log('DeepWiki', `<<< Completed Phase: ${agentName} in ${duration}s - ${resultPreview}...`);
 
                 // Close preview tabs for .deepwiki/ files after phase completion
-                await this.closeDeepWikiEditors(workspaceFolder, outputPath);
+                await this.closeDeepWikiEditors(deepWikiPath);
 
                 return;
             } catch (error) {
