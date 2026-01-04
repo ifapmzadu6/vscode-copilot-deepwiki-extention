@@ -173,6 +173,7 @@ Final integrity pass over generated docs: removes intermediate references/placeh
 | `outputPath` | No | Output directory (default: `.deepwiki`). |
 | `startFromStage` | No | Resume from a specific stage: `L1`..`L9` (default: `L1`). |
 | `mermaidValidatorToolName` | No | Name of a Mermaid syntax validator tool (e.g., `mcp__mermaid__validate`). If provided, subagents will validate all Mermaid diagrams using this tool. |
+| `codeUsagesToolName` | No | Name of a code usages lookup tool (e.g., `list_code_usages`). If provided, subagents will trace function/class/method usages across the codebase for accurate dependency analysis and relationship verification. |
 
 ### Resume / Start From Stage
 

@@ -275,6 +275,35 @@ You are generating technical documentation. Accuracy is more important than comp
             ? `\n- **Mermaid Validation**: After writing any Mermaid diagram, ALWAYS validate its syntax using \`${mermaidValidatorToolName}\`. Fix any syntax errors before proceeding.`
             : '';
 
+        // Optional code usages lookup tool name (empty string means no usage lookup instructions)
+        const codeUsagesToolName = sanitizeToolNameForPrompt(params.codeUsagesToolName ?? '');
+        const codeUsagesInstruction = codeUsagesToolName.length > 0
+            ? `\n\n## Code Usages Lookup Tool
+You have access to \`${codeUsagesToolName}\` which finds all usages of a function, class, method, or variable across the codebase.
+
+**When to use \`${codeUsagesToolName}\`**:
+- **Dependency Tracing**: Find all callers of a function to understand its impact and importance
+- **Implementation Discovery**: Find all implementations of an interface or abstract class
+- **Usage Pattern Analysis**: Understand how a symbol is used throughout the codebase
+- **Cross-Component Relationships**: Identify which components depend on a specific symbol
+- **Impact Assessment**: Before documenting behavior, verify how widely a symbol is used
+
+**How to use**: Call \`${codeUsagesToolName}\` with:
+- \`symbolName\`: The function, class, method, or variable name to search for
+- \`filePaths\` (optional): File paths where the symbol is likely defined (improves accuracy)
+
+**Example**: To find all usages of \`handleAuthentication\`:
+\`\`\`
+${codeUsagesToolName}({ symbolName: "handleAuthentication", filePaths: ["src/auth/handler.ts"] })
+\`\`\`
+
+**Best Practices**:
+1. Use for key abstractions, public APIs, and frequently referenced symbols
+2. Cross-reference usage count with importance claims in documentation
+3. Verify that documented "primary callers" actually exist by checking usages
+4. Use to discover undocumented dependencies between components`
+            : '';
+
         // Define ComponentDef interface globally within invoke scope
         // - id: internal identifier (immutable, used for L3 filenames, page_groups, retry references)
         // - name: display name and output filename (can be refined by L4)
@@ -1095,6 +1124,7 @@ Ensure coverage across categories:
   - **Vocabulary**: Use these exact terms consistently in your analysis
   - **Architecture Pattern**: Frame your analysis within this context
   - **Key Abstractions**: Reference these when documenting relationships
+${codeUsagesInstruction}
 
 ## Workflow
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
@@ -1105,22 +1135,27 @@ Ensure coverage across categories:
    - **Wrong dependencies**: Dependencies described incorrectly
    → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix the issue immediately, then continue your analysis
 3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\`
-4. Read source code files for this component
-5. Token-stability workflow (do NOT write all at once):
+4. Read source code files for this component${codeUsagesToolName.length > 0 ? `
+5. **Usage Analysis** (RECOMMENDED): For key symbols (classes, functions, interfaces) in this component:
+   - Use \`${codeUsagesToolName}\` to find all usages across the codebase
+   - Identify which other components depend on this component's exports
+   - Document the most important callers in the "Integration Points & Dependencies" section
+   - Use usage counts to prioritize which symbols to document in detail (more usages = more important)` : ''}
+${codeUsagesToolName.length > 0 ? '6' : '5'}. Token-stability workflow (do NOT write all at once):
    - Use \`${editToolNameForPrompt}\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
    - If you are running out of space, stop adding narrative first; do NOT drop CEI anchors.
    - Keep each \`${editToolNameForPrompt}\` small (aim: one section at a time; avoid huge single patches).
-6. Priority order (highest → lowest):
+${codeUsagesToolName.length > 0 ? '7' : '6'}. Priority order (highest → lowest):
    1) CEI blocks (with evidence anchors) → 2) Data Flow paths → 3) Diagrams → 4) Critical flows → 5) Narrative summary
-7. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
+${codeUsagesToolName.length > 0 ? '8' : '7'}. For each analysis section: Analyze → Use \`${editToolNameForPrompt}\` to write
    - Overview and Architecture
    - Key Logic
    - **Causal Analysis** (see below)
    - **Data Flow Analysis** (see below)
    - Edge Cases & Failure Modes
-   - Integration Points & Dependencies
-8. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
+   - Integration Points & Dependencies${codeUsagesToolName.length > 0 ? ` (use \`${codeUsagesToolName}\` to verify callers/callees)` : ''}
+${codeUsagesToolName.length > 0 ? '9' : '8'}. Create Mermaid diagrams → Use \`${editToolNameForPrompt}\` to write
    - **Recommended**: \`stateDiagram-v2\` (for state causality), \`sequenceDiagram\` (for event flow), \`C4Context\`, \`classDiagram\`, \`block\`
    - **Forbidden**: \`flowchart\`, \`graph TD\`
 
@@ -1338,11 +1373,17 @@ ${mdCodeBlock}markdown
 - Error transformation: InternalError → UserFacingError
 
 ## Integration Points & Dependencies
+${codeUsagesToolName.length > 0 ? `
+**IMPORTANT**: Use \`${codeUsagesToolName}\` to accurately populate the tables below:
+- For **Upstream**: Search for usages of this component's main exports to find actual callers
+- For **Downstream**: The source code already shows what this component imports/calls
+- **Verification**: Cross-check claimed dependencies with actual code usages
 
+` : ''}
 ### Upstream (who calls this component)
-| Caller | Trigger | Expected Response |
-|--------|---------|-------------------|
-| ... | ... | ... |
+| Caller | Trigger | Expected Response |${codeUsagesToolName.length > 0 ? ' Verified via |' : ''}
+|--------|---------|-------------------|${codeUsagesToolName.length > 0 ? '-------------|' : ''}
+| ... | ... | ... |${codeUsagesToolName.length > 0 ? ` \`${codeUsagesToolName}\` |` : ''}
 
 ### Downstream (what this component calls)
 | Dependency | Purpose | Failure Impact |
@@ -1645,6 +1686,7 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
   - **Architecture Pattern**: Frame the system architecture within this context
 - \`${intermediateDir}/L2/component_list.json\` - Component definitions with \`id\` and \`name\`
 - Read ALL files in \`${intermediateDir}/L3/\` (including previous loops) and any necessary source files.
+${codeUsagesInstruction}
 
 ## Workflow
 
@@ -1687,11 +1729,19 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 6. Read L3 analysis and confirm key responsibilities/links.
 7. Source verification (mandatory):
    - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
-   - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.
+   - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.${codeUsagesToolName.length > 0 ? `
+   - **Cross-Component Dependency Verification**: Use \`${codeUsagesToolName}\` to verify claimed relationships between components:
+     - For each "Component A depends on Component B" claim, verify by searching usages
+     - Document the actual usage count and primary call sites in relationships.md
+     - Remove or correct any relationship claims that cannot be verified` : ''}
 8. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
 9. Write \`${intermediateDir}/L4/relationships.md\`:
-   - cross-component event/state causality map
+   - cross-component event/state causality map${codeUsagesToolName.length > 0 ? `
+   - **Component Dependency Matrix**: Use \`${codeUsagesToolName}\` to build an accurate dependency matrix:
+     | Component | Depends On | Depended By | Usage Count |
+     |-----------|------------|-------------|-------------|
+     | ... | ... | ... | verified via \`${codeUsagesToolName}\` |` : ''}
    - include diagrams (see below)
 10. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
 
@@ -1942,13 +1992,15 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a documentati
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` for:
   - **Vocabulary**: Use these exact terms consistently in your documentation
   - **Architecture Pattern**: Frame explanations within this architectural context
+${codeUsagesInstruction}
 
 ## Workflow
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
 2. For EACH assigned component: Create \`${outputPath}/pages/{name}.md\` with the page title (H1: \`# {name}\`) and Overview section
 3. Read the L3 analysis for that component
 4. Synthesize and consolidate L3 content into a reader-friendly page.
-   - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.
+   - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.${codeUsagesToolName.length > 0 ? `
+   - **Optional**: Use \`${codeUsagesToolName}\` to verify dependency claims from L3 analysis before including them in documentation` : ''}
 5. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`${editToolNameForPrompt}\` to write immediately
 6. Generate an ASCII tree of ALL files from ALL components in this page → Use \`${editToolNameForPrompt}\` to write
 7. **Grounding requirement**: Do NOT add new statements beyond what is supported by L3; if unsure, omit rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
@@ -2148,6 +2200,7 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
 - Read \`${intermediateDir}/L2/component_list.json\` to map components:
   - \`id\`: Internal identifier (use for L3 file lookup and retry requests)
   - \`name\`: Display name (page filename is \`{name}.md\`)
+${codeUsagesInstruction}
 
 ## Workflow (Incremental Write Pattern - MANDATORY)
 
@@ -2191,7 +2244,11 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
         - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
         - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
-        - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.
+        - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.${codeUsagesToolName.length > 0 ? `
+        - **Dependency Verification**: Use \`${codeUsagesToolName}\` to verify claimed dependencies and relationships:
+          - For each "X calls Y" or "X depends on Y" claim, verify the actual usage exists
+          - Check that documented "callers" or "consumers" of APIs actually exist in the codebase
+          - If a claimed relationship cannot be verified, DELETE the claim` : ''}
         - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
         - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
         - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
@@ -2218,7 +2275,8 @@ Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis fil
         - Placeholders: {None found / Removed: ...}
         - Element use cases: {OK / Added / N/A}
         - Element diagrams: {OK / Added / N/A}
-        - Accuracy issues: {None / Removed: ...}
+        - Accuracy issues: {None / Removed: ...}${codeUsagesToolName.length > 0 ? `
+        - Dependency verification: {OK / Fixed: removed unverified claims / N/A}` : ''}
         - Links: {OK / Fixed: ...}
         - Formatting: {OK / Fixed: ...}
         - Intermediate links: {None / Removed: ...}

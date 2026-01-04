@@ -12,6 +12,14 @@ export interface IDeepWikiParameters {
      */
     mermaidValidatorToolName?: string;
     /**
+     * Optional name of the code usages lookup tool available to the subagents.
+     * If provided, prompts will instruct subagents to use this tool to find usages of
+     * functions, classes, and methods across the codebase for more accurate analysis.
+     * Examples: 'list_code_usages', 'find_references'
+     * If omitted, subagents will rely solely on file reading and search.
+     */
+    codeUsagesToolName?: string;
+    /**
      * Resume/start the pipeline from a specific stage.
      * If set to anything other than "L1", earlier stages are skipped and required artifacts must already exist.
      * If set to "auto", an AI subagent will analyze existing artifacts and determine the optimal resume point.
