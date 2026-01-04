@@ -23,7 +23,7 @@ async function runTasksSequentially<T>(
 
     logger.log('Tasks', `${taskGroupName}: Starting ${tasks.length} tasks sequentially`);
 
-    const results: T[] = new Array(tasks.length);
+    const results: (T | undefined)[] = new Array<T | undefined>(tasks.length).fill(undefined);
     const failedIndices: number[] = [];
     let completedCount = 0;
     const startTime = Date.now();
@@ -46,7 +46,10 @@ async function runTasksSequentially<T>(
                 throw error;
             }
             const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
-            logger.warn('Tasks', `${taskGroupName}[${i + 1}/${tasks.length}]: Failed after ${taskDuration}s, will retry later - ${String(error)}`);
+            logger.warn(
+                'Tasks',
+                `${taskGroupName}[${i + 1}/${tasks.length}]: Failed after ${taskDuration}s, will retry later - ${String(error)}`
+            );
             failedIndices.push(i);
         }
     }
@@ -66,22 +69,32 @@ async function runTasksSequentially<T>(
                 results[taskIndex] = await tasks[taskIndex]();
                 completedCount++;
                 const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
-                logger.log('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry succeeded in ${taskDuration}s`);
+                logger.log(
+                    'Tasks',
+                    `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry succeeded in ${taskDuration}s`
+                );
             } catch (error) {
                 if (error instanceof vscode.CancellationError) {
                     throw error;
                 }
                 const taskDuration = ((Date.now() - taskStartTime) / 1000).toFixed(1);
-                logger.error('Tasks', `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry failed after ${taskDuration}s`, error);
+                logger.error(
+                    'Tasks',
+                    `${taskGroupName}[${taskIndex + 1}/${tasks.length}]: Retry failed after ${taskDuration}s`,
+                    error
+                );
             }
         }
     }
 
     const totalDuration = ((Date.now() - startTime) / 1000).toFixed(1);
     const finalFailedCount = tasks.length - completedCount;
-    logger.log('Tasks', `${taskGroupName}: All ${tasks.length} tasks settled in ${totalDuration}s (${completedCount} passed, ${finalFailedCount} failed)`);
+    logger.log(
+        'Tasks',
+        `${taskGroupName}: All ${tasks.length} tasks settled in ${totalDuration}s (${completedCount} passed, ${finalFailedCount} failed)`
+    );
 
-    return results;
+    return results.filter((r): r is T => r !== undefined);
 }
 
 /**
@@ -98,12 +111,12 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         this.context = context;
     }
 
-    async prepareInvocation(
+    prepareInvocation(
         options: vscode.LanguageModelToolInvocationPrepareOptions<IDeepWikiParameters>,
         _token: vscode.CancellationToken
-    ): Promise<vscode.PreparedToolInvocation> {
-        const outputPath = options.input.outputPath || '.deepwiki';
-        const startFromStage = options.input.startFromStage || 'L1';
+    ): vscode.PreparedToolInvocation {
+        const outputPath = options.input.outputPath ?? '.deepwiki';
+        const startFromStage = options.input.startFromStage ?? 'L1';
         const isAuto = startFromStage.toLowerCase() === 'auto';
         const stageDescription = isAuto
             ? '`auto` (AI will analyze existing artifacts and determine optimal resume point)'
@@ -114,8 +127,8 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
                 title: 'Generate DeepWiki',
                 message: new vscode.MarkdownString(
                     'Start the DeepWiki generation pipeline?\n\n' +
-                    `This will analyze your workspace by **Components** and generate documentation in \`${outputPath}\`.\n\n` +
-                    `Start from stage: ${stageDescription}.`
+                        `This will analyze your workspace by **Components** and generate documentation in \`${outputPath}\`.\n\n` +
+                        `Start from stage: ${stageDescription}.`
                 ),
             },
         };
@@ -126,21 +139,21 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         token: vscode.CancellationToken
     ): Promise<vscode.LanguageModelToolResult> {
         const params = options.input;
-        const outputPath = params.outputPath || '.deepwiki';
+        const outputPath = params.outputPath ?? '.deepwiki';
         const stageOrder = ['L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7', 'L8', 'L9'] as const;
-        type Stage = typeof stageOrder[number];
+        type Stage = (typeof stageOrder)[number];
         const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
         if (!workspaceFolder) {
             return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart('Error: No workspace folder open.')
+                new vscode.LanguageModelTextPart('Error: No workspace folder open.'),
             ]);
         }
 
         const intermediateDir = `${outputPath}/intermediate`;
 
         // Determine start stage (may be overridden by auto-detection below)
-        let startFromStageRaw = String(params.startFromStage || 'L1').toUpperCase();
+        const startFromStageRaw = String(params.startFromStage ?? 'L1').toUpperCase();
         const isAutoDetect = startFromStageRaw === 'AUTO';
         let startFromStage: Stage;
         let autoDetectedReason = '';
@@ -171,11 +184,14 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
         logger.log('DeepWiki', 'Starting Component-Based Pipeline...');
         if (startFromStage !== 'L1') {
             const reasonSuffix = autoDetectedReason ? ` (${autoDetectedReason})` : '';
-            logger.log('DeepWiki', `Resume mode: starting from stage ${startFromStage} (skipping earlier stages)${reasonSuffix}`);
+            logger.log(
+                'DeepWiki',
+                `Resume mode: starting from stage ${startFromStage} (skipping earlier stages)${reasonSuffix}`
+            );
         }
 
         // Helper to check for cancellation and throw if requested
-        const checkCancellation = () => {
+        const checkCancellation = (): void => {
             if (token.isCancellationRequested) {
                 logger.warn('DeepWiki', 'Pipeline cancelled by user');
                 throw new vscode.CancellationError();
@@ -192,18 +208,17 @@ export class DeepWikiTool implements vscode.LanguageModelTool<IDeepWikiParameter
             logger.log('DeepWiki', `Skipping cleanup (resume mode; startFromStage=${startFromStage})`);
         }
 
-
-	        // Function to generate pipeline overview with current stage highlighted
-	        const getPipelineOverview = (currentStage: string) => `
+        // Function to generate pipeline overview with current stage highlighted
+        const getPipelineOverview = (currentStage: string): string => `
 	## Pipeline Overview (short)
 	L1 Context${currentStage === 'L1' ? ' ← YOU' : ''} → L1-R Review${currentStage === 'L1R' ? ' ← YOU' : ''} → L2 Discover (A/B/C)${currentStage.startsWith('L2') ? ' ← YOU' : ''} → L3 Analyze${currentStage === 'L3' ? ' ← YOU' : ''} → L3-R Review${currentStage === 'L3R' ? ' ← YOU' : ''} → L4 Architect${currentStage === 'L4' ? ' ← YOU' : ''} → L5 Pages (1:1)${currentStage === 'L5' ? ' ← YOU' : ''} → L5-V Validate${currentStage === 'L5V' ? ' ← YOU' : ''} → L6 Review${currentStage === 'L6' ? ' ← YOU' : ''} → L7 Indexer${currentStage === 'L7' ? ' ← YOU' : ''} → L8 QA (README)${currentStage === 'L8' ? ' ← YOU' : ''} → L9 QA (Release Gate)${currentStage === 'L9' ? ' ← YOU' : ''}
 	(Write artifacts under \`.deepwiki/\`; do not touch other files.)
 	`;
 
-            // Deep Thinking Protocol: Enhances subagent reasoning by utilizing the "scratchpad" pattern.
-            // Subagent text output before tool calls is discarded from user view but remains in context,
-            // allowing detailed internal reasoning without cluttering the final output.
-            const getDeepThinkingProtocol = () => `
+        // Deep Thinking Protocol: Enhances subagent reasoning by utilizing the "scratchpad" pattern.
+        // Subagent text output before tool calls is discarded from user view but remains in context,
+        // allowing detailed internal reasoning without cluttering the final output.
+        const getDeepThinkingProtocol = (): string => `
 
 ## Deep Thinking Protocol (IMPORTANT)
 Your text output before each tool call is invisible to users but remains in YOUR context. Use this as a "scratchpad" to maximize reasoning quality:
@@ -253,7 +268,7 @@ You are generating technical documentation. Accuracy is more important than comp
 
         const bq = '`';
         const mdCodeBlock = bq + bq + bq;
-        const sanitizeToolNameForPrompt = (value: string) =>
+        const sanitizeToolNameForPrompt = (value: string): string =>
             value
                 .replace(/[`]/g, '')
                 .replace(/[\r\n\t]/g, ' ')
@@ -271,14 +286,16 @@ You are generating technical documentation. Accuracy is more important than comp
 
         // Optional Mermaid validator tool name (empty string means no validation instructions)
         const mermaidValidatorToolName = sanitizeToolNameForPrompt(params.mermaidValidatorToolName ?? '');
-        const mermaidValidationInstruction = mermaidValidatorToolName.length > 0
-            ? `\n- **Mermaid Validation**: After writing any Mermaid diagram, ALWAYS validate its syntax using \`${mermaidValidatorToolName}\`. Fix any syntax errors before proceeding.`
-            : '';
+        const mermaidValidationInstruction =
+            mermaidValidatorToolName.length > 0
+                ? `\n- **Mermaid Validation**: After writing any Mermaid diagram, ALWAYS validate its syntax using \`${mermaidValidatorToolName}\`. Fix any syntax errors before proceeding.`
+                : '';
 
         // Optional code usages lookup tool name (empty string means no usage lookup instructions)
         const codeUsagesToolName = sanitizeToolNameForPrompt(params.codeUsagesToolName ?? '');
-        const codeUsagesInstruction = codeUsagesToolName.length > 0
-            ? `\n\n## Code Usages Lookup Tool
+        const codeUsagesInstruction =
+            codeUsagesToolName.length > 0
+                ? `\n\n## Code Usages Lookup Tool
 You have access to \`${codeUsagesToolName}\` which finds all usages of a function, class, method, or variable across the codebase.
 
 **When to use \`${codeUsagesToolName}\`**:
@@ -302,12 +319,17 @@ ${codeUsagesToolName}({ symbolName: "handleAuthentication", filePaths: ["src/aut
 2. Cross-reference usage count with importance claims in documentation
 3. Verify that documented "primary callers" actually exist by checking usages
 4. Use to discover undocumented dependencies between components`
-            : '';
+                : '';
 
         // Define ComponentDef interface globally within invoke scope
         // - id: internal identifier (immutable, used for L3 filenames, page_groups, retry references)
         // - name: display name and output filename (can be refined by L4)
-        interface ComponentDef { id: string; name: string; files: string[]; description: string }
+        interface ComponentDef {
+            id: string;
+            name: string;
+            files: string[];
+            description: string;
+        }
 
         const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
             const uri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, relativePathFromWorkspace));
@@ -388,13 +410,15 @@ ${codeUsagesToolName}({ symbolName: "handleAuthentication", filePaths: ["src/aut
                 await this.runPhase(
                     'L1: Project Context Analyzer',
                     'Analyze project environment and context',
-	                    `# Project Context Analyzer Agent (L1)
+                    `# Project Context Analyzer Agent (L1)
 
 ## Role
 - **Your Stage**: L1 Analyzer (Pre-Discovery)
 - **Core Responsibility**: Capture project type, build system, architecture, vocabulary, and conditional/active code patterns
 - **Critical Success Factor**: Downstream agents must rely on this to maintain consistent terminology, avoid documenting inactive/generated code, and understand the project's structure
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Goal
 Create a comprehensive project context document that serves as the single source of truth for all downstream stages. This document ensures consistent terminology and accurate understanding of the codebase.
 ${existingDeepWikisNote}
@@ -517,7 +541,8 @@ ${mdCodeBlock}
    - Write definitions based on observed usage in THIS codebase, not general/dictionary meanings
    - Keep Term and Aliases in their original form (do not translate)
 
-` + getPipelineOverview('L1'),
+` +
+                        getPipelineOverview('L1'),
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
@@ -540,7 +565,9 @@ ${mdCodeBlock}
 - **Your Stage**: L1-R Reviewer (Early Quality Gate)
 - **Core Responsibility**: Verify L1 project context is accurate and fix any errors before downstream stages use it.
 - **Critical Success Factor**: Catch inaccurate project descriptions early so they don't propagate to README.
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Input
 - L1 output: \`${intermediateDir}/L1/project_context.md\`
 - Source code: Read actual source files to verify claims
@@ -609,7 +636,8 @@ For each section, verify against actual source code:
 3. **Verify with Source**: Every correction must be based on actual source code, not assumptions.
 4. **Incremental Writing**: Write to review file after each verification step.
 
-` + getPipelineOverview('L1R'),
+` +
+                        getPipelineOverview('L1R'),
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
@@ -643,13 +671,15 @@ For each section, verify against actual source code:
                 await this.runPhase(
                     'L2-A: Drafter',
                     'Draft initial component grouping',
-	                    `# Component Drafter Agent (L2-A)
+                    `# Component Drafter Agent (L2-A)
 
 ## Role
 - **Your Stage**: L2-A Drafter (Discovery Phase - First Pass)
 - **Core Responsibility**: Propose an initial logical component grouping based on functionality
 - **Critical Success Factor**: Group files that truly work together as one unit
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Input
 - **Project Context**: Read \`${intermediateDir}/L1/project_context.md\` thoroughly. Pay special attention to:
   - **Entry Points**: Start your exploration from these files
@@ -723,7 +753,8 @@ ${jsonExample}
 5. **JSON Strictness**: Output must be a single JSON array (starts with \`[\` and ends with \`]\`), no trailing commas, no comments.
 6. **Incremental Writes (CRITICAL)**: File write/create operations have output size limits. Read/search operations are unlimited, but you MUST write incrementally - add ONE component, save, repeat. Writing all at once will fail.
 
-` + getPipelineOverview('L2-A'),
+` +
+                        getPipelineOverview('L2-A'),
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
@@ -743,23 +774,26 @@ ${jsonExample}
                 while (l1RetryCount < maxL2Retries) {
                     logger.log('DeepWiki', `L2 Review/Refine Loop: ${l1RetryCount + 1}/${maxL2Retries}`);
 
-                const retryContextL2 = l1RetryCount > 0
-                    ? `\n\n**CONTEXT**: Previous attempt had issues. Please review the revised component list carefully.`
-                    : '';
+                    const retryContextL2 =
+                        l1RetryCount > 0
+                            ? `\n\n**CONTEXT**: Previous attempt had issues. Please review the revised component list carefully.`
+                            : '';
 
-	                // ---------------------------------------------------------
-	                // Level 1-B: COMPONENT REVIEWER (Critique Only)
-	                // ---------------------------------------------------------
-	                await this.runPhase(
-	                    `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
-	                    'Critique component grouping',
-	                    `# Component Reviewer Agent (L2-B)
+                    // ---------------------------------------------------------
+                    // Level 1-B: COMPONENT REVIEWER (Critique Only)
+                    // ---------------------------------------------------------
+                    await this.runPhase(
+                        `L2-B: Reviewer (Attempt ${l1RetryCount + 1})`,
+                        'Critique component grouping',
+                        `# Component Reviewer Agent (L2-B)
 
 ## Role
 - **Your Stage**: L2-B Reviewer (Discovery Phase - Quality Gate)
 - **Core Responsibility**: Critique the component list; identify issues but do NOT edit the JSON
 - **Critical Success Factor**: Verify files exist and groupings make functional sense
-` + getDeepThinkingProtocol() + `
+` +
+                            getDeepThinkingProtocol() +
+                            `
 ## Goal
 CRITIQUE the component list. Do NOT fix it yourself.
 
@@ -797,56 +831,67 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
 2. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but write the review report incrementally if it is long.
 
-` + getPipelineOverview('L2-B'),
-	                    token,
-	                    options.toolInvocationToken,
-	                    path.join(workspaceFolder.uri.fsPath, outputPath),
-	                    [componentReviewUri],
-	                    { maxAttempts: 3 }
-	                );
+` +
+                            getPipelineOverview('L2-B'),
+                        token,
+                        options.toolInvocationToken,
+                        path.join(workspaceFolder.uri.fsPath, outputPath),
+                        [componentReviewUri],
+                        { maxAttempts: 3 }
+                    );
 
-                // ---------------------------------------------------------
-                // Check review result
-                // ---------------------------------------------------------
-                const reviewContent = new TextDecoder().decode(
-                    await vscode.workspace.fs.readFile(componentReviewUri)
-                );
-                const isApproved = reviewContent.trim().toUpperCase().startsWith('APPROVED');
+                    // ---------------------------------------------------------
+                    // Check review result
+                    // ---------------------------------------------------------
+                    const reviewContent = new TextDecoder().decode(
+                        await vscode.workspace.fs.readFile(componentReviewUri)
+                    );
+                    const isApproved = reviewContent.trim().toUpperCase().startsWith('APPROVED');
 
-                if (isApproved) {
-                    // Review passed - validate JSON and exit
-                    const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
-                    try {
-                        const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
-                        const contentStr = new TextDecoder().decode(fileListContent);
-                        componentList = this.parseJson<ComponentDef[]>(contentStr);
+                    if (isApproved) {
+                        // Review passed - validate JSON and exit
+                        const fileListUri = vscode.Uri.file(
+                            path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                        );
+                        try {
+                            const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
+                            const contentStr = new TextDecoder().decode(fileListContent);
+                            componentList = this.parseJson<ComponentDef[]>(contentStr);
 
-                        if (!Array.isArray(componentList) || componentList.length === 0) {
-                            throw new Error('Parsed JSON is not a valid array or is empty.');
+                            if (!Array.isArray(componentList) || componentList.length === 0) {
+                                throw new Error('Parsed JSON is not a valid array or is empty.');
+                            }
+
+                            logger.log(
+                                'DeepWiki',
+                                `L2 Success: Review approved. Identified ${componentList.length} logical components.`
+                            );
+                            isL2Success = true;
+                            break;
+                        } catch (e) {
+                            logger.error(
+                                'DeepWiki',
+                                `L2 JSON validation failed despite approval: ${e instanceof Error ? e.message : String(e)}`
+                            );
+                            // Continue to refiner to fix JSON issues
                         }
-
-                        logger.log('DeepWiki', `L2 Success: Review approved. Identified ${componentList.length} logical components.`);
-                        isL2Success = true;
-                        break;
-                    } catch (e) {
-                        logger.error('DeepWiki', `L2 JSON validation failed despite approval: ${e}`);
-                        // Continue to refiner to fix JSON issues
                     }
-                }
 
-	                // ---------------------------------------------------------
-	                // Level 1-C: COMPONENT REFINER (Fix & Finalize)
-	                // ---------------------------------------------------------
-	                await this.runPhase(
-	                    `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
-	                    'Refine component list based on review',
-	                    `# Component Refiner Agent (L2-C)
+                    // ---------------------------------------------------------
+                    // Level 1-C: COMPONENT REFINER (Fix & Finalize)
+                    // ---------------------------------------------------------
+                    await this.runPhase(
+                        `L2-C: Refiner (Attempt ${l1RetryCount + 1})`,
+                        'Refine component list based on review',
+                        `# Component Refiner Agent (L2-C)
 
 ## Role
 - **Your Stage**: L2-C Refiner (Discovery Phase - Final Output)
 - **Core Responsibility**: Apply L2-B feedback to the component list and produce validated JSON
 - **Critical Success Factor**: Produce valid JSON that L2 can use - your output feeds the entire pipeline
-` + getDeepThinkingProtocol() + `
+` +
+                            getDeepThinkingProtocol() +
+                            `
 ## Goal
 Refine the component list based on review feedback, applying fixes **ONE AT A TIME** to avoid output size limits.
 
@@ -889,33 +934,42 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 4. **ID/Name**: The \`id\` must be filename-safe (no \`/\`, no spaces). Use \`_\` as a separator. Set \`id\` and \`name\` to the same value (L4 may refine \`name\` later).
 5. **Incremental Writes (CRITICAL)**: File write/create operations have output size limits. Read/search operations are unlimited, but you MUST write incrementally - apply ONE fix, save, repeat. Writing all at once will fail.
 
-` + getPipelineOverview('L2-C'),
-	                    token,
-	                    options.toolInvocationToken,
-	                    path.join(workspaceFolder.uri.fsPath, outputPath),
-	                    [componentListUri],
-	                    { maxAttempts: 3 }
-	                );
+` +
+                            getPipelineOverview('L2-C'),
+                        token,
+                        options.toolInvocationToken,
+                        path.join(workspaceFolder.uri.fsPath, outputPath),
+                        [componentListUri],
+                        { maxAttempts: 3 }
+                    );
 
-                // ---------------------------------------------------------
-                // Check JSON validity after refinement
-                // ---------------------------------------------------------
-                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
-                try {
-                    const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
-                    const contentStr = new TextDecoder().decode(fileListContent);
-                    componentList = this.parseJson<ComponentDef[]>(contentStr);
+                    // ---------------------------------------------------------
+                    // Check JSON validity after refinement
+                    // ---------------------------------------------------------
+                    const fileListUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                    );
+                    try {
+                        const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
+                        const contentStr = new TextDecoder().decode(fileListContent);
+                        componentList = this.parseJson<ComponentDef[]>(contentStr);
 
-                    if (!Array.isArray(componentList) || componentList.length === 0) {
-                        throw new Error('Parsed JSON is not a valid array or is empty.');
+                        if (!Array.isArray(componentList) || componentList.length === 0) {
+                            throw new Error('Parsed JSON is not a valid array or is empty.');
+                        }
+
+                        logger.log(
+                            'DeepWiki',
+                            `L2 Refinement produced valid JSON with ${componentList.length} components. Re-reviewing...`
+                        );
+                        // Continue loop to re-review the refined result
+                    } catch (e) {
+                        logger.error(
+                            'DeepWiki',
+                            `L2 Attempt ${l1RetryCount + 1} Failed: ${e instanceof Error ? e.message : String(e)}`
+                        );
                     }
-
-                    logger.log('DeepWiki', `L2 Refinement produced valid JSON with ${componentList.length} components. Re-reviewing...`);
-                    // Continue loop to re-review the refined result
-                } catch (e) {
-                    logger.error('DeepWiki', `L2 Attempt ${l1RetryCount + 1} Failed: ${e}`);
-                }
-                l1RetryCount++;
+                    l1RetryCount++;
                 }
 
                 if (!isL2Success) {
@@ -923,7 +977,9 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
                 }
             } else {
                 // Resume mode: reuse existing L2 output
-                const fileListUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json'));
+                const fileListUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                );
                 const fileListContent = await vscode.workspace.fs.readFile(fileListUri);
                 const contentStr = new TextDecoder().decode(fileListContent);
                 componentList = this.parseJson<ComponentDef[]>(contentStr);
@@ -950,13 +1006,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 
             type LoopStart = 'L3' | 'L4' | 'L5' | 'L6';
             const loopStart: LoopStart =
-                startFromStage === 'L4'
-                    ? 'L4'
-                    : startFromStage === 'L5'
-                        ? 'L5'
-                        : startFromStage === 'L6'
-                            ? 'L6'
-                            : 'L3';
+                startFromStage === 'L4' ? 'L4' : startFromStage === 'L5' ? 'L5' : startFromStage === 'L6' ? 'L6' : 'L3';
 
             // Resume mode starting at L7+ skips the analysis/writing loop entirely.
             if (startStageIndex >= stageOrder.indexOf('L7')) {
@@ -964,7 +1014,10 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
             }
 
             while (componentsToAnalyze.length > 0 && loopCount < MAX_LOOPS) {
-                logger.log('DeepWiki', `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`);
+                logger.log(
+                    'DeepWiki',
+                    `>>> Starting Analysis/Writing Loop ${loopCount + 1}/${MAX_LOOPS} with ${componentsToAnalyze.length} components...`
+                );
 
                 const firstLoop = loopCount === 0;
                 let initialSkipTo: LoopStart = firstLoop ? loopStart : 'L3';
@@ -991,7 +1044,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
                             'DeepWiki',
                             `Resume detected ${missingComponentIds.length} missing page(s). Auto-running L5 Writer for missing components.`
                         );
-                        componentsToAnalyze = componentList.filter(c => missingComponentIds.includes(c.id));
+                        componentsToAnalyze = componentList.filter((c) => missingComponentIds.includes(c.id));
                         initialSkipTo = 'L5';
                     }
                 }
@@ -1005,24 +1058,30 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
                 // For a more robust solution, L3/L5 should accept an array of component names rather than a chunk.
                 // For now, we'll re-chunk the componentsToAnalyze.
 
-                const componentsForThisLoop = componentsToAnalyze.map(c => c.name);
+                const componentsForThisLoop = componentsToAnalyze.map((c) => c.name);
 
                 if (runL3Stages) {
-                // ---------------------------------------------------------
-                // Level 3: ANALYZER (Process current components - 1 component per task)
-                // ---------------------------------------------------------
-                // Task generator function for L3 analysis (shared by initial and retry)
-                const createL3Task = (component: ComponentDef) => {
-                    const componentStr = JSON.stringify(component);
-                    const originalIndex = componentList.findIndex(c => c.id === component.id);
-                    const paddedIndex = String(originalIndex + 1).padStart(3, '0');
-                    const analysisFileUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L3', `${paddedIndex}_${component.id}_analysis.md`)
-                    );
-                    return () => this.runPhase(
-                        `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
-                        `Analyze component`,
-                        `# Analyzer Agent (L3)
+                    // ---------------------------------------------------------
+                    // Level 3: ANALYZER (Process current components - 1 component per task)
+                    // ---------------------------------------------------------
+                    // Task generator function for L3 analysis (shared by initial and retry)
+                    const createL3Task = (component: ComponentDef) => {
+                        const componentStr = JSON.stringify(component);
+                        const originalIndex = componentList.findIndex((c) => c.id === component.id);
+                        const paddedIndex = String(originalIndex + 1).padStart(3, '0');
+                        const analysisFileUri = vscode.Uri.file(
+                            path.join(
+                                workspaceFolder.uri.fsPath,
+                                intermediateDir,
+                                'L3',
+                                `${paddedIndex}_${component.id}_analysis.md`
+                            )
+                        );
+                        return () =>
+                            this.runPhase(
+                                `L3: Analyzer (Loop ${loopCount + 1}, ${component.name})`,
+                                `Analyze component`,
+                                `# Analyzer Agent (L3)
 
 ## Role
 - **Your Stage**: L3 Analyzer (Analysis Loop - may retry up to 5 times)
@@ -1035,7 +1094,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a content gen
 - If you cannot find clear evidence for something, OMIT it entirely - do not guess
 - Use exact symbol names from source code; never invent names that "sound right"
 - When uncertain about behavior, describe what the code literally does, not what it might do
-` + getDeepThinkingProtocol() + `
+` +
+                                    getDeepThinkingProtocol() +
+                                    `
 ## Reasoning Style (Priority)
 - **Causal-chain-first**: Prioritize explaining causality over summarization.
 - Keep the write-up grounded in the assigned source files (use real function/class/event names and file paths as anchors).
@@ -1140,12 +1201,16 @@ ${codeUsagesInstruction}
    - **Wrong dependencies**: Dependencies described incorrectly
    → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix the issue immediately, then continue your analysis
 3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\`
-4. Read source code files for this component${codeUsagesToolName.length > 0 ? `
+4. Read source code files for this component${
+                                        codeUsagesToolName.length > 0
+                                            ? `
 5. **Usage Analysis** (RECOMMENDED): For key symbols (classes, functions, interfaces) in this component:
    - Use \`${codeUsagesToolName}\` to find all usages across the codebase
    - Identify which other components depend on this component's exports
    - Document the most important callers in the "Integration Points & Dependencies" section
-   - Use usage counts to prioritize which symbols to document in detail (more usages = more important)` : ''}
+   - Use usage counts to prioritize which symbols to document in detail (more usages = more important)`
+                                            : ''
+                                    }
 ${codeUsagesToolName.length > 0 ? '6' : '5'}. Token-stability workflow (do NOT write all at once):
    - Use \`${editToolNameForPrompt}\` after EACH section.
    - Prefer short bullets/tables over long paragraphs.
@@ -1378,13 +1443,17 @@ ${mdCodeBlock}markdown
 - Error transformation: InternalError → UserFacingError
 
 ## Integration Points & Dependencies
-${codeUsagesToolName.length > 0 ? `
+${
+    codeUsagesToolName.length > 0
+        ? `
 **IMPORTANT**: Use \`${codeUsagesToolName}\` to accurately populate the tables below:
 - For **Upstream**: Search for usages of this component's main exports to find actual callers
 - For **Downstream**: The source code already shows what this component imports/calls
 - **Verification**: Cross-check claimed dependencies with actual code usages
 
-` : ''}
+`
+        : ''
+}
 ### Upstream (who calls this component)
 | Caller | Trigger | Expected Response |${codeUsagesToolName.length > 0 ? ' Verified via |' : ''}
 |--------|---------|-------------------|${codeUsagesToolName.length > 0 ? '-------------|' : ''}
@@ -1464,33 +1533,35 @@ ${mdCodeBlock}
 3. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.
 4. **Project Context Correction**: If you find inaccuracies in project_context.md, fix them directly using \`${editToolNameForPrompt}\` (do not just report them).${mermaidValidationInstruction}
 
-` + getPipelineOverview('L3'),
-                        token,
-                        options.toolInvocationToken,
-                        path.join(workspaceFolder.uri.fsPath, outputPath),
-                        [analysisFileUri]
-                    );
-                };
+` +
+                                    getPipelineOverview('L3'),
+                                token,
+                                options.toolInvocationToken,
+                                path.join(workspaceFolder.uri.fsPath, outputPath),
+                                [analysisFileUri]
+                            );
+                    };
 
-                // Initial L3 analysis
-                const l3Tasks = componentsToAnalyze.map(createL3Task);
-                await runTasksSequentially(l3Tasks, `L3 Analysis (Loop ${loopCount + 1})`, token);
+                    // Initial L3 analysis
+                    const l3Tasks = componentsToAnalyze.map(createL3Task);
+                    await runTasksSequentially(l3Tasks, `L3 Analysis (Loop ${loopCount + 1})`, token);
 
-                // ---------------------------------------------------------
-                // L3-R: REVIEWER (Deeper review of each component analysis; parallel)
-                // NOTE: L3V was removed - L3R now handles file existence check and triggers retries
-                // ---------------------------------------------------------
-                const createL3RTask = (component: ComponentDef) => {
-                    const componentStr = JSON.stringify(component);
-                    const originalIndex = componentList.findIndex(c => c.id === component.id);
-                    const paddedIndex = String(originalIndex + 1).padStart(3, '0');
-                    const analysisFile = `${paddedIndex}_${component.id}_analysis.md`;
-                    const reviewFile = `${paddedIndex}_${component.id}_review.md`;
-                    const retryFile = `${paddedIndex}_${component.id}_retry.json`;
-                    return () => this.runPhase(
-                        `L3-R: Reviewer (Loop ${loopCount + 1}, ${component.name})`,
-                        `Review L3 analysis`,
-                        `# L3 Reviewer Agent (L3-R)
+                    // ---------------------------------------------------------
+                    // L3-R: REVIEWER (Deeper review of each component analysis; parallel)
+                    // NOTE: L3V was removed - L3R now handles file existence check and triggers retries
+                    // ---------------------------------------------------------
+                    const createL3RTask = (component: ComponentDef) => {
+                        const componentStr = JSON.stringify(component);
+                        const originalIndex = componentList.findIndex((c) => c.id === component.id);
+                        const paddedIndex = String(originalIndex + 1).padStart(3, '0');
+                        const analysisFile = `${paddedIndex}_${component.id}_analysis.md`;
+                        const reviewFile = `${paddedIndex}_${component.id}_review.md`;
+                        const retryFile = `${paddedIndex}_${component.id}_retry.json`;
+                        return () =>
+                            this.runPhase(
+                                `L3-R: Reviewer (Loop ${loopCount + 1}, ${component.name})`,
+                                `Review L3 analysis`,
+                                `# L3 Reviewer Agent (L3-R)
 
 ## Role
 - **Your Stage**: L3-R Reviewer (Quality Gate)
@@ -1517,7 +1588,9 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 | Diagrams | 1+ with 4+ nodes | Check mermaid blocks |
 
 **RETRY if any MUST requirement is not met.**
-` + getDeepThinkingProtocol() + `
+` +
+                                    getDeepThinkingProtocol() +
+                                    `
 ## Input
 - **Assigned Component**: ${componentStr}
 - Component list (source of truth): \`${intermediateDir}/L2/component_list.json\`
@@ -1618,47 +1691,55 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 2. **No guessing**: If you can't verify, delete rather than invent.
 3. **Chat Final Response**: One short confirmation line; no file contents.
 
-` + getPipelineOverview('L3R'),
-                        token,
-                        options.toolInvocationToken,
-                        path.join(workspaceFolder.uri.fsPath, outputPath)
+` +
+                                    getPipelineOverview('L3R'),
+                                token,
+                                options.toolInvocationToken,
+                                path.join(workspaceFolder.uri.fsPath, outputPath)
+                            );
+                    };
+
+                    const l3rTasks = componentsToAnalyze.map(createL3RTask);
+                    await runTasksSequentially(l3rTasks, `L3 Review (Loop ${loopCount + 1})`, token);
+
+                    const l3rRetryPattern = new vscode.RelativePattern(
+                        workspaceFolder,
+                        `${intermediateDir}/L3R/*_retry.json`
                     );
-                };
-
-                const l3rTasks = componentsToAnalyze.map(createL3RTask);
-                await runTasksSequentially(l3rTasks, `L3 Review (Loop ${loopCount + 1})`, token);
-
-                const l3rRetryPattern = new vscode.RelativePattern(workspaceFolder, `${intermediateDir}/L3R/*_retry.json`);
-                const l3rRetryUris = await vscode.workspace.findFiles(l3rRetryPattern);
-                const l3rRetryNamesSet = new Set<string>();
-                for (const uri of l3rRetryUris) {
-                    try {
-                        const content = await vscode.workspace.fs.readFile(uri);
-                        const names = this.parseJson<string[]>(new TextDecoder().decode(content));
-                        if (Array.isArray(names)) names.forEach(n => l3rRetryNamesSet.add(n));
-                    } catch {
-                        // ignore invalid retry file
-                    } finally {
+                    const l3rRetryUris = await vscode.workspace.findFiles(l3rRetryPattern);
+                    const l3rRetryNamesSet = new Set<string>();
+                    for (const uri of l3rRetryUris) {
                         try {
-                            await vscode.workspace.fs.delete(uri);
+                            const content = await vscode.workspace.fs.readFile(uri);
+                            const names = this.parseJson<string[]>(new TextDecoder().decode(content));
+                            if (Array.isArray(names)) names.forEach((n) => l3rRetryNamesSet.add(n));
                         } catch {
-                            // ignore delete failures
+                            // ignore invalid retry file
+                        } finally {
+                            try {
+                                await vscode.workspace.fs.delete(uri);
+                            } catch {
+                                // ignore delete failures
+                            }
                         }
                     }
-                }
 
-                const l3rRetryIds = Array.from(l3rRetryNamesSet);
-                if (l3rRetryIds.length > 0) {
-                    logger.log('DeepWiki', `L3 Reviewer requested re-analysis for: ${l3rRetryIds.join(', ')}`);
-                    const retryComponents = componentsToAnalyze.filter(c => l3rRetryIds.includes(c.id));
-                    if (retryComponents.length > 0) {
-                        const l3RetryTasks = retryComponents.map(createL3Task);
-                        await runTasksSequentially(l3RetryTasks, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
-                        // Re-run L3-R only for the re-analyzed components once (do not request further retries).
-                        const l3rSecondPassTasks = retryComponents.map(createL3RTask);
-                        await runTasksSequentially(l3rSecondPassTasks, `L3 Review (2nd pass, Loop ${loopCount + 1})`, token);
+                    const l3rRetryIds = Array.from(l3rRetryNamesSet);
+                    if (l3rRetryIds.length > 0) {
+                        logger.log('DeepWiki', `L3 Reviewer requested re-analysis for: ${l3rRetryIds.join(', ')}`);
+                        const retryComponents = componentsToAnalyze.filter((c) => l3rRetryIds.includes(c.id));
+                        if (retryComponents.length > 0) {
+                            const l3RetryTasks = retryComponents.map(createL3Task);
+                            await runTasksSequentially(l3RetryTasks, `L3 Re-Analyze (Loop ${loopCount + 1})`, token);
+                            // Re-run L3-R only for the re-analyzed components once (do not request further retries).
+                            const l3rSecondPassTasks = retryComponents.map(createL3RTask);
+                            await runTasksSequentially(
+                                l3rSecondPassTasks,
+                                `L3 Review (2nd pass, Loop ${loopCount + 1})`,
+                                token
+                            );
+                        }
                     }
-                }
                 }
 
                 // Note: L3-PC step was removed because L3 Analyzer now directly edits project_context.md
@@ -1669,20 +1750,24 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
                 // Input: All L3 analysis files (even from previous loops)
                 // ---------------------------------------------------------
                 if (runL4Stage) {
-                    const l4OverviewUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'overview.md'));
+                    const l4OverviewUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'overview.md')
+                    );
                     const l4RelationshipsUri = vscode.Uri.file(
                         path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L4', 'relationships.md')
                     );
-	                await this.runPhase(
-	                    `L4: Architect (Loop ${loopCount + 1})`,
-	                    'Update system overview and maps',
-	                    `# Architect Agent (L4)
+                    await this.runPhase(
+                        `L4: Architect (Loop ${loopCount + 1})`,
+                        'Update system overview and maps',
+                        `# Architect Agent (L4)
 
 ## Role
 - **Your Stage**: L4 Architect (Analysis Loop)
 - **Core Responsibility**: Synthesize system-level architecture and cross-component causality
 - **Critical Success Factor**: Indexer depends on your clarity and correctness
-` + getDeepThinkingProtocol() + `
+` +
+                            getDeepThinkingProtocol() +
+                            `
 ## Goal
 1. Produce a coherent system overview from ALL L3 analyses.
 2. Review and refine component \`name\` values for clarity and consistency.
@@ -1736,19 +1821,27 @@ ${codeUsagesInstruction}
 6. Read L3 analysis and confirm key responsibilities/links.
 7. Source verification (mandatory):
    - For at least 10 key claims you plan to include in L4, open the referenced source files and verify the claim is consistent with the code.
-   - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.${codeUsagesToolName.length > 0 ? `
+   - If a claim cannot be confirmed from source, either delete it or rephrase it into a narrower, verifiable statement.${
+       codeUsagesToolName.length > 0
+           ? `
    - **Cross-Component Dependency Verification**: Use \`${codeUsagesToolName}\` to verify claimed relationships between components:
      - For each "Component A depends on Component B" claim, verify by searching usages
      - Document the actual usage count and primary call sites in relationships.md
-     - Remove or correct any relationship claims that cannot be verified` : ''}
+     - Remove or correct any relationship claims that cannot be verified`
+           : ''
+   }
 8. Write \`${intermediateDir}/L4/overview.md\`:
    - high-level architecture, major components, rationale ("why this shape?")
 9. Write \`${intermediateDir}/L4/relationships.md\`:
-   - cross-component event/state causality map${codeUsagesToolName.length > 0 ? `
+   - cross-component event/state causality map${
+       codeUsagesToolName.length > 0
+           ? `
    - **Component Dependency Matrix**: Use \`${codeUsagesToolName}\` to build an accurate dependency matrix:
      | Component | Depends On | Depended By | Usage Count |
      |-----------|------------|-------------|-------------|
-     | ... | ... | ... | verified via \`${codeUsagesToolName}\` |` : ''}
+     | ... | ... | ... | verified via \`${codeUsagesToolName}\` |`
+           : ''
+   }
    - include diagrams (see below)
 10. Quick self-check: overview matches L3 facts; diagrams render; no raw code pasted.
 
@@ -1770,13 +1863,14 @@ ${codeUsagesInstruction}
 3. **Chat Final Response**: One short confirmation line. Do not include file contents.
 4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST write section-by-section with \`${editToolNameForPrompt}\`. Writing all at once will fail.${mermaidValidationInstruction}
 
-` + getPipelineOverview('L4'),
-                    token,
-                    options.toolInvocationToken,
-                    path.join(workspaceFolder.uri.fsPath, outputPath),
-                    [l4OverviewUri, l4RelationshipsUri],
-                    { maxAttempts: 3 }
-                );
+` +
+                            getPipelineOverview('L4'),
+                        token,
+                        options.toolInvocationToken,
+                        path.join(workspaceFolder.uri.fsPath, outputPath),
+                        [l4OverviewUri, l4RelationshipsUri],
+                        { maxAttempts: 3 }
+                    );
                 }
 
                 // ---------------------------------------------------------
@@ -1789,13 +1883,16 @@ ${codeUsagesInstruction}
                 // 1) writing `.deepwiki/pages/*.md` (1 component = 1 page)
                 // 2) grouping pages for README navigation (`page_groups.json`, via the L5-G subagent)
                 if (runL5Stages) {
-                logger.log('DeepWiki', `L5 Pages: ${componentsForThisLoop.length} components in this loop (1:1 mapping)`);
+                    logger.log(
+                        'DeepWiki',
+                        `L5 Pages: ${componentsForThisLoop.length} components in this loop (1:1 mapping)`
+                    );
 
-                // ---------------------------------------------------------
-                // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
-                // Also reviews and directly updates component list if needed
-                // ---------------------------------------------------------
-                const pageGroupsExample = `
+                    // ---------------------------------------------------------
+                    // Level 5-G: PAGE GROUPER (for README TOC & diagrams)
+                    // Also reviews and directly updates component list if needed
+                    // ---------------------------------------------------------
+                    const pageGroupsExample = `
 [
   {
     "groupName": "Authentication",
@@ -1809,15 +1906,15 @@ ${codeUsagesInstruction}
   }
 ]
 `;
-                // NOTE: "pages" array should contain component IDs (not names)
+                    // NOTE: "pages" array should contain component IDs (not names)
 
-                // Save current component list to detect changes after L5-G
-                const componentListBeforeL5G = JSON.stringify(componentList);
+                    // Save current component list to detect changes after L5-G
+                    const componentListBeforeL5G = JSON.stringify(componentList);
 
-                await this.runPhase(
-                    `L5-G: Page Grouper (Loop ${loopCount + 1})`,
-                    'Group pages and review project context, component structure',
-                    `# Page Grouper Agent (L5-G)
+                    await this.runPhase(
+                        `L5-G: Page Grouper (Loop ${loopCount + 1})`,
+                        'Group pages and review project context, component structure',
+                        `# Page Grouper Agent (L5-G)
 
 ## Role
 - **Your Stage**: L5-G Page Grouper (Information Architecture for README)
@@ -1825,7 +1922,9 @@ ${codeUsagesInstruction}
   1. Review and update project context if L3/L4 analysis revealed inaccuracies
   2. Review and update component structure based on L3/L4 insights
   3. Create stable, reader-friendly groups of pages for the README TOC
-` + getDeepThinkingProtocol() + `
+` +
+                            getDeepThinkingProtocol() +
+                            `
 ## Goal
 1. Correct project context if L3/L4 analysis revealed inaccuracies
 2. Evaluate and fix component list if L3/L4 analysis revealed issues
@@ -1893,37 +1992,44 @@ ${mdCodeBlock}
 6. **Chat Final Response**: One short confirmation line.
 7. **ID Immutability**: When editing component_list.json, NEVER change \`id\` fields. Only \`name\`, \`files\`, \`description\` can be modified.
 
-` + getPipelineOverview('L5'),
-                    token,
-                    options.toolInvocationToken,
-                    path.join(workspaceFolder.uri.fsPath, outputPath)
-                );
-
-                // ---------------------------------------------------------
-                // Check if L5-G modified component_list.json
-                // ---------------------------------------------------------
-                try {
-                    const componentListUri = vscode.Uri.file(
-                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+` +
+                            getPipelineOverview('L5'),
+                        token,
+                        options.toolInvocationToken,
+                        path.join(workspaceFolder.uri.fsPath, outputPath)
                     );
-                    const updatedContent = await vscode.workspace.fs.readFile(componentListUri);
-                    const updatedList = this.parseJson<ComponentDef[]>(new TextDecoder().decode(updatedContent));
 
-                    if (Array.isArray(updatedList) && JSON.stringify(updatedList) !== componentListBeforeL5G) {
-                        logger.log('DeepWiki', `L5-G: Component list was modified (${updatedList.length} components). Restarting from L3...`);
-                        componentList = updatedList;
-                        componentsToAnalyze = [...updatedList];
-                        loopCount++;
-                        continue; // Restart loop from L3 with updated components
+                    // ---------------------------------------------------------
+                    // Check if L5-G modified component_list.json
+                    // ---------------------------------------------------------
+                    try {
+                        const componentListUri = vscode.Uri.file(
+                            path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L2', 'component_list.json')
+                        );
+                        const updatedContent = await vscode.workspace.fs.readFile(componentListUri);
+                        const updatedList = this.parseJson<ComponentDef[]>(new TextDecoder().decode(updatedContent));
+
+                        if (Array.isArray(updatedList) && JSON.stringify(updatedList) !== componentListBeforeL5G) {
+                            logger.log(
+                                'DeepWiki',
+                                `L5-G: Component list was modified (${updatedList.length} components). Restarting from L3...`
+                            );
+                            componentList = updatedList;
+                            componentsToAnalyze = [...updatedList];
+                            loopCount++;
+                            continue; // Restart loop from L3 with updated components
+                        }
+                    } catch (e) {
+                        logger.log(
+                            'DeepWiki',
+                            `L5-G: Could not check component list changes (${e instanceof Error ? e.message : 'error'})`
+                        );
                     }
-                } catch (e) {
-                    logger.log('DeepWiki', `L5-G: Could not check component list changes (${e instanceof Error ? e.message : 'error'})`);
-                }
 
-                // ---------------------------------------------------------
-                // Level 5: WRITER (Write pages; 1 component = 1 page)
-                // ---------------------------------------------------------
-                const pageTemplate = `
+                    // ---------------------------------------------------------
+                    // Level 5: WRITER (Write pages; 1 component = 1 page)
+                    // ---------------------------------------------------------
+                    const pageTemplate = `
 > **Note**: This documentation was auto-generated by an LLM. While we strive for accuracy, please refer to the source code for authoritative information.
 
 # {PageName}
@@ -1971,15 +2077,18 @@ ${mdCodeBlock}
 ## External Interface
 {Describe how other modules interact with these components. List public methods, props, and events.}
 	`; // The template ends here
-                // Task generator function for L5 writing (shared by initial and retry)
-                const createL5Task = (component: ComponentDef) => {
-                    const pageUris = [
-                        vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`))
-                    ];
-                    return () => this.runPhase(
-                        `L5: Writer (Loop ${loopCount + 1})`,
-                        `Write documentation page`,
-	                        `# Writer Agent (L5)
+                    // Task generator function for L5 writing (shared by initial and retry)
+                    const createL5Task = (component: ComponentDef) => {
+                        const pageUris = [
+                            vscode.Uri.file(
+                                path.join(workspaceFolder.uri.fsPath, outputPath, 'pages', `${component.name}.md`)
+                            ),
+                        ];
+                        return () =>
+                            this.runPhase(
+                                `L5: Writer (Loop ${loopCount + 1})`,
+                                `Write documentation page`,
+                                `# Writer Agent (L5)
 
 ## Role
 - **Your Stage**: L5 Writer (Analysis Loop - Documentation Generation, runs in parallel)
@@ -1992,7 +2101,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a documentati
 - If L3 is vague on a topic, keep your writing equally brief rather than elaborating
 - Verify symbol names against L3's evidence anchors before using them
 - When in doubt, write less - L6 can request retry if content is insufficient
-` + getDeepThinkingProtocol() + `
+` +
+                                    getDeepThinkingProtocol() +
+                                    `
 ## Input
 - Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files, description: component.description })}
   - \`id\`: Internal identifier (use to find L3 analysis file: \`{index}_{id}_analysis.md\`)
@@ -2008,8 +2119,12 @@ ${codeUsagesInstruction}
 2. For EACH assigned component: Create \`${outputPath}/pages/{name}.md\` with the page title (H1: \`# {name}\`) and Overview section
 3. Read the L3 analysis for that component
 4. Synthesize and consolidate L3 content into a reader-friendly page.
-   - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.${codeUsagesToolName.length > 0 ? `
-   - **Optional**: Use \`${codeUsagesToolName}\` to verify dependency claims from L3 analysis before including them in documentation` : ''}
+   - You MAY read source code files to verify accuracy, but do NOT perform a fresh full analysis beyond what is needed to validate correctness.${
+       codeUsagesToolName.length > 0
+           ? `
+   - **Optional**: Use \`${codeUsagesToolName}\` to verify dependency claims from L3 analysis before including them in documentation`
+           : ''
+   }
 5. Iterate through sections (Architecture, Mechanics, Interface): Synthesize content → Use \`${editToolNameForPrompt}\` to write immediately
 6. Generate an ASCII tree of ALL files from ALL components in this page → Use \`${editToolNameForPrompt}\` to write
 7. **Grounding requirement**: Do NOT add new statements beyond what is supported by L3; if unsure, omit rather than guessing. Ensure the "File Structure" section lists all component source files (it will be used for verification).
@@ -2086,7 +2201,9 @@ To ensure pages are detailed and useful, each section must meet these minimum re
 **Completeness**: Do NOT skip sections or use placeholders. Every section in the template must be filled with actual content.
 
 ### Template
-` + pageTemplate + `
+` +
+                                    pageTemplate +
+                                    `
 
 ## Output
 Write files to \`${outputPath}/pages/\`.
@@ -2099,38 +2216,41 @@ Write files to \`${outputPath}/pages/\`.
 5. **Strictly separate External Interface from Internal Mechanics.** Use tables for API references. If you include signatures, keep them short (no bodies).
 6. **No Intermediate Links**: Do NOT include links to intermediate analysis files (e.g., intermediate/L3/, ../L3/, ../L4/). Only reference other pages via their final page files in \`pages/\` directory. If filenames contain spaces, wrap link targets in angle brackets, e.g. \`[Page Name](<Page Name.md>)\`.${mermaidValidationInstruction}
 
-` + getPipelineOverview('L5'),
-                        token,
-                        options.toolInvocationToken,
-                        path.join(workspaceFolder.uri.fsPath, outputPath),
-                        pageUris
-                    );
-                };
+` +
+                                    getPipelineOverview('L5'),
+                                token,
+                                options.toolInvocationToken,
+                                path.join(workspaceFolder.uri.fsPath, outputPath),
+                                pageUris
+                            );
+                    };
 
-                // Initial L5 writing
-                const l5Tasks = componentsToAnalyze.map(createL5Task);
-                await runTasksSequentially(l5Tasks, `L5 Writing (Loop ${loopCount + 1})`, token);
+                    // Initial L5 writing
+                    const l5Tasks = componentsToAnalyze.map(createL5Task);
+                    await runTasksSequentially(l5Tasks, `L5 Writing (Loop ${loopCount + 1})`, token);
 
-                // ---------------------------------------------------------
-                // L5 Validator: Check for missing page files and retry if needed
-                // ---------------------------------------------------------
-                const l5ExpectedPages = componentsToAnalyze.map(c => ({
-                    id: c.id,
-                    name: c.name,
-                    file: `${c.name}.md`
-                }));
-                await this.runPhase(
-                    `L5-V: Validator (Loop ${loopCount + 1})`,
-                    'Validate L5 output files',
-                    `# L5 Validator Agent
+                    // ---------------------------------------------------------
+                    // L5 Validator: Check for missing page files and retry if needed
+                    // ---------------------------------------------------------
+                    const l5ExpectedPages = componentsToAnalyze.map((c) => ({
+                        id: c.id,
+                        name: c.name,
+                        file: `${c.name}.md`,
+                    }));
+                    await this.runPhase(
+                        `L5-V: Validator (Loop ${loopCount + 1})`,
+                        'Validate L5 output files',
+                        `# L5 Validator Agent
 
 ## Role
 Quality gate for L5 outputs: ensure expected page files exist.
-` + getDeepThinkingProtocol() + `
+` +
+                            getDeepThinkingProtocol() +
+                            `
 ## Expected Files
 Directory: \`${outputPath}/pages/\`
 Files to verify (filename derived from \`name\`, report missing by \`id\`):
-${l5ExpectedPages.map(p => `- \`${p.file}\` (id: ${p.id})`).join('\n')}
+${l5ExpectedPages.map((p) => `- \`${p.file}\` (id: ${p.id})`).join('\n')}
 
 ## Workflow
 1. List files in \`${outputPath}/pages/\`
@@ -2146,33 +2266,43 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
 ## Constraints
 1. Keep response brief (e.g., "Validation complete.")
 `,
-                    token,
-                    options.toolInvocationToken,
-                    path.join(workspaceFolder.uri.fsPath, outputPath)
-                );
+                        token,
+                        options.toolInvocationToken,
+                        path.join(workspaceFolder.uri.fsPath, outputPath)
+                    );
 
-                // Check L5 validation result and retry failed pages
-                const l5FailuresUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5V', 'page_validation_failures.json'));
-                let l5FailedIds: string[] = [];
-                try {
-                    const content = await vscode.workspace.fs.readFile(l5FailuresUri);
-                    const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
-                    if (Array.isArray(parsed) && parsed.every(p => typeof p === 'string')) {
-                        l5FailedIds = parsed;
-                    } else {
-                        logger.warn('DeepWiki', 'L5-V: page_validation_failures.json is not a string array; retrying all pages for safety.');
-                        l5FailedIds = componentsToAnalyze.map(c => c.id);
+                    // Check L5 validation result and retry failed pages
+                    const l5FailuresUri = vscode.Uri.file(
+                        path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L5V', 'page_validation_failures.json')
+                    );
+                    let l5FailedIds: string[] = [];
+                    try {
+                        const content = await vscode.workspace.fs.readFile(l5FailuresUri);
+                        const parsed = this.parseJson<unknown>(new TextDecoder().decode(content));
+                        if (Array.isArray(parsed) && parsed.every((p) => typeof p === 'string')) {
+                            l5FailedIds = parsed;
+                        } else {
+                            logger.warn(
+                                'DeepWiki',
+                                'L5-V: page_validation_failures.json is not a string array; retrying all pages for safety.'
+                            );
+                            l5FailedIds = componentsToAnalyze.map((c) => c.id);
+                        }
+                        await vscode.workspace.fs.delete(l5FailuresUri);
+                    } catch {
+                        /* no failures file or invalid */
                     }
-                    await vscode.workspace.fs.delete(l5FailuresUri);
-                } catch { /* no failures file or invalid */ }
 
-                if (l5FailedIds.length > 0) {
-                    logger.log('DeepWiki', `L5 Validator requested retry for ${l5FailedIds.length} page(s): ${l5FailedIds.join(', ')}`);
-                    // Retry using the same task generator function
-                    const failedComponents = componentsToAnalyze.filter(c => l5FailedIds.includes(c.id));
-                    const l5RetryTasks = failedComponents.map(createL5Task);
-                    await runTasksSequentially(l5RetryTasks, `L5 Retry (Loop ${loopCount + 1})`, token);
-                }
+                    if (l5FailedIds.length > 0) {
+                        logger.log(
+                            'DeepWiki',
+                            `L5 Validator requested retry for ${l5FailedIds.length} page(s): ${l5FailedIds.join(', ')}`
+                        );
+                        // Retry using the same task generator function
+                        const failedComponents = componentsToAnalyze.filter((c) => l5FailedIds.includes(c.id));
+                        const l5RetryTasks = failedComponents.map(createL5Task);
+                        await runTasksSequentially(l5RetryTasks, `L5 Retry (Loop ${loopCount + 1})`, token);
+                    }
                 }
 
                 // ---------------------------------------------------------
@@ -2182,14 +2312,16 @@ Write to \`${intermediateDir}/L5V/page_validation_failures.json\`:
                 const isLastLoop = loopCount === MAX_LOOPS - 1;
                 const retryInstruction = isLastLoop
                     ? `This is the FINAL attempt. Do NOT request retries. Fix minor issues directly within the pages. If a page is fundamentally broken, add a prominent warning note to the page itself, explaining the issue.`
-                    : `If a page has MAJOR missing information or wrong analysis, list the component **id** values that need re-analysis (L3/L4/L5) in "` + intermediateDir + `/L6/retry_request.json".
+                    : `If a page has MAJOR missing information or wrong analysis, list the component **id** values that need re-analysis (L3/L4/L5) in "` +
+                      intermediateDir +
+                      `/L6/retry_request.json".
                        Format: ["Auth_Module", "Utils"] (use \`id\`, not \`name\`).
                        For minor issues (typos, formatting, broken links), fix the page directly.`;
 
-	                await this.runPhase(
-	                    `L6: Page Reviewer (Loop ${loopCount + 1})`,
-	                    'Review pages and decide on retries',
-	                    `# Page Reviewer Agent (L6)
+                await this.runPhase(
+                    `L6: Page Reviewer (Loop ${loopCount + 1})`,
+                    'Review pages and decide on retries',
+                    `# Page Reviewer Agent (L6)
 
 ## Role
 - **Your Stage**: L6 Reviewer (Analysis Loop - Quality Gate)
@@ -2201,7 +2333,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the final qua
 - You are the LAST defense before output - verify actively, don't just skim
 - Common issues to catch: non-existent functions, wrong parameter types, fabricated relationships
 - When deleting, prefer removing the smallest incorrect unit (sentence/row) rather than entire sections
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Goal
 Check pages in \`${outputPath}/pages/\` for quality based on ALL L3 analysis files.
 
@@ -2255,11 +2389,15 @@ ${codeUsagesInstruction}
         - **No placeholders**: Remove/replace obvious placeholders (e.g., "TODO", "TBD", "{...}").
         - **Element-level use cases**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a concrete use case explanation (why/when to use it, pitfalls).
         - **Element-level diagrams**: If "## Internal Mechanics Details" is split into multiple element subsections, ensure EACH element subsection includes a \`stateDiagram-v2\` describing that element's state transitions (trivial single-state diagram is acceptable for stateless elements).
-        - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.${codeUsagesToolName.length > 0 ? `
+        - **Accuracy**: Verify statements against ACTUAL SOURCE CODE using the file list in "File Structure" (and \`${intermediateDir}/L2/component_list.json\`) as the starting set. If a statement cannot be verified, DELETE the smallest possible block (sentence/row) rather than guessing.${
+            codeUsagesToolName.length > 0
+                ? `
         - **Dependency Verification**: Use \`${codeUsagesToolName}\` to verify claimed dependencies and relationships:
           - For each "X calls Y" or "X depends on Y" claim, verify the actual usage exists
           - Check that documented "callers" or "consumers" of APIs actually exist in the codebase
-          - If a claimed relationship cannot be verified, DELETE the claim` : ''}
+          - If a claimed relationship cannot be verified, DELETE the claim`
+                : ''
+        }
         - **Signatures**: If you list API signatures, verify they match the source; keep them brief (no bodies).
         - **Connectivity**: Fix broken links; ensure links target existing final files under \`${outputPath}/\`.
         - **Formatting**: Fix broken Markdown tables or Mermaid syntax errors.
@@ -2286,8 +2424,12 @@ ${codeUsagesInstruction}
         - Placeholders: {None found / Removed: ...}
         - Element use cases: {OK / Added / N/A}
         - Element diagrams: {OK / Added / N/A}
-        - Accuracy issues: {None / Removed: ...}${codeUsagesToolName.length > 0 ? `
-        - Dependency verification: {OK / Fixed: removed unverified claims / N/A}` : ''}
+        - Accuracy issues: {None / Removed: ...}${
+            codeUsagesToolName.length > 0
+                ? `
+        - Dependency verification: {OK / Fixed: removed unverified claims / N/A}`
+                : ''
+        }
         - Links: {OK / Fixed: ...}
         - Formatting: {OK / Fixed: ...}
         - Intermediate links: {None / Removed: ...}
@@ -2319,7 +2461,9 @@ ${codeUsagesInstruction}
    - Use \`${editToolNameForPrompt}\` to write this final section.
 
 5. **Retry Decision**
-   ` + retryInstruction + `
+   ` +
+                        retryInstruction +
+                        `
 
 ## Output
 - Overwrite pages in \`${outputPath}/pages/\` if fixing.
@@ -2333,7 +2477,8 @@ ${codeUsagesInstruction}
 3. **Chat Final Response**: Keep your chat reply brief (e.g., "Task completed."). Do not include file contents in your response.
 4. **Incremental Writing**: File write/create operations have output size limits. Read/search are unlimited, but you MUST use \`${editToolNameForPrompt}\` after each instruction step. Writing all at once will fail.${mermaidValidationInstruction}
 
-` + getPipelineOverview('L6'),
+` +
+                        getPipelineOverview('L6'),
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath)
@@ -2343,13 +2488,15 @@ ${codeUsagesInstruction}
                 // Check for Retries
                 // ---------------------------------------------------------
                 // L6 requested a retry: need to re-run L3/L4/L5 for specific components
-                const retryFileUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L6', 'retry_request.json'));
+                const retryFileUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L6', 'retry_request.json')
+                );
                 let retryNames: string[] | null = null;
                 try {
                     const retryContent = await vscode.workspace.fs.readFile(retryFileUri);
                     retryNames = this.parseJson<string[]>(new TextDecoder().decode(retryContent));
                     await vscode.workspace.fs.delete(retryFileUri); // Delete the retry request file
-                } catch (e) {
+                } catch {
                     // File not found or invalid means no retries requested
                     logger.log('DeepWiki', 'No retry request found or file invalid.');
                 }
@@ -2357,7 +2504,7 @@ ${codeUsagesInstruction}
                 if (retryNames && Array.isArray(retryNames) && retryNames.length > 0) {
                     logger.log('DeepWiki', `Reviewer requested retry for: ${retryNames.join(', ')}`);
                     // Filter componentList to get the actual component objects for retry (match by id)
-                    componentsToAnalyze = componentList.filter(c => retryNames!.includes(c.id));
+                    componentsToAnalyze = componentList.filter((c) => retryNames.includes(c.id));
                     if (componentsToAnalyze.length === 0) {
                         logger.warn('DeepWiki', 'Retry requested for unknown components. Stopping loop.');
                         break;
@@ -2375,7 +2522,9 @@ ${codeUsagesInstruction}
             // ---------------------------------------------------------
             if (startStageIndex <= stageOrder.indexOf('L7')) {
                 const readmeUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, outputPath, 'README.md'));
-                const l7ReportUri = vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L7', 'indexer_report.md'));
+                const l7ReportUri = vscode.Uri.file(
+                    path.join(workspaceFolder.uri.fsPath, intermediateDir, 'L7', 'indexer_report.md')
+                );
                 await this.runPhase(
                     'L7: Indexer',
                     'Create README and Sidebar',
@@ -2385,7 +2534,9 @@ ${codeUsagesInstruction}
 - **Your Stage**: L7 Indexer
 - **Core Responsibility**: Synthesize L4/L5 outputs into a high-quality landing README
 - **Critical Success Factor**: First screen should answer "What is this? How is it organized? Where do I start?"
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Input
 - \`${intermediateDir}/L1/project_context.md\` - **Read first** for:
   - **Vocabulary**: Use these exact terms consistently in the README
@@ -2480,7 +2631,8 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
 5. **Synthesize, Don't Dump**: Summarize and connect; do not copy L4 verbatim.
 6. **No Validation Results in README**: Do NOT include verifier/validator results, fact-check notes, retry details, or "what I validated" prose inside \`${outputPath}/README.md\`. Put that only in \`${intermediateDir}/L7/indexer_report.md\`.${mermaidValidationInstruction}
 
-` + getPipelineOverview('L7'),
+` +
+                        getPipelineOverview('L7'),
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
@@ -2508,7 +2660,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. README-specific 
 - Remove marketing language ("powerful", "efficient", "robust") unless backed by measurable evidence
 - Verify capability claims ("supports X", "handles Y") actually exist in source code
 - Architecture descriptions must match actual component relationships
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Input
 - \`${outputPath}/README.md\`
 - All files under \`${outputPath}/pages/\`
@@ -2556,7 +2710,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
 - Only perform cleanup (link fixes, placeholder removal) - do NOT add new content
 - If you spot suspicious claims, remove them rather than trying to verify at this stage
 - The goal is to ensure nothing obviously wrong ships, not to add value
-` + getDeepThinkingProtocol() + `
+` +
+                        getDeepThinkingProtocol() +
+                        `
 ## Input
 - \`${outputPath}/README.md\`
 - \`${outputPath}/pages/*.md\`
@@ -2587,30 +2743,24 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart(
                     `✅ DeepWiki Generation Completed!\n\nDocumented ${componentList.length} components into ${componentList.length} pages. Check the \`${outputPath}\` directory.`
-                )
+                ),
             ]);
-
         } catch (error) {
             const msg = error instanceof Error ? error.message : String(error);
             logger.error('DeepWiki', `Pipeline failed: ${msg}`);
-            return new vscode.LanguageModelToolResult([
-                new vscode.LanguageModelTextPart(`❌ Pipeline failed: ${msg}`)
-            ]);
+            return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`❌ Pipeline failed: ${msg}`)]);
         }
     }
 
-    private async cleanOutputDirectory(
-        workspaceFolder: vscode.WorkspaceFolder,
-        outputPath?: string
-    ): Promise<void> {
-        const dirName = outputPath?.trim() || '.deepwiki';
+    private async cleanOutputDirectory(workspaceFolder: vscode.WorkspaceFolder, outputPath?: string): Promise<void> {
+        const dirName = outputPath?.trim() ?? '.deepwiki';
         if (dirName === '' || dirName === '.' || dirName === '/' || dirName === '\\') {
             logger.warn('DeepWiki', 'Skipping cleanup: unsafe output path');
             return;
         }
 
         const targetPath = path.normalize(path.join(workspaceFolder.uri.fsPath, dirName));
-        if (!targetPath.startsWith(path.normalize(workspaceFolder.uri.fsPath + path.sep))) {
+        if (!targetPath.startsWith(path.normalize(workspaceFolder.uri.fsPath + path.sep) ?? '')) {
             logger.warn('DeepWiki', `Skipping cleanup: outputPath escapes workspace (${dirName})`);
             return;
         }
@@ -2637,7 +2787,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
         if (match) {
             jsonStr = match[1].trim();
         }
-        return JSON.parse(jsonStr);
+        return JSON.parse(jsonStr) as T;
     }
 
     /**
@@ -2669,11 +2819,17 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
 
             if (tabsToClose.length > 0) {
                 await vscode.window.tabGroups.close(tabsToClose);
-                logger.log('DeepWiki', `Closed ${tabsToClose.length} preview tab(s) from ${path.basename(deepWikiPath)}/`);
+                logger.log(
+                    'DeepWiki',
+                    `Closed ${tabsToClose.length} preview tab(s) from ${path.basename(deepWikiPath)}/`
+                );
             }
         } catch (error) {
             // Don't fail the entire process if tab closing fails
-            logger.warn('DeepWiki', `Failed to close editor tabs: ${error instanceof Error ? error.message : String(error)}`);
+            logger.warn(
+                'DeepWiki',
+                `Failed to close editor tabs: ${error instanceof Error ? error.message : String(error)}`
+            );
         }
     }
 
@@ -2689,17 +2845,20 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
     ): Promise<void> {
         const maxAttempts = Math.max(1, options?.maxAttempts ?? 1);
         const retryDelayMs = Math.max(0, options?.retryDelayMs ?? 15000);
-        const isRetryableFailureText = (text: string) =>
+        const isRetryableFailureText = (text: string): boolean =>
             /(your request failed|hit the length limit|there was a network error|no response was returned|rate limit|too many requests|429|timed out|timeout|econnreset|socket hang up)/i.test(
                 text
             );
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const startTime = Date.now();
-            logger.log('DeepWiki', `>>> Starting Phase: ${agentName} (attempt ${attempt}/${maxAttempts}) - ${description}`);
+            logger.log(
+                'DeepWiki',
+                `>>> Starting Phase: ${agentName} (attempt ${attempt}/${maxAttempts}) - ${description}`
+            );
 
             // Wait before each subagent call to avoid API rate limits (and give transient failures time to clear).
-            await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 10000 : retryDelayMs));
+            await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 10000 : retryDelayMs));
 
             try {
                 const result = await vscode.lm.invokeTool(
@@ -2707,9 +2866,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
                     {
                         input: {
                             description: description,
-                            prompt: prompt
+                            prompt: prompt,
                         },
-                        toolInvocationToken: toolInvocationToken
+                        toolInvocationToken: toolInvocationToken,
                     },
                     cancellationToken
                 );
@@ -2794,7 +2953,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
     ): Promise<{ stage: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9'; reason: string }> {
         const maxAttempts = 2;
         const retryDelayMs = 15000;
-        const isRetryableFailureText = (text: string) =>
+        const isRetryableFailureText = (text: string): boolean =>
             /(your request failed|hit the length limit|there was a network error|no response was returned|rate limit|too many requests|429|timed out|timeout|econnreset|socket hang up)/i.test(
                 text
             );
@@ -2908,10 +3067,13 @@ Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
 
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             const startTime = Date.now();
-            logger.log('DeepWiki', `>>> Starting Phase: L0-Auto (Resume Point Detector) (attempt ${attempt}/${maxAttempts})`);
+            logger.log(
+                'DeepWiki',
+                `>>> Starting Phase: L0-Auto (Resume Point Detector) (attempt ${attempt}/${maxAttempts})`
+            );
 
             // Wait before each subagent call to avoid API rate limits
-            await new Promise(resolve => setTimeout(resolve, attempt === 1 ? 10000 : retryDelayMs));
+            await new Promise((resolve) => setTimeout(resolve, attempt === 1 ? 10000 : retryDelayMs));
 
             try {
                 const result = await vscode.lm.invokeTool(
@@ -2919,9 +3081,9 @@ Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
                     {
                         input: {
                             description: 'Detect optimal resume point',
-                            prompt: prompt
+                            prompt: prompt,
                         },
-                        toolInvocationToken: toolInvocationToken
+                        toolInvocationToken: toolInvocationToken,
                     },
                     cancellationToken
                 );
@@ -2957,18 +3119,36 @@ Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
                     logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Detected: ${stage}`);
                     return { stage, reason };
                 } catch (parseError) {
-                    logger.warn('DeepWiki', `L0-Auto JSON parse failed: ${parseError}`);
+                    logger.warn(
+                        'DeepWiki',
+                        `L0-Auto JSON parse failed: ${parseError instanceof Error ? parseError.message : String(parseError)}`
+                    );
                 }
 
                 // Fallback: try to find stage mention in text
                 const stageMention = resultText.match(/\b(L[1-9])\b/i);
                 if (stageMention) {
-                    const stage = stageMention[1].toUpperCase() as 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9';
-                    logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - Fallback detected: ${stage}`);
+                    const stage = stageMention[1].toUpperCase() as
+                        | 'L1'
+                        | 'L2'
+                        | 'L3'
+                        | 'L4'
+                        | 'L5'
+                        | 'L6'
+                        | 'L7'
+                        | 'L8'
+                        | 'L9';
+                    logger.log(
+                        'DeepWiki',
+                        `<<< Completed Phase: L0-Auto in ${duration}s - Fallback detected: ${stage}`
+                    );
                     return { stage, reason: 'Auto-detected from text analysis' };
                 }
 
-                logger.log('DeepWiki', `<<< Completed Phase: L0-Auto in ${duration}s - No stage detected, defaulting to L1`);
+                logger.log(
+                    'DeepWiki',
+                    `<<< Completed Phase: L0-Auto in ${duration}s - No stage detected, defaulting to L1`
+                );
                 return { stage: 'L1', reason: 'No existing artifacts found' };
             } catch (error) {
                 const duration = ((Date.now() - startTime) / 1000).toFixed(1);
@@ -3042,5 +3222,4 @@ Replace "L1" with the appropriate stage (L1-L9) and provide a clear reason.
 
         return items;
     }
-
 }
