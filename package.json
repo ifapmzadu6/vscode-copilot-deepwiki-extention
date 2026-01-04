@@ -33,7 +33,7 @@
         ],
         "toolReferenceName": "createDeepWiki",
         "displayName": "Create DeepWiki",
-        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using autonomous sub-agents. It orchestrates a 9-stage pipeline (L1-L9) to plan, analyze, and document the codebase. Required parameter: fileEditToolName (the file edit tool name for subagents). Optional parameters: mermaidValidatorToolName (Mermaid syntax validator tool - if provided, subagents will validate all Mermaid diagrams), outputPath (defaults to .deepwiki), startFromStage (resume from a specific stage).",
+        "modelDescription": "Analyzes the current workspace and generates comprehensive DeepWiki documentation using autonomous sub-agents. It orchestrates a 9-stage pipeline (L1-L9) to plan, analyze, and document the codebase. Required parameter: fileEditToolName (the file edit tool name for subagents). Optional parameters: mermaidValidatorToolName (Mermaid syntax validator tool - if provided, subagents will validate all Mermaid diagrams), codeUsagesToolName (code usages lookup tool - if provided, subagents will trace function/class usages for accurate dependency analysis), outputPath (defaults to .deepwiki), startFromStage (resume from a specific stage).",
         "userDescription": "Generate DeepWiki documentation for the current workspace.",
         "canBeReferencedInPrompt": true,
         "icon": "$(book)",
@@ -51,6 +51,10 @@
             "mermaidValidatorToolName": {
               "type": "string",
               "description": "Optional name of the Mermaid syntax validator tool available to subagents, e.g. 'mcp__mermaid__validate'. If provided, prompts will instruct subagents to validate Mermaid diagrams using this tool. If omitted, no Mermaid validation instructions are included."
+            },
+            "codeUsagesToolName": {
+              "type": "string",
+              "description": "Optional name of the code usages lookup tool available to subagents, e.g. 'list_code_usages' or 'find_references'. If provided, subagents will use this tool to trace function/class/method usages across the codebase, enabling more accurate dependency analysis, impact assessment, and relationship mapping. If omitted, subagents rely solely on file reading and search."
             },
             "startFromStage": {
               "type": "string",
