@@ -1779,7 +1779,41 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
    - If errors found, patch the Fact Extraction section using \`${editToolNameForPrompt}\`.
    - **CRITICAL**: If >50% of facts are wrong → RETRY_REQUIRED (analysis is fundamentally broken)
 
-5. **Claim Verification (Incremental)**
+5. **Component Files Check (CRITICAL)**
+   - Read \`${intermediateDir}/L2/component_list.json\` and find this component's \`files\` array.
+   - Collect all file paths referenced in the L3 analysis (Fact Extraction tables, Evidence anchors, Diagrams).
+
+   **A. Irrelevant Files Detection (誤り検出)**
+   - For EACH file in the component's \`files\` array:
+     - Check if it is referenced anywhere in the L3 analysis
+     - If NOT referenced AND the file content has no relation to the component's responsibility → mark as IRRELEVANT
+
+   **B. Missing Files Detection (漏れ検出)**
+   - For EACH file path referenced in the L3 analysis:
+     - Check if it exists in the component's \`files\` array
+     - If NOT in \`files\` AND it belongs to this component's responsibility → mark as MISSING
+
+   **C. Apply Fixes**
+   - If IRRELEVANT or MISSING files found:
+     - Read \`${intermediateDir}/L2/component_list.json\`
+     - Update the component's \`files\` array (remove irrelevant, add missing)
+     - Write the updated JSON back to \`${intermediateDir}/L2/component_list.json\`
+
+   - **IMMEDIATELY** append to review file:
+     \`\`\`markdown
+     ## Component Files Check
+     - Files in component: {N}
+     - Irrelevant files removed: {list with reasons, or "none"}
+     - Missing files added: {list with reasons, or "none"}
+     - Action: {NONE / FILES_MODIFIED}
+     \`\`\`
+   - Use \`${editToolNameForPrompt}\` to write this section NOW.
+   - If files were modified:
+     - Append "**Result**: RETRY_REQUIRED - component files modified"
+     - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
+     - Stop (no further steps - L3 re-analysis needed with updated files).
+
+6. **Claim Verification (Incremental)**
    - Open the L3 analysis file and the component's source files.
    - Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
    - For EACH batch of claims (process 3-5 at a time):
@@ -1797,7 +1831,7 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-6. **Diagram Verification (Incremental)**
+7. **Diagram Verification (Incremental)**
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
    - For EACH diagram:
      - Verify all referenced identifiers against source (functions/classes/types/events/commands must exist).
@@ -1812,12 +1846,13 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-7. **Final Summary and Verdict**
+8. **Final Summary and Verdict**
    - Append final summary to \`${intermediateDir}/L3R/${reviewFile}\`:
      \`\`\`markdown
      ## Summary
      - MUST requirements: PASSED
      - Fact Extraction: {N} facts verified, {M} corrected
+     - Component Files: {N} files, {removed} removed, {added} added
      - Claims processed: {count}, verified: {count}, removed: {count}
      - Diagrams processed: {count}, verified: {count}, fixed: {count}
 
