@@ -103,15 +103,23 @@ Identifies and groups files into logical components. Uses L1 context to understa
     -   **Coverage Check**: Scans source directories to verify all significant files are included in at least one component.
     -   **Intra-file Component Detection**: Identifies single files containing multiple independent abstractions that should be split into separate components.
     -   **Granularity Consistency Check**: Ensures similar files are analyzed with consistent granularity.
+    -   **Single Responsibility Test**: Each component must be describable in ONE sentence without "and"/"or".
+    -   **Cohesion Check**: Verifies files within a component actually reference each other or share dependencies.
+    -   **Coupling Check**: Flags components that import from >50% of other components as potential "God components".
 -   **L2-C Refiner**: Applies fixes based on the review, producing the final component list (`component_list.json`).
     -   *Self-Correction Loop*: L2-C refinements are **always re-reviewed by L2-B** to ensure quality. L2-B and L2-C run in a loop (max 6 retries) until a valid `component_list.json` is produced.
 
 ### 3. Level 3: ANALYZER
-Deeply analyzes the logic, patterns, and responsibilities of each component. Focuses on **causal reasoning** ("If X, then Y") and produces analysis artifacts for later synthesis.
+Deeply analyzes the logic, patterns, and responsibilities of each component. Uses **Proof-Driven Documentation** approach:
+-   **Phase 1 - Fact Extraction**: Before writing prose, extracts VERIFIABLE FACTS from source code (entry points, state variables, public API, error handling). Each fact must include exact file:line references. This prevents hallucination.
+-   **Phase 2 - Synthesis**: Converts verified facts into readable documentation. Only information from Phase 1 can be used.
 -   **Project Context Correction**: While analyzing source code, if the analyzer discovers inaccuracies in `project_context.md` (wrong vocabulary definitions, architecture mismatches, missing abstractions), it **directly fixes** the project context file. This ensures subsequent analyzers work with accurate context.
--   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`).
+-   **Output**: Produces individual analysis files for each component (`intermediate/L3/{ComponentName}_analysis.md`) with a "Fact Extraction" section at the top.
 
-**L3-R Reviewer**: After analysis completes, reviews each component's analysis for correctness. Verifies claims and evidence anchors against actual source code. If the analysis file is missing or fundamentally broken, triggers automatic retry for the failed component.
+**L3-R Reviewer**: After analysis completes, reviews each component's analysis for correctness:
+-   **Fact Extraction Verification**: Verifies that facts in the "Fact Extraction" section actually exist in source code at the specified locations.
+-   **Claim Verification**: Verifies claims and evidence anchors against actual source code.
+-   If >50% of facts are wrong or the analysis file is fundamentally broken, triggers automatic retry for the failed component.
 
 ### 4. Level 4: ARCHITECT
 Synthesizes a high-level system overview and maps relationships between components. Analyzes **causal impact** (how changes propagate) and generates Mermaid diagrams.
