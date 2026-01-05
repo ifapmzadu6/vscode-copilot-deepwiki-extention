@@ -328,7 +328,6 @@ ${codeUsagesToolName}({ symbolName: "handleAuthentication", filePaths: ["src/aut
             id: string;
             name: string;
             files: string[];
-            description: string;
         }
 
         const requireFile = async (relativePathFromWorkspace: string): Promise<void> => {
@@ -659,8 +658,7 @@ For each section, verify against actual source code:
   {
     "id": "Auth_Module",
     "name": "Auth Module",
-    "files": ["src/auth/auth.controller.ts", "src/auth/auth.service.ts"],
-    "description": "Handles user authentication"
+    "files": ["src/auth/auth.controller.ts", "src/auth/auth.service.ts"]
   }
 ]
 `;
@@ -702,7 +700,7 @@ Build the component list **incrementally, ONE component at a time**. Each iterat
 5. From the uncovered files, **read their contents** to understand what each file does, then identify ONE cohesive component (files that work together).
 6. **Use Vocabulary terms** from L1 in your component names and descriptions for consistency.
 7. **Verify each file exists** before adding it to the files array.
-8. **Add ONLY that ONE component** (with \`id\`, \`name\`, \`files\`, \`description\`) to the array and use \`${editToolNameForPrompt}\` to write immediately.
+8. **Add ONLY that ONE component** (with \`id\`, \`name\`, \`files\`) to the array and use \`${editToolNameForPrompt}\` to write immediately.
 9. **Repeat steps 3-8** until all significant source files are covered.
 
 **IMPORTANT**: Add components ONE AT A TIME. Do NOT try to output all components at once.
@@ -738,7 +736,6 @@ Each component must have:
 - \`id\`: Internal identifier (filename-safe, immutable after creation). Used for L3 analysis filenames and internal references.
 - \`name\`: Display name (initially same as id, but L4 may refine it later). Used for page filenames and headings.
 - \`files\`: Array of source file paths
-- \`description\`: Brief description of the component's purpose
 
 Example:
 ${jsonExample}
@@ -906,7 +903,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 3. **Apply ONE fix at a time**:
    - Read the current JSON using file read tools
    - Apply ONE modification (add/remove/update one component)
-   - Produce valid JSON with \`id\`, \`name\`, \`files\`, and \`description\` for each component
+   - Produce valid JSON with \`id\`, \`name\`, and \`files\` for each component
    - Use \`${editToolNameForPrompt}\` to write the updated JSON immediately
    - Repeat for each remaining fix
 4. Remove any file paths that fall under excluded roots.
@@ -925,7 +922,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
 
 ## Output
 - Write the FINAL **RAW JSON (no fences)** to \`${intermediateDir}/L2/component_list.json\`.
-- Format must be a valid non-empty JSON array with \`{id, name, files, description}\` for each component.
+- Format must be a valid non-empty JSON array with \`{id, name, files}\` for each component.
 
 ## Constraints
 1. **File Existence**: All file paths in the "files" array MUST exist. Fix typos/paths where possible; remove only if truly unfixable.
@@ -1985,12 +1982,12 @@ ${mdCodeBlock}
 
 ## Constraints
 1. **Conservative updates**: Only modify project_context.md or component_list.json when L3/L4 clearly indicates a problem.
-2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {id, name, files, description}.
+2. **Valid formats**: project_context.md must remain valid Markdown; component_list.json must remain a valid JSON array of {id, name, files}.
 3. **Page groups use \`id\`**: Each \`pages\` item must be an exact component \`id\` (not \`name\`, no \`.md\` suffix).
 4. Every component \`id\` must appear exactly once across all groups.
 5. **Scope**: Only write under \`.deepwiki/\`.
 6. **Chat Final Response**: One short confirmation line.
-7. **ID Immutability**: When editing component_list.json, NEVER change \`id\` fields. Only \`name\`, \`files\`, \`description\` can be modified.
+7. **ID Immutability**: When editing component_list.json, NEVER change \`id\` fields. Only \`name\` and \`files\` can be modified.
 
 ` +
                             getPipelineOverview('L5'),
@@ -2105,7 +2102,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As a documentati
                                     getDeepThinkingProtocol() +
                                     `
 ## Input
-- Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files, description: component.description })}
+- Assigned Component: ${JSON.stringify({ id: component.id, name: component.name, files: component.files })}
   - \`id\`: Internal identifier (use to find L3 analysis file: \`{index}_{id}_analysis.md\`)
   - \`name\`: Display name (use for output filename and page H1 heading)
 - For each component, read the matching L3 analysis file in \`${intermediateDir}/L3/\` (named like \`001_{id}_analysis.md\`)
@@ -2603,7 +2600,7 @@ For EACH group, create a chapter with this shape:
 - Pages list: include ALL pages in this group, each as:
   - Look up the component by \`id\` to get \`name\`
   - Link: Use \`name\` for both link text and filename: \`[{name}](pages/{name}.md)\` or \`[{name}](<pages/{name}.md>)\` if name has spaces
-  - One-line description using \`${intermediateDir}/L2/component_list.json\` \`description\` for that component.
+  - One-line description (read the page's first section to summarize).
 - Do NOT add source-code links in the README. Keep navigation focused on the generated pages (\`pages/*.md\`); detailed code entry points belong inside each page if needed.
 
 ### 2.5 Existing DeepWikis (optional)
