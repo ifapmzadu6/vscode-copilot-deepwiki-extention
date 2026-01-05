@@ -1,0 +1,56 @@
+=== Comprehensive Prompt Migration Verification ===
+Generated: Mon Jan  5 22:56:06 JST 2026
+
+### L7 Indexer Prompt
+   ✅ 'External actors/systems are REQUIRED'
+      (found 1 times in both files)
+   ✅ 'multi-deliverable nature'
+      (found 1 times in both files)
+   ✅ 'C. External Interfaces - REQUIRED'
+      (found 1 times in both files)
+   ✅ 'D. Core State Transitions'
+      (found 1 times in both files)
+   ✅ 'Synthesize, Don't Dump'
+      (found 1 times in both files)
+   ✅ 'No Validation Results in README'
+      (found 3 times in both files)
+
+### L8 Final QA Prompt
+   ✅ 'Remove marketing language ("powerful", "efficient", "robust")'
+      (found 1 times in both files)
+   ✅ 'Verify capability claims ("supports X", "handles Y")'
+      (found 1 times in both files)
+   ✅ 'Files modified (at least README if changed)'
+      (found 1 times in both files)
+   ✅ 'Summary of removed/rewritten unverifiable claims'
+      (found 1 times in both files)
+
+### L9 Release Gate Prompt
+   ✅ 'No references/links to intermediate artifacts (intermediate/, ../L3/, ../L4/, etc.)'
+      (found 1 times in both files)
+   ✅ 'Links between docs resolve to existing final files'
+      (found 1 times in both files)
+   ✅ 'restrict yourself to cleanup, link fixes, and removing placeholders'
+      (found 1 times in both files)
+
+### L5 Writer Prompt
+   ✅ 'Verify symbol names against L3's evidence anchors before using them'
+      (found 1 times in both files)
+   ✅ 'keep your writing equally brief rather than elaborating'
+      (found 1 times in both files)
+
+### L6 Page Reviewer Prompt
+   ✅ 'smallest incorrect unit (sentence/row) rather than entire sections'
+      (found 1 times in both files)
+   ✅ 'You are the LAST defense before output'
+      (found 1 times in both files)
+
+### Global Pattern Count
+Pattern: 'Apply the Anti-Hallucination Rules from Deep Thinking Protocol'
+   ✅ Count matches: Original=6, New=6
+
+===================================
+✅ ALL VERIFICATIONS PASSED
+
+All key phrases from original prompts exist in migrated prompts
+with the same occurrence count.
