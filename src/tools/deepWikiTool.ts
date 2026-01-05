@@ -818,9 +818,49 @@ CRITIQUE the component list. Do NOT fix it yourself.
 - Prefer more, smaller components over fewer, larger ones
 - If the component count seems low for the project size, suggest adding more fine-grained components
 
+## Component Quality Checks (CRITICAL)
+
+### Single Responsibility Test
+For EACH component, answer this question:
+> "Can I describe this component's responsibility in ONE sentence WITHOUT using 'and' or 'or'?"
+
+- ✅ GOOD: "Handles user authentication flows"
+- ❌ BAD: "Handles authentication AND user profile management" → Split into 2 components
+- ❌ BAD: "Manages config OR environment variables" → Split into 2 components
+
+If you cannot write a single-purpose sentence, flag for split.
+
+### Cohesion Check (Internal Connectivity)
+For components with 3+ files, verify files actually work together:
+1. Pick 2-3 files from the component
+2. Read their imports/exports
+3. Check: Do these files reference each other directly or share common types?
+4. **Flag if**: Files A and B in the same component:
+   - Never import/call each other AND
+   - Share no common internal dependency AND
+   - Serve different features
+   → These files likely belong to DIFFERENT components
+
+### Coupling Check (External Dependencies)
+For each component, estimate its coupling:
+1. Count how many OTHER components' files it imports
+2. **Flag if**: A component imports from >50% of other components
+   → May be a "God component" that should be split by responsibility
+3. **Flag if**: Two components have circular imports
+   → May need boundary adjustment
+
+### Size Normalization
+| Component Size | Files | Recommendation |
+|----------------|-------|----------------|
+| Too Small | 1 file only | Consider merging with related component OR keep if truly independent |
+| Ideal | 2-8 files | Good granularity |
+| Large | 9-15 files | Review for potential split |
+| Too Large | 16+ files | MUST split by sub-feature |
+
 ## Output
 Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
 - If there are issues to fix, list them clearly.
+- **Include results of Single Responsibility Test, Cohesion Check, and Coupling Check**
 - **If the component list passes all checks with no issues**, write \`APPROVED\` as the first line of the report.
 
 ## Constraints
@@ -1190,6 +1230,48 @@ Ensure coverage across categories:
 ${codeUsagesInstruction}
 
 ## Workflow
+
+### PHASE 1: FACT EXTRACTION (Proof-Driven - Do This FIRST)
+Before writing any prose, extract VERIFIABLE FACTS from the source code. This prevents hallucination.
+
+**Answer these questions with EXACT code references. If you cannot find the answer, write "NOT_FOUND":**
+
+#### Q1: Entry Points
+- What are the main entry functions/methods? → Answer: \`file.ts:L##::functionName\`
+- What triggers them? (export, event listener, API endpoint, etc.)
+
+#### Q2: Call Graph (First 2 Levels)
+- Entry function calls what? → List: \`file.ts::func1\`, \`file.ts::func2\`
+- Those functions call what? → List next level
+
+#### Q3: State Variables
+List ALL state variables with their types and locations:
+| Variable | Type | Location | Mutators |
+|----------|------|----------|----------|
+| ... | ... | file.ts:L## | func1, func2 |
+
+#### Q4: Public API Surface
+List ALL exported functions/classes/types:
+| Export | Type | Signature | Location |
+|--------|------|-----------|----------|
+| ... | function/class/type | ... | file.ts:L## |
+
+#### Q5: Error Handling
+- Where are errors thrown? → List: \`file.ts:L##\` throws \`ErrorType\`
+- Where are errors caught? → List: \`file.ts:L##\` catches \`ErrorType\`
+- What happens on error? → Recovery action
+
+#### Q6: External Dependencies
+- What external modules are imported? → List with purpose
+- What other internal components are called? → List with purpose
+
+**CRITICAL**: If you write "NOT_FOUND" for any answer, do NOT invent information later. Only document what you can prove.
+
+**Write Fact Extraction results to the analysis file FIRST**, then proceed to Phase 2.
+
+### PHASE 2: SYNTHESIS (Convert Facts to Documentation)
+Now convert your verified facts into readable documentation. You may ONLY use information from Phase 1.
+
 1. Read \`${intermediateDir}/L1/project_context.md\` to understand vocabulary and architecture context
 2. **Project Context Correction** (IMPORTANT): While reading project context, if you notice inaccuracies based on the source code you're analyzing:
    - **Vocabulary errors**: A term's definition doesn't match actual code usage
@@ -1198,7 +1280,8 @@ ${codeUsagesInstruction}
    - **Wrong dependencies**: Dependencies described incorrectly
    → **Directly edit** \`${intermediateDir}/L1/project_context.md\` using \`${editToolNameForPrompt}\` to fix the issue immediately, then continue your analysis
 3. Create empty file \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\`
-4. Read source code files for this component${
+4. **Write Fact Extraction section first** (from Phase 1 answers)
+5. Read source code files for this component${
                                         codeUsagesToolName.length > 0
                                             ? `
 5. **Usage Analysis** (RECOMMENDED): For key symbols (classes, functions, interfaces) in this component:
@@ -1327,6 +1410,41 @@ sequenceDiagram
 Write Markdown to \`${intermediateDir}/L3/${paddedIndex}_${component.id}_analysis.md\` using this structure (example only; do not wrap the whole file in fences):
 ${mdCodeBlock}markdown
 # ${component.name} - Analysis
+
+## Fact Extraction (Proof-Driven Foundation)
+> This section contains VERIFIED facts extracted directly from source code. All subsequent sections MUST be grounded in these facts.
+
+### Entry Points
+| Entry Function | Location | Trigger Type | First Calls |
+|----------------|----------|--------------|-------------|
+| functionName | file.ts:L## | export/event/API | func1, func2 |
+| ... | ... | ... | ... |
+
+### State Variables (Verified)
+| Variable | Type | Location | Mutators |
+|----------|------|----------|----------|
+| stateName | StateType | file.ts:L## | mutator1, mutator2 |
+| ... | ... | ... | ... |
+
+### Public API Surface (Verified)
+| Export | Kind | Signature | Location |
+|--------|------|-----------|----------|
+| exportName | function/class/type | (args) => Return | file.ts:L## |
+| ... | ... | ... | ... |
+
+### Error Points (Verified)
+| Location | Error Type | Handler | Recovery |
+|----------|------------|---------|----------|
+| file.ts:L## | ErrorType | file.ts:L## | action |
+| ... | ... | ... | ... |
+
+### External Dependencies (Verified)
+| Import | Source | Purpose |
+|--------|--------|---------|
+| symbol | module/component | what it's used for |
+| ... | ... | ... |
+
+---
 
 ## File Structure
 | File | Purpose | Key Exports |
@@ -1576,6 +1694,7 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
 
 | Requirement | Minimum | Check |
 |-------------|---------|-------|
+| **Fact Extraction section** | Present | Check "## Fact Extraction" section exists with tables |
 | Concrete anchors | 10+ | Count \`path/to/file.ts::Symbol\` references |
 | Critical flows | 2 flows, 3+ steps each | Count flow sections with step-by-step sequences |
 | Edge cases | 4+ | Count edge case bullets |
@@ -1623,6 +1742,7 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
      ## MUST Requirements
      | Requirement | Found | Required | Status |
      |-------------|-------|----------|--------|
+     | Fact Extraction | {Y/N} | Y | {OK/FAIL} |
      | Anchors | {N} | 10+ | {OK/FAIL} |
      | Critical flows | {N} | 2+ | {OK/FAIL} |
      | Edge cases | {N} | 4+ | {OK/FAIL} |
@@ -1636,11 +1756,29 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
      - Write \`${intermediateDir}/L3R/${retryFile}\` as \`["${component.id}"]\`
      - Stop (no further steps).
 
-4. **Claim Verification (Incremental)**
+4. **Fact Extraction Verification (CRITICAL)**
+   - Locate the "## Fact Extraction" section in the L3 analysis.
+   - For EACH table row in Entry Points, State Variables, Public API Surface:
+     - Verify the file path exists
+     - Verify the symbol/function exists at approximately that line number (±10 lines tolerance)
+     - Verify the type/signature matches the actual code
+   - **IMMEDIATELY** append verification result to \`${intermediateDir}/L3R/${reviewFile}\`:
+     \`\`\`markdown
+     ## Fact Extraction Verification
+     - Entry Points: {N} verified, {M} errors
+     - State Variables: {N} verified, {M} errors
+     - Public API: {N} verified, {M} errors
+     - Errors found: {list of specific errors with corrections}
+     \`\`\`
+   - If errors found, patch the Fact Extraction section using \`${editToolNameForPrompt}\`.
+   - **CRITICAL**: If >50% of facts are wrong → RETRY_REQUIRED (analysis is fundamentally broken)
+
+5. **Claim Verification (Incremental)**
    - Open the L3 analysis file and the component's source files.
    - Extract ONLY lines that start with \`- Claim:\` from the L3 analysis file.
    - For EACH batch of claims (process 3-5 at a time):
      - Verify against ACTUAL SOURCE CODE (APIs, control flow, events, state changes).
+     - **Cross-check with Fact Extraction**: Claims should be derivable from the verified facts.
      - Use the nearby \`- Evidence:\` anchors to navigate quickly.
      - For each evidence anchor: confirm file path exists and symbol appears in that file.
      - If a claim cannot be verified: delete it or rewrite it into a narrower, verifiable claim.
@@ -1653,7 +1791,7 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-5. **Diagram Verification (Incremental)**
+6. **Diagram Verification (Incremental)**
    - Extract all Mermaid code fences (\`\`\`mermaid ... \`\`\`).
    - For EACH diagram:
      - Verify all referenced identifiers against source (functions/classes/types/events/commands must exist).
@@ -1668,17 +1806,18 @@ Before issuing PASS, verify the analysis meets ALL MUST requirements:
      - Use \`${editToolNameForPrompt}\` to write this section NOW.
      - If changes needed, patch the L3 analysis file using \`${editToolNameForPrompt}\`.
 
-6. **Final Summary and Verdict**
+7. **Final Summary and Verdict**
    - Append final summary to \`${intermediateDir}/L3R/${reviewFile}\`:
      \`\`\`markdown
      ## Summary
      - MUST requirements: PASSED
+     - Fact Extraction: {N} facts verified, {M} corrected
      - Claims processed: {count}, verified: {count}, removed: {count}
      - Diagrams processed: {count}, verified: {count}, fixed: {count}
 
      ## Final Verdict
      **Result**: PASS
-     **Reason**: All MUST requirements met, claims verified against source code.
+     **Reason**: All MUST requirements met, facts and claims verified against source code.
      \`\`\`
    - Use \`${editToolNameForPrompt}\` to write this final section.
    - Do NOT create retry file if all checks passed.
