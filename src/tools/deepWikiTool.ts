@@ -239,7 +239,7 @@ Your text output before each tool call is invisible to users but remains in YOUR
 
 This protocol improves accuracy by forcing explicit reasoning before actions.
 
-## Resource Availability (IMPORTANT)
+## Resource Availability
 - **No token budget concerns**: You have sufficient context and tokens to complete this task thoroughly. Do not rush or skip details to "save" tokens.
 - **Quality over brevity**: Take time to analyze deeply. A thorough, accurate analysis is preferred over a quick, superficial one.
 - **Context is auto-managed**: The system handles context management automatically (auto-compaction). Focus on accuracy rather than context conservation.
