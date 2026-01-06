@@ -2936,8 +2936,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
     }
 
     /**
-     * Close editor tabs for .deepwiki/ files, but only if they are not pinned and are in preview mode.
-     * This prevents auto-generated files from cluttering the editor, while respecting user's explicit choices.
+     * Close editor tabs for .deepwiki/ files if they are not active.
+     * This prevents auto-generated files from cluttering the editor after subagent completion,
+     * while keeping the currently active tab open for user reference.
      */
     private async closeDeepWikiEditors(deepWikiPath: string): Promise<void> {
         try {
@@ -2951,10 +2952,9 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
 
                         // Check if the file is under .deepwiki/
                         if (filePath.startsWith(deepWikiPath)) {
-                            // Only close if:
-                            // 1. NOT pinned (user explicitly pinned the tab)
-                            // 2. IS in preview mode (single-click, not double-click)
-                            if (!tab.isPinned && tab.isPreview) {
+                            // Close if not active (regardless of pinned status or preview mode)
+                            // This keeps the currently focused tab open for user reference
+                            if (!tab.isActive) {
                                 tabsToClose.push(tab);
                             }
                         }
@@ -2966,7 +2966,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
                 await vscode.window.tabGroups.close(tabsToClose);
                 logger.log(
                     'DeepWiki',
-                    `Closed ${tabsToClose.length} preview tab(s) from ${path.basename(deepWikiPath)}/`
+                    `Closed ${tabsToClose.length} inactive tab(s) from ${path.basename(deepWikiPath)}/`
                 );
             }
         } catch (error) {
