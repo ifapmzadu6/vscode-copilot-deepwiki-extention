@@ -531,6 +531,7 @@ ${mdCodeBlock}markdown
 - **Generated**: ...
 - **Vendor/External**: ...
 - **Test Code**: ...
+- **Workspace Documentation**: List all documentation files (.md, .txt, README, CHANGELOG, LICENSE, etc.) found in the workspace root or docs directories. These files are often outdated and should be EXCLUDED from component analysis - only source code files should be analyzed.
 
 ## Notes for Analysis
 ...
@@ -731,6 +732,8 @@ Build the component list **incrementally, ONE component at a time**. Each iterat
    - Each significant feature, module, or subsystem should have its own component(s)
 
 5. **Coverage**: Ensure ALL significant source files are included in at least one component. Don't leave orphaned files.
+   - **Significant source files** = files containing executable code or configuration (e.g., .ts, .js, .py, .java, .go, .json config files)
+   - **EXCLUDE from analysis**: Documentation files (.md, .txt, README, CHANGELOG, LICENSE, .rst, .adoc) as listed in L1's "Workspace Documentation" section - these are often outdated and unreliable
 
 6. **Intra-file components**: A single file CAN appear in multiple components if it contains multiple independent abstractions (e.g., a file with unrelated utility classes or multiple feature implementations). Create separate components for each distinct responsibility within such files.
 
@@ -813,7 +816,7 @@ CRITIQUE the component list. Do NOT fix it yourself.
 3. **File Existence Check**: Verify ALL file paths in the component list actually exist. Flag any non-existent files.
 4. **Scope Check**: If any file path is under an excluded root, flag it as out-of-scope and request removal.
 5. Check for missing core files or included noise.
-6. **Coverage Check**: Scan the project's source directories and verify that all significant source files are included in at least one component. Flag any orphaned files that should be covered.
+6. **Coverage Check**: Scan the project's source directories and verify that all significant source files (code files only, NOT documentation) are included in at least one component. Flag any orphaned source code files that should be covered. **Skip documentation files** (.md, .txt, README, CHANGELOG, LICENSE, etc.) as these are excluded from component analysis per L1's "Workspace Documentation" section.
 7. **Intra-file Component Detection**: When reading files, check if a single file contains multiple **independent, high-level abstractions** (e.g., multiple unrelated classes, separate feature implementations, or distinct utility groups). If so, suggest splitting these into separate components - the same file CAN appear in multiple components if it contains multiple distinct responsibilities.
 8. **Granularity Consistency Check**: When you identify intra-file components in one file, check **similar files** (e.g., other files in the same directory or with similar structure) at the same granularity level. If one utils file is split by class/function group, verify other utils files are analyzed with the same granularity - inconsistent granularity often leads to missing components.${retryContextL2}
 
