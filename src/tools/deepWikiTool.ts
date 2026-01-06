@@ -552,8 +552,7 @@ ${mdCodeBlock}
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
-                    [projectContextUri],
-                    { maxAttempts: 3 }
+                    [projectContextUri]
                 );
 
                 // ---------------------------------------------------------
@@ -764,8 +763,7 @@ ${jsonExample}
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
-                    [componentListUri],
-                    { maxAttempts: 3 }
+                    [componentListUri]
                 );
 
                 // Loop for Review & Refine
@@ -882,8 +880,7 @@ Write a critique report to \`${intermediateDir}/L2/review_report.md\`:
                         token,
                         options.toolInvocationToken,
                         path.join(workspaceFolder.uri.fsPath, outputPath),
-                        [componentReviewUri],
-                        { maxAttempts: 3 }
+                        [componentReviewUri]
                     );
 
                     // ---------------------------------------------------------
@@ -985,8 +982,7 @@ Refine the component list based on review feedback, applying fixes **ONE AT A TI
                         token,
                         options.toolInvocationToken,
                         path.join(workspaceFolder.uri.fsPath, outputPath),
-                        [componentListUri],
-                        { maxAttempts: 3 }
+                        [componentListUri]
                     );
 
                     // ---------------------------------------------------------
@@ -2013,8 +2009,7 @@ ${codeUsagesInstruction}
                         token,
                         options.toolInvocationToken,
                         path.join(workspaceFolder.uri.fsPath, outputPath),
-                        [l4OverviewUri, l4RelationshipsUri],
-                        { maxAttempts: 3 }
+                        [l4OverviewUri, l4RelationshipsUri]
                     );
                 }
 
@@ -2781,8 +2776,7 @@ If \`${intermediateDir}/L1/existing_deepwikis.md\` is not "(none)", add a short 
                     token,
                     options.toolInvocationToken,
                     path.join(workspaceFolder.uri.fsPath, outputPath),
-                    [readmeUri, l7ReportUri],
-                    { maxAttempts: 3 }
+                    [readmeUri, l7ReportUri]
                 );
             }
 
@@ -2831,9 +2825,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. README-specific 
 `,
                     token,
                     options.toolInvocationToken,
-                    path.join(workspaceFolder.uri.fsPath, outputPath),
-                    undefined,
-                    { maxAttempts: 3 }
+                    path.join(workspaceFolder.uri.fsPath, outputPath)
                 );
             }
 
@@ -2879,9 +2871,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
 `,
                     token,
                     options.toolInvocationToken,
-                    path.join(workspaceFolder.uri.fsPath, outputPath),
-                    undefined,
-                    { maxAttempts: 3 }
+                    path.join(workspaceFolder.uri.fsPath, outputPath)
                 );
             }
 
@@ -2988,7 +2978,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
         cleanupUrisOnRequestFailed?: vscode.Uri[],
         options?: { maxAttempts?: number; retryDelayMs?: number }
     ): Promise<void> {
-        const maxAttempts = Math.max(1, options?.maxAttempts ?? 1);
+        const maxAttempts = Math.max(1, options?.maxAttempts ?? 3);
         const retryDelayMs = Math.max(0, options?.retryDelayMs ?? 15000);
         const isRetryableFailureText = (text: string): boolean =>
             /(your request failed|hit the length limit|there was a network error|no response was returned|rate limit|too many requests|429|timed out|timeout|econnreset|socket hang up)/i.test(
@@ -3096,7 +3086,7 @@ Apply the Anti-Hallucination Rules from Deep Thinking Protocol. As the release g
         cancellationToken: vscode.CancellationToken,
         toolInvocationToken: vscode.ChatParticipantToolToken | undefined
     ): Promise<{ stage: 'L1' | 'L2' | 'L3' | 'L4' | 'L5' | 'L6' | 'L7' | 'L8' | 'L9'; reason: string }> {
-        const maxAttempts = 2;
+        const maxAttempts = 3;
         const retryDelayMs = 15000;
         const isRetryableFailureText = (text: string): boolean =>
             /(your request failed|hit the length limit|there was a network error|no response was returned|rate limit|too many requests|429|timed out|timeout|econnreset|socket hang up)/i.test(
